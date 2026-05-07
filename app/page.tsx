@@ -1722,7 +1722,7 @@ function CoachBoardWebApp() {
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingSide, setDraggingSide] = useState<Side | null>(null);
-const [realtimeChannelRef] = useRef<RealtimeChannel | null>(null);
+const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const [customPresetName, setCustomPresetName] = useState("");
   const [customOffensePresets, setCustomOffensePresets] = useState<
     CustomOffensePreset[]
