@@ -9262,4 +9262,3 @@ useEffect(() => {
   );
 }
 
-export default CoachBoardWebApp;
