@@ -4666,17 +4666,14 @@ useEffect(() => {
     })
   );
 
-  if (finishedLine) {
-    const channel = supabase.channel(ROOM_ID);
-
-    channel.send({
-      type: "broadcast",
-      event: "draw-line",
-      payload: {
-        line: finishedLine,
-      },
-    });
-  }
+  if (finishedLine && realtimeChannelRef.current) {
+  realtimeChannelRef.current.send({
+    type: "broadcast",
+    event: "draw-line",
+    payload: {
+      line: finishedLine,
+    },
+  });
 }
 
   function enforceLegalOffenseFormation(players: Player[]) {
