@@ -4653,25 +4653,22 @@ useEffect(() => {
 function finalizeDrawing() {
   if (!activeLineId) return;
 
-  let finishedLine: DrawLine | null = null;
+  const lineToFinish = drawnLines.find((line) => line.id === activeLineId);
+  if (!lineToFinish) return;
+
+  const cleanup =
+    lineToFinish.mode === "curve" ? cleanCurvedDrawnPoints : cleanDrawnPoints;
+
+  const finishedLine: DrawLine = {
+    ...lineToFinish,
+    points: cleanup(lineToFinish.points),
+  };
 
   setDrawnLines((lines) =>
-    lines.map((line) => {
-      if (line.id !== activeLineId) return line;
-
-      const cleanup =
-        line.mode === "curve" ? cleanCurvedDrawnPoints : cleanDrawnPoints;
-
-      finishedLine = {
-        ...line,
-        points: cleanup(line.points),
-      };
-
-      return finishedLine;
-    })
+    lines.map((line) => (line.id === activeLineId ? finishedLine : line))
   );
 
-  if (finishedLine && realtimeChannelRef.current) {
+  if (realtimeChannelRef.current) {
     realtimeChannelRef.current.send({
       type: "broadcast",
       event: "draw-line",
@@ -4680,6 +4677,8 @@ function finalizeDrawing() {
       },
     });
   }
+
+  setActiveLineId(null);
 }
 
   function enforceLegalOffenseFormation(players: Player[]) {
