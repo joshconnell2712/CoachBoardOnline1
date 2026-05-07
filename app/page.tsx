@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type Side = "offense" | "defense";
 type RouteType =
@@ -8915,6 +8916,31 @@ function CoachBoardWebApp() {
                           const added = selectedPlaybook.formationIds.includes(
                             formation.id
                           );
+                        useEffect(() => {
+  const channel = supabase.channel("test-room");
+
+  channel.on("broadcast", { event: "test" }, (payload) => {
+    console.log("SUPABASE MESSAGE:", payload);
+  });
+
+  channel.subscribe((status) => {
+    console.log("SUPABASE STATUS:", status);
+
+    if (status === "SUBSCRIBED") {
+      channel.send({
+        type: "broadcast",
+        event: "test",
+        payload: {
+          message: "hello from coachboard",
+        },
+      });
+    }
+  });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
                           return (
                             <button
                               key={formation.id}
