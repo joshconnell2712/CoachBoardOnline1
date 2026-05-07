@@ -4649,7 +4649,7 @@ useEffect(() => {
     );
   }
 
-  function finalizeDrawing() {
+function finalizeDrawing() {
   if (!activeLineId) return;
 
   let finishedLine: DrawLine | null = null;
@@ -4661,19 +4661,24 @@ useEffect(() => {
       const cleanup =
         line.mode === "curve" ? cleanCurvedDrawnPoints : cleanDrawnPoints;
 
-      finishedLine = { ...line, points: cleanup(line.points) };
+      finishedLine = {
+        ...line,
+        points: cleanup(line.points),
+      };
+
       return finishedLine;
     })
   );
 
- if (finishedLine && realtimeChannelRef.current) {
-  realtimeChannelRef.current.send({
-    type: "broadcast",
-    event: "draw-line",
-    payload: {
-      line: finishedLine,
-    },
-  });
+  if (finishedLine && realtimeChannelRef.current) {
+    realtimeChannelRef.current.send({
+      type: "broadcast",
+      event: "draw-line",
+      payload: {
+        line: finishedLine,
+      },
+    });
+  }
 }
 
   function enforceLegalOffenseFormation(players: Player[]) {
