@@ -4662,19 +4662,34 @@ channel.send({
   }
 
   function finalizeDrawing() {
-    if (!activeLineId) return;
-    setDrawnLines((lines) =>
-      lines.map((line) => {
-        if (line.id !== activeLineId) return line;
+  if (!activeLineId) return;
 
-        // Curve mode keeps smooth/freehand rounded paths easy to draw.
-        // Straight mode snaps mostly-straight and sharp-break attempts into playbook-style straight segments.
-        const cleanup =
-          line.mode === "curve" ? cleanCurvedDrawnPoints : cleanDrawnPoints;
-        return { ...line, points: cleanup(line.points) };
-      })
-    );
+  let finishedLine: DrawLine | null = null;
+
+  setDrawnLines((lines) =>
+    lines.map((line) => {
+      if (line.id !== activeLineId) return line;
+
+      const cleanup =
+        line.mode === "curve" ? cleanCurvedDrawnPoints : cleanDrawnPoints;
+
+      finishedLine = { ...line, points: cleanup(line.points) };
+      return finishedLine;
+    })
+  );
+
+  if (finishedLine) {
+    const channel = supabase.channel(ROOM_ID);
+
+    channel.send({
+      type: "broadcast",
+      event: "draw-line",
+      payload: {
+        line: finishedLine,
+      },
+    });
   }
+}
 
   function enforceLegalOffenseFormation(players: Player[]) {
     let updated = players.map((p) => ({ ...p }));
