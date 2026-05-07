@@ -1849,7 +1849,19 @@ function CoachBoardWebApp() {
   const sortedOffensePresets = [...customOffensePresets].sort(
     (a, b) => Number(!!a.isSystem) - Number(!!b.isSystem)
   );
+useEffect(() => {
+  const channel = supabase.channel(ROOM_ID);
 
+  channel.on("broadcast", { event: "draw-line" }, ({ payload }) => {
+    setDrawnLines((lines) => [...lines, payload.line]);
+  });
+
+  channel.subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
   const selectedZone = selectedZoneId
     ? zoneAssignments.find((zone) => zone.id === selectedZoneId) ?? null
     : null;
