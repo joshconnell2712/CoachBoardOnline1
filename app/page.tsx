@@ -1663,6 +1663,7 @@ function SmallButton({
 }
 
 function CoachBoardWebApp() {
+  const ROOM_ID = "coachboard-room";
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
     DEFAULT_FOOTBALL_TEAM_SIZE
   );
