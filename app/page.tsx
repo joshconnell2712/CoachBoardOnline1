@@ -1853,6 +1853,8 @@ function CoachBoardWebApp() {
 useEffect(() => {
   const channel = supabase.channel(ROOM_ID);
 
+  realtimeChannelRef.current = channel;
+
   channel.on("broadcast", { event: "draw-line" }, ({ payload }) => {
     setDrawnLines((lines) => [...lines, payload.line]);
   });
@@ -1860,6 +1862,7 @@ useEffect(() => {
   channel.subscribe();
 
   return () => {
+    realtimeChannelRef.current = null;
     supabase.removeChannel(channel);
   };
 }, []);
