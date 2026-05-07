@@ -4666,7 +4666,7 @@ useEffect(() => {
     })
   );
 
-  if (finishedLine && realtimeChannelRef.current) {
+ if (finishedLine && realtimeChannelRef.current) {
   realtimeChannelRef.current.send({
     type: "broadcast",
     event: "draw-line",
