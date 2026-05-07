@@ -9153,19 +9153,7 @@ function CoachBoardWebApp() {
                                     (c) => c.id === conceptId
                                   );
                                   if (!concept) return null;
-                                  useEffect(() => {
-  const channel = supabase.channel(ROOM_ID);
-
-  channel.on("broadcast", { event: "draw-line" }, ({ payload }) => {
-    setDrawnLines((lines) => [...lines, payload.line]);
-  });
-
-  channel.subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
+                            
                                   return (
                                     <button
                                       key={`${concept.id}-generate`}
