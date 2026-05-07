@@ -4530,22 +4530,6 @@ useEffect(() => {
       },
     ]);
     setActiveLineId(id);
-    const channel = supabase.channel(ROOM_ID);
-
-channel.send({
-  type: "broadcast",
-  event: "draw-line",
-  payload: {
-    line: {
-      id,
-      style: drawingStyle,
-      mode: drawingMode,
-      points: [snappedStart],
-      playerId: drawingPlayer?.id,
-      color: drawingColor,
-    },
-  },
-});
   }
 
   function startZoneCircle(clientX: number, clientY: number) {
