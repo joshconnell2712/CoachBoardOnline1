@@ -1857,10 +1857,15 @@ useEffect(() => {
   realtimeChannelRef.current = channel;
 
   channel.on("broadcast", { event: "draw-line" }, ({ payload }) => {
-    setDrawnLines((lines) => [...lines, payload.line]);
+    setDrawnLines((lines) => {
+      if (lines.some((line) => line.id === payload.line.id)) return lines;
+      return [...lines, payload.line];
+    });
   });
 
-  channel.subscribe();
+  channel.subscribe((status) => {
+    console.log("REALTIME STATUS:", status);
+  });
 
   return () => {
     realtimeChannelRef.current = null;
