@@ -1856,11 +1856,6 @@ useEffect(() => {
 
   realtimeChannelRef.current = channel;
 
-  useEffect(() => {
-  const channel = supabase.channel(ROOM_ID);
-
-  realtimeChannelRef.current = channel;
-
   channel.on("broadcast", { event: "board-event" }, ({ payload }) => {
     if (payload.type === "SET_DRAWN_LINES") {
       setDrawnLines(payload.drawnLines);
