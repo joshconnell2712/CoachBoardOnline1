@@ -4693,7 +4693,7 @@ function finalizeDrawing() {
     lines.map((line) => (line.id === activeLineId ? finishedLine : line))
   );
 
-  if realtimeChannelRef.current.send({
+  if (realtimeChannelRef.current.send){
   type: "broadcast",
   event: "board-event",
   payload: {
