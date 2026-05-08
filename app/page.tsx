@@ -9290,6 +9290,6 @@ function finalizeDrawing() {
       </div>
     </div>
   );
-  }  
+}  
 
 export default CoachBoardWebApp;
