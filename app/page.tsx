@@ -4689,20 +4689,22 @@ function finalizeDrawing() {
     points: cleanup(lineToFinish.points),
   };
 
-  setDrawnLines((lines) =>
-    lines.map((line) => (line.id === activeLineId ? finishedLine : line))
+  const nextLines = drawnLines.map((line) =>
+    line.id === activeLineId ? finishedLine : line
   );
 
+  setDrawnLines(nextLines);
+
   if (realtimeChannelRef.current) {
-  realtimeChannelRef.current.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_DRAWN_LINES",
-      drawnLines: [...drawnLines, finishedLine],
-    },
-  });
-}
+    realtimeChannelRef.current.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_DRAWN_LINES",
+        drawnLines: nextLines,
+      },
+    });
+  }
 
   setActiveLineId(null);
 }
