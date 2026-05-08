@@ -1856,11 +1856,31 @@ useEffect(() => {
 
   realtimeChannelRef.current = channel;
 
-  channel.on("broadcast", { event: "draw-line" }, ({ payload }) => {
-    setDrawnLines((lines) => {
-      if (lines.some((line) => line.id === payload.line.id)) return lines;
-      return [...lines, payload.line];
-    });
+  useEffect(() => {
+  const channel = supabase.channel(ROOM_ID);
+
+  realtimeChannelRef.current = channel;
+
+  channel.on("broadcast", { event: "board-event" }, ({ payload }) => {
+    if (payload.type === "SET_DRAWN_LINES") {
+      setDrawnLines(payload.drawnLines);
+    }
+
+    if (payload.type === "SET_ROUTES") {
+      setRoutes(payload.routes);
+    }
+
+    if (payload.type === "SET_OFFENSE_PLAYERS") {
+      setOffensePlayers(payload.offensePlayers);
+    }
+
+    if (payload.type === "SET_DEFENSE_PLAYERS") {
+      setDefensePlayers(payload.defensePlayers);
+    }
+
+    if (payload.type === "SET_ZONES") {
+      setZoneAssignments(payload.zoneAssignments);
+    }
   });
 
   channel.subscribe((status) => {
