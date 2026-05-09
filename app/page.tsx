@@ -1861,6 +1861,12 @@ useEffect(() => {
       setDrawnLines(payload.drawnLines);
     }
 
+    if (payload.type === "SET_BOARD_STATE") {
+  setDrawnLines(payload.drawnLines);
+  setRoutes(payload.routes);
+  setZoneAssignments(payload.zoneAssignments);
+}
+    
     if (payload.type === "SET_ROUTES") {
       setRoutes(payload.routes);
     }
