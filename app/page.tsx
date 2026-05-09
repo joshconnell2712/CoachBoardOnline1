@@ -1940,21 +1940,38 @@ useEffect(() => {
   }
 
   function undoLastAction() {
-    setUndoStack((current) => {
-      const snapshot = current[current.length - 1];
-      if (!snapshot) return current;
-      setDrawnLines(cloneDrawnLinesForHistory(snapshot.drawnLines));
-      setRoutes(cloneRoutesForHistory(snapshot.routes));
-      setZoneAssignments(cloneZonesForHistory(snapshot.zoneAssignments));
-      setSelectedFieldItem(null);
-      setSelectedZoneId(null);
-      setActiveLineId(null);
-      setZoneDraftId(null);
-      setZoneDrag(null);
-      return current.slice(0, -1);
-    });
-  }
+  setUndoStack((current) => {
+    const snapshot = current[current.length - 1];
+    if (!snapshot) return current;
 
+    const nextLines = cloneDrawnLinesForHistory(snapshot.drawnLines);
+    const nextRoutes = cloneRoutesForHistory(snapshot.routes);
+    const nextZones = cloneZonesForHistory(snapshot.zoneAssignments);
+
+    setDrawnLines(nextLines);
+    setRoutes(nextRoutes);
+    setZoneAssignments(nextZones);
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_BOARD_STATE",
+        drawnLines: nextLines,
+        routes: nextRoutes,
+        zoneAssignments: nextZones,
+      },
+    });
+
+    setSelectedFieldItem(null);
+    setSelectedZoneId(null);
+    setActiveLineId(null);
+    setZoneDraftId(null);
+    setZoneDrag(null);
+
+    return current.slice(0, -1);
+  });
+}
   function selectFieldItem(item: SelectedFieldItem) {
     setSelectedFieldItem(item);
     if (item?.type === "zone") setSelectedZoneId(item.id);
