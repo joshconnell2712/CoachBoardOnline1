@@ -1966,11 +1966,22 @@ useEffect(() => {
     if (!selectedFieldItem) return;
     pushUndoSnapshot();
 
-    if (selectedFieldItem.type === "drawnLine") {
-      setDrawnLines((current) =>
-        current.filter((line) => line.id !== selectedFieldItem.id)
-      );
-    }
+   if (selectedFieldItem.type === "drawnLine") {
+  const nextLines = drawnLines.filter(
+    (line) => line.id !== selectedFieldItem.id
+  );
+
+  setDrawnLines(nextLines);
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_DRAWN_LINES",
+      drawnLines: nextLines,
+    },
+  });
+}
 
     if (selectedFieldItem.type === "route") {
       setRoutes((current) =>
