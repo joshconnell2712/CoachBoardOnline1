@@ -6294,7 +6294,7 @@ function finalizeDrawing() {
                       onClick={toggleMoveTool}
                       title="Move players"
                     >
-                      ↕ Move
+                      Move
                     </button>
                     <button
                       style={{
@@ -6310,7 +6310,7 @@ function finalizeDrawing() {
                       onClick={() => toggleDrawTool("solid")}
                       title="Solid draw"
                     >
-                      ━ Solid
+                      Solid
                     </button>
                     <button
                       style={{
@@ -6326,7 +6326,7 @@ function finalizeDrawing() {
                       onClick={() => toggleDrawTool("dotted")}
                       title="Dotted draw"
                     >
-                      ⋯ Dot
+                      Dot
                     </button>
                     <button
                       style={{
@@ -6363,7 +6363,7 @@ function finalizeDrawing() {
                         onClick={() => toggleDrawMode("curve")}
                         title="Curve feel"
                       >
-                        ⤴
+                        Curve
                       </button>
                       <button
                         style={{
@@ -6391,7 +6391,7 @@ function finalizeDrawing() {
                       onClick={toggleZoneTool}
                       title="Draw or move zone circle"
                     >
-                      ○ Zone
+                      Zone
                     </button>
                     <button
                       style={{
@@ -6423,7 +6423,7 @@ function finalizeDrawing() {
                       disabled={!undoStack.length}
                       title="Undo last drawing action"
                     >
-                      ↶ Undo
+                      Undo
                     </button>
                     <button
                       style={{
@@ -6442,7 +6442,7 @@ function finalizeDrawing() {
                       disabled={!selectedFieldItem}
                       title="Delete selected route, drawing, or zone"
                     >
-                      🗑 Delete
+                      Delete
                     </button>
                     <div
                       style={{
@@ -6470,7 +6470,7 @@ function finalizeDrawing() {
                       }}
                       title="Open full player panel"
                     >
-                      👤 Panel
+                      Player Panel
                     </button>
                     <button
                       style={{
@@ -6491,7 +6491,7 @@ function finalizeDrawing() {
                       }}
                       title="Open coach menus"
                     >
-                      ⚙ Menus
+                      Menus
                     </button>
                   </div>
                 )}
