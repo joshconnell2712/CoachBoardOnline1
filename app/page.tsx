@@ -4886,16 +4886,38 @@ function finalizeDrawing() {
   }
 
   function updateSelectedPlayerColor(color: string) {
-    if (selectedSide === "offense") {
-      setOffensePlayers((players) =>
-        players.map((p) => (p.id === selectedPlayerId ? { ...p, color } : p))
-      );
-    } else {
-      setDefensePlayers((players) =>
-        players.map((p) => (p.id === selectedPlayerId ? { ...p, color } : p))
-      );
-    }
+  if (selectedSide === "offense") {
+    const nextPlayers = offensePlayers.map((p) =>
+      p.id === selectedPlayerId ? { ...p, color } : p
+    );
+
+    setOffensePlayers(nextPlayers);
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_OFFENSE_PLAYERS",
+        offensePlayers: nextPlayers,
+      },
+    });
+  } else {
+    const nextPlayers = defensePlayers.map((p) =>
+      p.id === selectedPlayerId ? { ...p, color } : p
+    );
+
+    setDefensePlayers(nextPlayers);
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_DEFENSE_PLAYERS",
+        defensePlayers: nextPlayers,
+      },
+    });
   }
+}
 
   function applyTechnique(tech: Technique) {
     if (selectedSide !== "defense") return;
