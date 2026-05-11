@@ -1796,7 +1796,7 @@ const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   // Unified line sizing system.
   // Routes, solid draw, dotted draw, block lines, arrows, and T-caps now share
   // the same visual stroke size so no tool looks thicker than another.
-  const lineStroke = Math.max(0.45, visualPlayerPx * 0.026);
+const lineStroke = Math.max(0.25, playerPx * 0.012);
   const lineOutlineStroke = lineStroke + Math.max(0.14, visualPlayerPx * 0.008);
 
   const routeStroke = lineStroke;
