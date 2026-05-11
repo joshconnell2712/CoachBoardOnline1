@@ -6377,7 +6377,7 @@ function finalizeDrawing() {
                         onClick={() => toggleDrawMode("straight")}
                         title="Straight feel"
                       >
-                        ╱
+                        Straight
                       </button>
                     </div>
                     <button
@@ -6404,7 +6404,7 @@ function finalizeDrawing() {
                       onClick={toggleManTool}
                       title="Man assignment"
                     >
-                      ↔ Man
+                      Man
                     </button>
                     <button
                       style={{
