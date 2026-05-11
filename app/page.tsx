@@ -6363,7 +6363,7 @@ function finalizeDrawing() {
                         onClick={() => toggleDrawMode("curve")}
                         title="Curve feel"
                       >
-                        Curve
+                        S
                       </button>
                       <button
                         style={{
@@ -6377,7 +6377,7 @@ function finalizeDrawing() {
                         onClick={() => toggleDrawMode("straight")}
                         title="Straight feel"
                       >
-                        Straight
+                        /
                       </button>
                     </div>
                     <button
