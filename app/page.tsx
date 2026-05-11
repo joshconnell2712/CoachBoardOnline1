@@ -1808,7 +1808,7 @@ const lineStroke = Math.max(0.25, playerPx * 0.012);
   const blockCapStroke = lineStroke;
   const blockCapOutlineStroke = lineOutlineStroke;
 
-  const arrowSize = visualPlayerPx * 0.095;
+  const arrowSize = Math.max(0.9, playerPx * 0.075);
   const blockCapSize = visualPlayerPx * 0.045;
 
   // Tight, clean dotted pattern. The round caps in the SVG make this look like
