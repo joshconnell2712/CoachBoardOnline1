@@ -7745,7 +7745,7 @@ function finalizeDrawing() {
                     left: `${player.x}%`,
                     top:
   fieldFullscreen && player.side === "offense" && player.onLOS
-    ? `calc(${playerTop(player)} + ${visualPlayerPx / 2}px)`
+    ? `calc(${playerTop(player)} + ${visualPlayerPx / 4}px)`
     : playerTop(player),
                     transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
                     transformOrigin: "center center",
