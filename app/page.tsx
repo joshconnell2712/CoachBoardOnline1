@@ -7553,7 +7553,7 @@ function finalizeDrawing() {
                         points={routePoints}
                         fill="none"
                         stroke="transparent"
-                        strokeWidth={Math.max(4, lineStroke * 5)}
+                        strokeWidth={Math.max(2, lineStroke)}
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         pointerEvents="stroke"
