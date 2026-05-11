@@ -1861,6 +1861,17 @@ useEffect(() => {
       setDrawnLines(payload.drawnLines);
     }
 
+    if (payload.type === "SET_MAN_ASSIGNMENTS") {
+  setManAssignments(payload.manAssignments);
+}
+
+if (payload.type === "SET_COACH_FOCUS") {
+  setCoachFocus(payload.coachFocus);
+}
+
+if (payload.type === "SET_SELECTED_SIDE") {
+  setSelectedSide(payload.selectedSide);
+}
     if (payload.type === "SET_BOARD_STATE") {
   setDrawnLines(payload.drawnLines);
   setRoutes(payload.routes);
