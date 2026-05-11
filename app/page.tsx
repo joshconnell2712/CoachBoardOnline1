@@ -7743,7 +7743,10 @@ function finalizeDrawing() {
                     fontWeight: 900,
                     fontSize: playerFontPx,
                     left: `${player.x}%`,
-                    top: playerTop(player),
+                    top:
+  fieldFullscreen && player.side === "offense" && player.onLOS
+    ? `calc(${playerTop(player)} + ${visualPlayerPx / 2}px)`
+    : playerTop(player),
                     transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
                     transformOrigin: "center center",
                     border:
