@@ -7326,21 +7326,6 @@ onLOS: p.onLOS,
                             )} ${Math.max(0.8, lineStroke * 1.4)}`}
                             strokeLinecap="round"
                           />
-                          <text
-                            x={mid.x}
-                            y={mid.y - (fieldFullscreen ? 0.85 : 0.65)}
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fill="white"
-                            stroke="rgba(0,0,0,.72)"
-                            strokeWidth={0.16}
-                            paintOrder="stroke"
-                            fontSize={fieldFullscreen ? 1.25 : 0.95}
-                            fontWeight={950}
-                            style={{ letterSpacing: ".03em" }}
-                          >
-                            {defender.position}→{offensive.position}
-                          </text>
                         </g>
                       );
                     }
