@@ -2033,7 +2033,22 @@ if (payload.type === "SET_SELECTED_SIDE") {
 
     setSelectedFieldItem(null);
   }
+if (selectedFieldItem.type === "man") {
+  const nextAssignments = { ...manAssignments };
 
+  delete nextAssignments[selectedFieldItem.id];
+
+  setManAssignments(nextAssignments);
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_MAN_ASSIGNMENTS",
+      manAssignments: nextAssignments,
+    },
+  });
+}
   function clearActiveTool() {
     setTool("Select");
     setActiveLineId(null);
