@@ -7315,6 +7315,12 @@ onLOS: p.onLOS,
                       return (
                         <g key={`man-${defenderId}-${offensiveId}`}>
                           <line
+                           onPointerDown={(e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  selectFieldItem({ type: "man", id: defenderId });
+}}
+style={{ cursor: "pointer" }}
                             x1={a.x}
                             y1={a.y}
                             x2={b.x}
