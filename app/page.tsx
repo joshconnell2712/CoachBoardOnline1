@@ -4814,38 +4814,31 @@ function finalizeDrawing() {
 
     if (draggingSide === "offense") {
       setOffensePlayers((players) => {
-        const moved = players.map((p) => {
-          if (p.id !== draggingId) return p;
+  const moved = players.map((p) => {
+    if (p.id !== draggingId) return p;
 
-          const canAlignOnLOS = offenseCanBeOnLOS(p);
-          const mustStayOnLOS = offenseMustBeOnLOS(p);
-          const isNearLOS =
-            Math.abs(rawYards - OFFENSE_ON_LOS_YARDS) <=
-            LOS_SNAP_TOLERANCE_YARDS;
+    const canAlignOnLOS = offenseCanBeOnLOS(p);
+    const nextOnLOS =
+      canAlignOnLOS && Math.abs(rawYards - LOS_YARDS) < 2.6;
 
-          // Offense cannot cross to the defensive side.
-          let nextYards = Math.max(rawYards, LOS_YARDS);
-          let nextOnLOS = false;
+    const nextYards = nextOnLOS ? OFFENSE_ON_LOS_YARDS : rawYards;
 
-          if (mustStayOnLOS) {
-            nextYards = OFFENSE_ON_LOS_YARDS;
-            nextOnLOS = true;
-          } else if (isNearLOS && canAlignOnLOS) {
-            nextYards = OFFENSE_ON_LOS_YARDS;
-            nextOnLOS = true;
-          } else {
-            nextYards = Math.max(
-              nextYards,
-              OFFENSE_ON_LOS_YARDS + BACKFIELD_MIN_DEPTH
-            );
-            nextOnLOS = false;
-          }
+    return { ...p, x, yardsFromGoal: nextYards, onLOS: nextOnLOS };
+  });
 
-          return { ...p, x, yardsFromGoal: nextYards, onLOS: nextOnLOS };
-        });
+  const nextPlayers = enforceLegalOffenseFormation(moved);
 
-        return enforceLegalOffenseFormation(moved);
-      });
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_OFFENSE_PLAYERS",
+      offensePlayers: nextPlayers,
+    },
+  });
+
+  return nextPlayers;
+});
     }
 
     if (draggingSide === "defense") {
