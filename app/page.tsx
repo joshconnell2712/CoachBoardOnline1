@@ -7340,7 +7340,12 @@ style={{ cursor: "pointer" }}
                             y1={a.y}
                             x2={b.x}
                             y2={b.y}
-                            stroke="rgba(239,68,68,.95)"
+                            stroke={
+  selectedFieldItem?.type === "man" &&
+  selectedFieldItem.id === defenderId
+    ? "#facc15"
+    : "rgba(239,68,68,.95)"
+}
                             strokeWidth={Math.max(0.35, lineStroke * 0.95)}
                             strokeDasharray={`${Math.max(
                               0.8,
