@@ -155,6 +155,7 @@ type SelectedFieldItem =
   | { type: "drawnLine"; id: string }
   | { type: "route"; id: string }
   | { type: "zone"; id: string }
+  | { type: "man"; id: string }
   | null;
 
 type UndoSnapshot = {
