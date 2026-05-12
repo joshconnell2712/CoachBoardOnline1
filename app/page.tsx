@@ -4930,9 +4930,9 @@ function finalizeDrawing() {
     p.id === draggingId
       ? {
           ...p,
-          x,
-          yardsFromGoal: rawYards,
-          onLOS: Math.abs(rawYards - LOS_YARDS) < 2.2,
+          x: p.x,
+          yardsFromGoal: p.yardsFromGoal,
+onLOS: p.onLOS,
         }
       : p
   );
