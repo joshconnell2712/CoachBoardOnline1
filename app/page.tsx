@@ -2030,9 +2030,6 @@ if (payload.type === "SET_SELECTED_SIDE") {
       );
       setSelectedZoneId(null);
     }
-
-    setSelectedFieldItem(null);
-  }
 if (selectedFieldItem.type === "man") {
   const nextAssignments = { ...manAssignments };
 
@@ -2048,6 +2045,9 @@ if (selectedFieldItem.type === "man") {
       manAssignments: nextAssignments,
     },
   });
+    setSelectedFieldItem(null);
+  }
+
 }
   function clearActiveTool() {
     setTool("Select");
