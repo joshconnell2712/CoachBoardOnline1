@@ -3396,7 +3396,7 @@ if (selectedFieldItem.type === "man") {
     },
   });
 }}
-              }
+              
             >
               {defensiveReadPlayerId === selectedPlayer.id
                 ? "Read Key Selected"
