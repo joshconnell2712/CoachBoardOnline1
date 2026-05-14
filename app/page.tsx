@@ -3376,9 +3376,21 @@ if (selectedFieldItem.type === "man") {
                 color: "white",
               }}
               onClick={() =>
-                setDefensiveReadPlayerId((current) =>
-                  current === selectedPlayer.id ? null : selectedPlayer.id
-                )
+                const nextReadPlayerId =
+  defensiveReadPlayerId === selectedPlayer.id
+    ? null
+    : selectedPlayer.id;
+
+setDefensiveReadPlayerId(nextReadPlayerId);
+
+realtimeChannelRef.current?.send({
+  type: "broadcast",
+  event: "board-event",
+  payload: {
+    type: "SET_READ_KEY",
+    defensiveReadPlayerId: nextReadPlayerId,
+  },
+});
               }
             >
               {defensiveReadPlayerId === selectedPlayer.id
