@@ -7357,7 +7357,7 @@ onLOS: p.onLOS,
                         strokeLinecap="round"
                       />
                       const isReadKey = defensiveReadPlayerId === player.id;
-const isCenter = player.position === "C";
+const isCenter = player.position === &quot;something&quot;;
                       <circle
                         cx={zone.x}
                         cy={zone.y}
