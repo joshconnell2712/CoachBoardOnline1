@@ -162,6 +162,7 @@ type UndoSnapshot = {
   drawnLines: DrawLine[];
   routes: RouteModel[];
   zoneAssignments: CustomZoneAssignment[];
+  manAssignments: Record<string, string>;
 };
 
 type TeamBranding = {
