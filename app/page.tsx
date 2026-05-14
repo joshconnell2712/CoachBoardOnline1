@@ -1915,14 +1915,27 @@ if (payload.type === "SET_SELECTED_SIDE") {
     : null;
 
   function updateSelectedZoneRadius(nextRadius: number) {
-    if (!selectedZoneId) return;
-    const clampedRadius = Math.max(2.5, Math.min(18, nextRadius));
-    setZoneAssignments((current) =>
-      current.map((zone) =>
-        zone.id === selectedZoneId ? { ...zone, radius: clampedRadius } : zone
-      )
-    );
-  }
+  if (!selectedZoneId) return;
+
+  const clampedRadius = Math.max(2.5, Math.min(18, nextRadius));
+
+  const nextZones = zoneAssignments.map((zone) =>
+    zone.id === selectedZoneId
+      ? { ...zone, radius: clampedRadius }
+      : zone
+  );
+
+  setZoneAssignments(nextZones);
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_ZONES",
+      zoneAssignments: nextZones,
+    },
+  });
+}
 
   const activeToolLabel = (() => {
     if (tool === "Draw")
