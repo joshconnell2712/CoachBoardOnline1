@@ -7777,7 +7777,17 @@ style={{ cursor: "pointer" }}
                     position: "absolute",
                     width: playerPx,
                     height: playerPx,
-                    borderRadius: "50%",
+                    borderRadius:
+  defensiveReadPlayerId === player.id
+    ? 0
+    : player.position === "C"
+    ? "4px"
+    : "50%",
+
+clipPath:
+  defensiveReadPlayerId === player.id
+    ? "polygon(50% 0%, 0% 100%, 100% 100%)"
+    : "none",
                     background: player.color ?? "#dc2626",
                     color: readableTextColor(player.color ?? "#dc2626"),
                     fontWeight: 900,
