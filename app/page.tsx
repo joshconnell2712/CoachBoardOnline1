@@ -5138,20 +5138,45 @@ onLOS: p.onLOS,
   }
 
   function attachManCoverage() {
-    if (!manAssignDefenderId || !manAssignOffenseId) return;
-    setManAssignments((current) => ({
-      ...current,
-      [manAssignDefenderId]: manAssignOffenseId,
-    }));
-  }
+  if (!manAssignDefenderId || !manAssignOffenseId) return;
+
+  pushUndoSnapshot();
+
+  const nextAssignments = {
+    ...manAssignments,
+    [manAssignDefenderId]: manAssignOffenseId,
+  };
+
+  setManAssignments(nextAssignments);
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_MAN_ASSIGNMENTS",
+      manAssignments: nextAssignments,
+    },
+  });
+}
 
   function clearManCoverage(defenderId: string) {
-    setManAssignments((current) => {
-      const next = { ...current };
-      delete next[defenderId];
-      return next;
-    });
-  }
+  pushUndoSnapshot();
+
+  const nextAssignments = { ...manAssignments };
+
+  delete nextAssignments[defenderId];
+
+  setManAssignments(nextAssignments);
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_MAN_ASSIGNMENTS",
+      manAssignments: nextAssignments,
+    },
+  });
+}
 
   function applyDefensiveCoverage(coverage: DefensiveCoveragePreset) {
     const isSameVisibleCoverage =
