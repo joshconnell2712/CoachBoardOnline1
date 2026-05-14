@@ -7356,6 +7356,8 @@ onLOS: p.onLOS,
                         )} ${Math.max(0.55, lineStroke * 0.95)}`}
                         strokeLinecap="round"
                       />
+                      const isReadKey = defensiveReadPlayerId === player.id;
+const isCenter = player.position === "C";
                       <circle
                         cx={zone.x}
                         cy={zone.y}
