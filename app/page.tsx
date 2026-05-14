@@ -1981,6 +1981,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
         drawnLines: nextLines,
         routes: nextRoutes,
         zoneAssignments: nextZones,
+        manAssignments: { ...snapshot.manAssignments },
       },
     });
 
