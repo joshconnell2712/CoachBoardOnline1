@@ -1872,7 +1872,7 @@ if (payload.type === "SET_COACH_FOCUS") {
 }
     
     if (payload.type === "SET_READ_KEY") {
-  setDefensiveReadPlayerId(payload.defensiveReadPlayerId);
+  setDefensiveReadPlayerIds(payload.defensiveReadPlayerIds);
 }
 
 if (payload.type === "SET_SELECTED_SIDE") {
