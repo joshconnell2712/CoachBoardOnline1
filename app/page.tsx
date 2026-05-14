@@ -1954,6 +1954,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
         drawnLines: cloneDrawnLinesForHistory(drawnLines),
         routes: cloneRoutesForHistory(routes),
         zoneAssignments: cloneZonesForHistory(zoneAssignments),
+        manAssignments: { ...manAssignments },
       },
     ]);
   }
