@@ -3398,9 +3398,9 @@ if (selectedFieldItem.type === "man") {
 }}
               
             >
-              {defensiveReadPlayerId === selectedPlayer.id
-                ? "Read Key Selected"
-                : "Mark as Read Key"}
+              {defensiveReadPlayerIds.includes(selectedPlayer.id)
+  ? "Read Key Selected"
+  : "Mark as Read Key"}
             </button>
           )}
           <div>
