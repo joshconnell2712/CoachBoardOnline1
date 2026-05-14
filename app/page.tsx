@@ -7344,8 +7344,7 @@ onLOS: p.onLOS,
                   );
                 })}
 
-                {showManCoverageTools &&
-                  Object.entries(manAssignments).map(
+                {Object.entries(manAssignments).map(
                     ([defenderId, offensiveId]) => {
                       const defender = defensePlayers.find(
                         (p) => p.id === defenderId
