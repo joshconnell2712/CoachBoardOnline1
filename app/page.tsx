@@ -3379,22 +3379,23 @@ if (selectedFieldItem.type === "man") {
                     : "#111827",
                 color: "white",
               }}
-              onClick={() =>
-                const nextReadPlayerId =
-  defensiveReadPlayerId === selectedPlayer.id
-    ? null
-    : selectedPlayer.id;
+             onClick={() => {
+  const nextReadPlayerId =
+    defensiveReadPlayerId === selectedPlayer.id
+      ? null
+      : selectedPlayer.id;
 
-setDefensiveReadPlayerId(nextReadPlayerId);
+  setDefensiveReadPlayerId(nextReadPlayerId);
 
-realtimeChannelRef.current?.send({
-  type: "broadcast",
-  event: "board-event",
-  payload: {
-    type: "SET_READ_KEY",
-    defensiveReadPlayerId: nextReadPlayerId,
-  },
-});
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_READ_KEY",
+      defensiveReadPlayerId: nextReadPlayerId,
+    },
+  });
+}}
               }
             >
               {defensiveReadPlayerId === selectedPlayer.id
