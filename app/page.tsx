@@ -1898,6 +1898,9 @@ if (payload.type === "SET_SELECTED_SIDE") {
     }
   });
 
+  channel.on("broadcast", { event: "board-event" }, (event) => {
+  console.log("BOARD EVENT RECEIVED:", event);
+});
   channel.subscribe((status) => {
     console.log("REALTIME STATUS:", status);
   });
