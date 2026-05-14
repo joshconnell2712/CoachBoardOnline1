@@ -7784,10 +7784,21 @@ style={{ cursor: "pointer" }}
                   onClick={() => {
                     if (tool === "Man") {
                       setManAssignOffenseId(player.id);
-                      setManAssignments((current) => ({
-                        ...current,
-                        [manAssignDefenderId]: player.id,
-                      }));
+                     const nextAssignments = {
+  ...manAssignments,
+  [manAssignDefenderId]: player.id,
+};
+
+setManAssignments(nextAssignments);
+
+realtimeChannelRef.current?.send({
+  type: "broadcast",
+  event: "board-event",
+  payload: {
+    type: "SET_MAN_ASSIGNMENTS",
+    manAssignments: nextAssignments,
+  },
+});
                       return;
                     }
                     setSelectedFieldItem(null);
