@@ -5151,7 +5151,7 @@ onLOS: p.onLOS,
   };
 
   setManAssignments(nextAssignments);
-
+   console.log("SENDING MAN ASSIGNMENT:", nextAssignments); 
   realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
