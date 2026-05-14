@@ -1878,6 +1878,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
   setDrawnLines(payload.drawnLines);
   setRoutes(payload.routes);
   setZoneAssignments(payload.zoneAssignments);
+      setManAssignments(payload.manAssignments);
 }
     
     if (payload.type === "SET_ROUTES") {
