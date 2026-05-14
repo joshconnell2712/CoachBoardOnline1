@@ -1971,6 +1971,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
     setDrawnLines(nextLines);
     setRoutes(nextRoutes);
     setZoneAssignments(nextZones);
+    setManAssignments({ ...snapshot.manAssignments });
 
     realtimeChannelRef.current?.send({
       type: "broadcast",
