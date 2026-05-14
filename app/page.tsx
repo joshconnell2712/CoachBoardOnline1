@@ -1714,7 +1714,7 @@ function CoachBoardWebApp() {
   const [breakDepth, setBreakDepth] = useState(10);
   const [finishDepth, setFinishDepth] = useState(18);
   const [routeColor, setRouteColor] = useState("#facc15");
-  const [defensiveReadPlayerId, setDefensiveReadPlayerId] = useState<
+  const [defensiveReadPlayerIds, setDefensiveReadPlayerIds] = useState<
     string | null
   >(null);
   const [tool, setTool] = useState("Select");
@@ -3374,25 +3374,25 @@ if (selectedFieldItem.type === "man") {
               style={{
                 ...buttonBase,
                 background:
-                  defensiveReadPlayerId === selectedPlayer.id
+                  defensiveReadPlayerIds === selectedPlayer.id
                     ? "linear-gradient(180deg, #a855f7 0%, #6d28d9 100%)"
                     : "#111827",
                 color: "white",
               }}
              onClick={() => {
   const nextReadPlayerId =
-    defensiveReadPlayerId === selectedPlayer.id
+    defensiveReadPlayerIds === selectedPlayer.id
       ? null
       : selectedPlayer.id;
 
-  setDefensiveReadPlayerId(nextReadPlayerId);
+  setDefensiveReadPlayerIds(nextReadPlayerId);
 
   realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
       type: "SET_READ_KEY",
-      defensiveReadPlayerId: nextReadPlayerId,
+      defensiveReadPlayerIds: nextReadPlayerId,
     },
   });
 }}
@@ -7356,7 +7356,7 @@ onLOS: p.onLOS,
                         )} ${Math.max(0.55, lineStroke * 0.95)}`}
                         strokeLinecap="round"
                       />
-                      const isReadKey = defensiveReadPlayerId === player.id;
+                      const isReadKey = defensiveReadPlayerIds === player.id;
 const isCenter = player.position === &quot;something&quot;;
                       <circle
                         cx={zone.x}
@@ -7778,14 +7778,14 @@ style={{ cursor: "pointer" }}
                     width: playerPx,
                     height: playerPx,
                     borderRadius:
-  defensiveReadPlayerId === player.id
+  defensiveReadPlayerIds === player.id
     ? 0
     : player.position === "C"
     ? "4px"
     : "50%",
 
 clipPath:
-  defensiveReadPlayerId === player.id
+  defensiveReadPlayerIds === player.id
     ? "polygon(50% 0%, 0% 100%, 100% 100%)"
     : "none",
                     background: player.color ?? "#dc2626",
@@ -7797,7 +7797,7 @@ clipPath:
                     transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
                     transformOrigin: "center center",
                     border:
-                      defensiveReadPlayerId === player.id
+                      defensiveReadPlayerIds === player.id
                         ? `${selectedPlayerBorderPx}px solid #a855f7`
                         : selectedSide === "defense" &&
                           selectedPlayerId === player.id
@@ -7822,7 +7822,7 @@ clipPath:
                     WebkitUserSelect: "none",
                   }}
                 >
-                  {defensiveReadPlayerId === player.id && (
+                  {defensiveReadPlayerIds === player.id && (
                     <span
                       style={{
                         position: "absolute",
