@@ -1870,6 +1870,10 @@ useEffect(() => {
 if (payload.type === "SET_COACH_FOCUS") {
   setCoachFocus(payload.coachFocus);
 }
+    
+    if (payload.type === "SET_READ_KEY") {
+  setDefensiveReadPlayerId(payload.defensiveReadPlayerId);
+}
 
 if (payload.type === "SET_SELECTED_SIDE") {
   setSelectedSide(payload.selectedSide);
