@@ -4685,13 +4685,27 @@ realtimeChannelRef.current?.send({
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
 
-    setZoneAssignments((current) =>
-      current.map((zone) => {
-        if (zone.id !== zoneDraftId) return zone;
-        const nextRadius = Math.hypot(point.x - zone.x, point.y - zone.y);
-        return { ...zone, radius: Math.max(2.5, Math.min(22, nextRadius)) };
-      })
-    );
+    const nextZones = zoneAssignments.map((zone) => {
+  if (zone.id !== zoneDraftId) return zone;
+
+  const nextRadius = Math.hypot(point.x - zone.x, point.y - zone.y);
+
+  return {
+    ...zone,
+    radius: Math.max(2.5, Math.min(22, nextRadius)),
+  };
+});
+
+setZoneAssignments(nextZones);
+
+realtimeChannelRef.current?.send({
+  type: "broadcast",
+  event: "board-event",
+  payload: {
+    type: "SET_ZONES",
+    zoneAssignments: nextZones,
+  },
+});
   }
 
   function finalizeZoneDraft() {
