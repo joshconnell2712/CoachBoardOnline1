@@ -7358,6 +7358,21 @@ style={{ cursor: "pointer" }}
                             )} ${Math.max(0.8, lineStroke * 1.4)}`}
                             strokeLinecap="round"
                           />
+                          <line
+  x1={a.x}
+  y1={a.y}
+  x2={b.x}
+  y2={b.y}
+  stroke="transparent"
+  strokeWidth={6}
+  pointerEvents="stroke"
+  onPointerDown={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    selectFieldItem({ type: "man", id: defenderId });
+  }}
+  style={{ cursor: "pointer" }}
+/>
                         </g>
                       );
                     }
