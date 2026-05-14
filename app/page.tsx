@@ -4642,16 +4642,27 @@ if (selectedFieldItem.type === "man") {
 
     const zoneId = crypto.randomUUID();
     setSelectedFieldItem({ type: "zone", id: zoneId });
-    setZoneAssignments((current) => [
-      ...current,
-      {
-        id: zoneId,
-        defenderId: selectedDefender.id,
-        x: point.x,
-        y: point.y,
-        radius: 1.2,
-      },
-    ]);
+    const nextZones = [
+  ...zoneAssignments,
+  {
+    id: zoneId,
+    defenderId: selectedDefender.id,
+    x: point.x,
+    y: point.y,
+    radius: 1.2,
+  },
+];
+
+setZoneAssignments(nextZones);
+
+realtimeChannelRef.current?.send({
+  type: "broadcast",
+  event: "board-event",
+  payload: {
+    type: "SET_ZONES",
+    zoneAssignments: nextZones,
+  },
+});
     setSelectedZoneId(zoneId);
     setZoneDraftId(zoneId);
   }
