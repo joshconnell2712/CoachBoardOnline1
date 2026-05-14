@@ -4904,18 +4904,29 @@ function finalizeDrawing() {
     }
 
     if (draggingSide === "defense") {
-      setDefensePlayers((players) =>
-        players.map((p) =>
-          p.id === draggingId
-            ? {
-                ...p,
-                x,
-                yardsFromGoal: rawYards,
-                onLOS: Math.abs(rawYards - LOS_YARDS) < 2.2,
-              }
-            : p
-        )
-      );
+      setDefensePlayers((players) => {
+  const nextPlayers = players.map((p) =>
+    p.id === draggingId
+      ? {
+          ...p,
+          x,
+          yardsFromGoal: rawYards,
+          onLOS: Math.abs(rawYards - LOS_YARDS) < 2.2,
+        }
+      : p
+  );
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_DEFENSE_PLAYERS",
+      defensePlayers: nextPlayers,
+    },
+  });
+
+  return nextPlayers;
+});
     }
   }
 
