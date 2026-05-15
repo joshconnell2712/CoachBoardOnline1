@@ -1714,9 +1714,7 @@ function CoachBoardWebApp() {
   const [breakDepth, setBreakDepth] = useState(10);
   const [finishDepth, setFinishDepth] = useState(18);
   const [routeColor, setRouteColor] = useState("#facc15");
-  const [defensiveReadPlayerIds, setDefensiveReadPlayerIds] = useState<
-    string | null
-  >(null);
+  const [defensiveReadPlayerIds, setDefensiveReadPlayerIds] = useState<string[]>([]);
   const [tool, setTool] = useState("Select");
   const [drawingStyle, setDrawingStyle] = useState<DrawLineStyle>("solid");
   const [drawingMode, setDrawingMode] = useState<DrawLineMode>("curve");
