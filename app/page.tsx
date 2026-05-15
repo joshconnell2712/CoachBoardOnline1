@@ -5023,7 +5023,7 @@ realtimeChannelRef.current?.send({
 
   function applyTechnique(tech: Technique) {
     if (selectedSide !== "defense") return;
-    applyDefensePlayers((players) => {
+    setDefensePlayers((players) => {
   const nextPlayers = players.map((p) =>
     p.id === draggingId
       ? {
