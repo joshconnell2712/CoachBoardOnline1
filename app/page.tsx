@@ -3372,14 +3372,14 @@ if (selectedFieldItem.type === "man") {
               style={{
                 ...buttonBase,
                 background:
-                  defensiveReadPlayerIds === selectedPlayer.id
+                  defensiveReadPlayerIds.includes(selectedPlayer.id)
                     ? "linear-gradient(180deg, #a855f7 0%, #6d28d9 100%)"
                     : "#111827",
                 color: "white",
               }}
              onClick={() => {
   const nextReadPlayerId =
-    defensiveReadPlayerIds === selectedPlayer.id
+    defensiveReadPlayerIds.includes(selectedPlayer.id)
       ? null
       : selectedPlayer.id;
 
