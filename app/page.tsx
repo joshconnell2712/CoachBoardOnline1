@@ -1869,7 +1869,7 @@ if (payload.type === "SET_COACH_FOCUS") {
   setCoachFocus(payload.coachFocus);
 }
     
-    if (payload.type === "SET_READ_KEY") {
+    if (payload.type === "SET_READ_KEYS") {
   setDefensiveReadPlayerIds(payload.defensiveReadPlayerIds);
 }
 
