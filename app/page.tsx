@@ -3378,10 +3378,9 @@ if (selectedFieldItem.type === "man") {
                 color: "white",
               }}
              onClick={() => {
-  const nextReadPlayerId =
-    defensiveReadPlayerIds.includes(selectedPlayer.id)
-      ? null
-      : selectedPlayer.id;
+  const nextReadPlayerIds = defensiveReadPlayerIds.includes(selectedPlayer.id)
+  ? defensiveReadPlayerIds.filter((id) => id !== selectedPlayer.id)
+  : [...defensiveReadPlayerIds, selectedPlayer.id];
 
   setDefensiveReadPlayerIds(nextReadPlayerId);
 
