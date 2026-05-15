@@ -4473,6 +4473,15 @@ if (selectedFieldItem.type === "man") {
   function applyCoachFocus(nextFocus: CoachFocus) {
     setCoachFocus(nextFocus);
 
+    realtimeChannelRef.current?.send({
+  type: "broadcast",
+  event: "board-event",
+  payload: {
+    type: "SET_COACH_FOCUS",
+    coachFocus: nextFocus,
+  },
+});
+    
     if (nextFocus === "defense") {
       const firstDefender =
         defensePlayers[0]?.id ??
