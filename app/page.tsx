@@ -7353,7 +7353,7 @@ onLOS: p.onLOS,
                         )} ${Math.max(0.55, lineStroke * 0.95)}`}
                         strokeLinecap="round"
                       />
-                      const isReadKey = defensiveReadPlayerIds === player.id;
+                      const isReadKey = defensiveReadPlayerIds.includes(player.id);
 const isCenter = player.position === &quot;something&quot;;
                       <circle
                         cx={zone.x}
@@ -7775,14 +7775,14 @@ style={{ cursor: "pointer" }}
                     width: playerPx,
                     height: playerPx,
                     borderRadius:
-  defensiveReadPlayerIds === player.id
+  defensiveReadPlayerIds.includes(player.id)
     ? 0
     : player.position === "C"
     ? "4px"
     : "50%",
 
 clipPath:
-  defensiveReadPlayerIds === player.id
+  defensiveReadPlayerIds.includes(player.id)
     ? "polygon(50% 0%, 0% 100%, 100% 100%)"
     : "none",
                     background: player.color ?? "#dc2626",
@@ -7794,7 +7794,7 @@ clipPath:
                     transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
                     transformOrigin: "center center",
                     border:
-                      defensiveReadPlayerIds === player.id
+                      defensiveReadPlayerIds.includes(player.id)
                         ? `${selectedPlayerBorderPx}px solid #a855f7`
                         : selectedSide === "defense" &&
                           selectedPlayerId === player.id
@@ -7819,7 +7819,7 @@ clipPath:
                     WebkitUserSelect: "none",
                   }}
                 >
-                  {defensiveReadPlayerIds === player.id && (
+                  {defensiveReadPlayerIds.includes(player.id) && (
                     <span
                       style={{
                         position: "absolute",
