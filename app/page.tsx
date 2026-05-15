@@ -4948,16 +4948,27 @@ function finalizeDrawing() {
     if (selectedSide !== "offense") return;
     pushUndoSnapshot();
     setSelectedFieldItem({ type: "route", id: selectedPlayer.id });
-    setRoutes((current) => [
-      ...current.filter((r) => r.playerId !== selectedPlayer.id),
-      {
-        playerId: selectedPlayer.id,
-        routeType,
-        breakDepth,
-        finishDepth,
-        color: selectedPlayer.color ?? "#facc15",
-      },
-    ]);
+   const nextRoutes = [
+  ...routes.filter((r) => r.playerId !== selectedPlayer.id),
+  {
+    playerId: selectedPlayer.id,
+    routeType,
+    breakDepth,
+    finishDepth,
+    color: selectedPlayer.color ?? "#facc15",
+  },
+];
+
+setRoutes(nextRoutes);
+
+realtimeChannelRef.current?.send({
+  type: "broadcast",
+  event: "board-event",
+  payload: {
+    type: "SET_ROUTES",
+    routes: nextRoutes,
+  },
+});
   }
 
   function updateSelectedPlayerLabel(value: string) {
