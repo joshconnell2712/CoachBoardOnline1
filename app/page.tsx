@@ -5065,6 +5065,19 @@ onLOS: p.onLOS,
     };
   }
 
+  function applyDefensePlayers(nextPlayers: Player[]) {
+  setDefensePlayers(nextPlayers);
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_DEFENSE_PLAYERS",
+      defensePlayers: nextPlayers,
+    },
+  });
+}
+  
   function loadDefensePreset(preset: DefensePreset) {
     if (footballTeamSize !== "11man") return;
     setSelectedDefenseFront(preset);
