@@ -5329,25 +5329,63 @@ onLOS: p.onLOS,
   }
 
   function loadDefensivePackage(id: string) {
-    const pkg = savedDefensivePackages.find((item) => item.id === id);
-    if (!pkg) return;
-    setSelectedDefenseFront(pkg.front);
-    setShowCoverageOverlay(false);
-    setShowPressureOverlay(false);
-    setManAssignments(pkg.manAssignments ?? {});
-    setZoneAssignments(
-      (pkg.zoneAssignments ?? []).map((zone) => ({ ...zone }))
-    );
-    setDefensePlayers(pkg.defensePlayers.map((p) => ({ ...p })));
-    setDrawnLines(
-      pkg.drawnLines.map((line) => ({
-        ...line,
-        points: line.points.map((point) => ({ ...point })),
-      }))
-    );
-    setSelectedSide("defense");
-    setActivePanelTab("defense");
-  }
+  const pkg = savedDefensivePackages.find((item) => item.id === id);
+  if (!pkg) return;
+
+  const nextManAssignments = pkg.manAssignments ?? {};
+  const nextZones = (pkg.zoneAssignments ?? []).map((zone) => ({ ...zone }));
+  const nextDefensePlayers = pkg.defensePlayers.map((p) => ({ ...p }));
+  const nextDrawnLines = pkg.drawnLines.map((line) => ({
+    ...line,
+    points: line.points.map((point) => ({ ...point })),
+  }));
+
+  setSelectedDefenseFront(pkg.front);
+  setShowCoverageOverlay(false);
+  setShowPressureOverlay(false);
+  setManAssignments(nextManAssignments);
+  setZoneAssignments(nextZones);
+  setDefensePlayers(nextDefensePlayers);
+  setDrawnLines(nextDrawnLines);
+  setSelectedSide("defense");
+  setActivePanelTab("defense");
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_DEFENSE_PLAYERS",
+      defensePlayers: nextDefensePlayers,
+    },
+  });
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_MAN_ASSIGNMENTS",
+      manAssignments: nextManAssignments,
+    },
+  });
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_ZONES",
+      zoneAssignments: nextZones,
+    },
+  });
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_DRAWN_LINES",
+      drawnLines: nextDrawnLines,
+    },
+  });
+}
 
   function overwriteDefensivePackage(id: string) {
     setSavedDefensivePackages((current) =>
