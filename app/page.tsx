@@ -1892,7 +1892,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
     }
 
     if (payload.type === "SET_DEFENSE_PLAYERS") {
-      applyDefensePlayers(payload.defensePlayers);
+      setDefensePlayers(payload.defensePlayers);
     }
 
     if (payload.type === "SET_ZONES") {
