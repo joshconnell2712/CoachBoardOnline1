@@ -3389,7 +3389,7 @@ if (selectedFieldItem.type === "man") {
     event: "board-event",
     payload: {
       type: "SET_READ_KEY",
-      defensiveReadPlayerIds: nextReadPlayerId,
+      defensiveReadPlayerIds: nextReadPlayerIds,
     },
   });
 }}
