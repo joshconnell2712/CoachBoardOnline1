@@ -5022,18 +5022,20 @@ realtimeChannelRef.current?.send({
 }
 
   function applyTechnique(tech: Technique) {
-    if (selectedSide !== "defense") return;
-    setDefensePlayers((players) => {
-  const nextPlayers = players.map((p) =>
-    p.id === draggingId
+  if (selectedSide !== "defense") return;
+
+  const nextPlayers = defensePlayers.map((p) =>
+    p.id === selectedPlayerId
       ? {
           ...p,
-          x: p.x,
-          yardsFromGoal: p.yardsFromGoal,
-onLOS: p.onLOS,
+          x: getTechniqueX(tech, p.x),
+          yardsFromGoal: LOS_YARDS - 1,
+          onLOS: true,
         }
       : p
   );
+
+  setDefensePlayers(nextPlayers);
 
   realtimeChannelRef.current?.send({
     type: "broadcast",
@@ -5043,10 +5045,7 @@ onLOS: p.onLOS,
       defensePlayers: nextPlayers,
     },
   });
-
-  return nextPlayers;
-});
-  }
+}
 
   function makeD(
     id: string,
