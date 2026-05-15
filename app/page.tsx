@@ -4918,8 +4918,8 @@ function finalizeDrawing() {
     }
 
     if (draggingSide === "defense") {
-      applyDefensePlayers((players) => {
-  const nextPlayers = players.map((p) =>
+setDefensePlayers((players) => {
+      const nextPlayers = players.map((p) =>
     p.id === draggingId
       ? {
           ...p,
