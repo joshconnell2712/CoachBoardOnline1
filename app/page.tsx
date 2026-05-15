@@ -4980,7 +4980,7 @@ realtimeChannelRef.current?.send({
         )
       );
     else
-      applyDefensePlayers((players) =>
+      setDefensePlayers((players) =>
         players.map((p) =>
           p.id === selectedPlayerId ? { ...p, position: label } : p
         )
