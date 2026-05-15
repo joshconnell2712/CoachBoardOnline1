@@ -5066,7 +5066,7 @@ onLOS: p.onLOS,
   }
 
   function applyDefensePlayers(nextPlayers: Player[]) {
-  applyDefensePlayers(nextPlayers);
+  setDefensePlayers(nextPlayers);
 
   realtimeChannelRef.current?.send({
     type: "broadcast",
