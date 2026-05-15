@@ -4504,23 +4504,42 @@ if (selectedFieldItem.type === "man") {
   }
 
   function applyFootballTeamSize(nextSize: FootballTeamSize) {
-    setFootballTeamSize(nextSize);
-    const nextOffense = getDefaultOffensePlayers(nextSize);
-    const nextDefense = getDefaultDefensePlayers(nextSize);
-    setOffensePlayers(nextOffense);
-    applyDefensePlayers(nextDefense);
-    setSelectedPlayerId(
-      coachFocus === "defense"
-        ? nextDefense[0]?.id ?? "d1"
-        : nextOffense[0]?.id ?? "x"
-    );
-    setSelectedSide(coachFocus === "defense" ? "defense" : "offense");
-    setActivePanelTab(coachFocus === "defense" ? "defense" : "player");
-    setSelectedPlayId("");
-    setSelectedPlayFormationId("");
-    setRoutes([]);
-    setDrawnLines([]);
-  }
+  const nextOffense = getDefaultOffensePlayers(nextSize);
+  const nextDefense = getDefaultDefensePlayers(nextSize);
+  const nextSelectedPlayerId =
+    coachFocus === "defense"
+      ? nextDefense[0]?.id ?? "d1"
+      : nextOffense[0]?.id ?? "x";
+  const nextSelectedSide = coachFocus === "defense" ? "defense" : "offense";
+  const nextActivePanelTab = coachFocus === "defense" ? "defense" : "player";
+
+  setFootballTeamSize(nextSize);
+  setOffensePlayers(nextOffense);
+  setDefensePlayers(nextDefense);
+  setSelectedPlayerId(nextSelectedPlayerId);
+  setSelectedSide(nextSelectedSide);
+  setActivePanelTab(nextActivePanelTab);
+  setSelectedPlayId("");
+  setSelectedPlayFormationId("");
+  setRoutes([]);
+  setDrawnLines([]);
+
+  realtimeChannelRef.current?.send({
+    type: "broadcast",
+    event: "board-event",
+    payload: {
+      type: "SET_TEAM_SETUP",
+      footballTeamSize: nextSize,
+      offensePlayers: nextOffense,
+      defensePlayers: nextDefense,
+      selectedPlayerId: nextSelectedPlayerId,
+      selectedSide: nextSelectedSide,
+      activePanelTab: nextActivePanelTab,
+      routes: [],
+      drawnLines: [],
+    },
+  });
+}
 
   const losTop = `${fieldYFromYards(activeLosYards)}%`;
 
