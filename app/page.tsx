@@ -1892,7 +1892,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
     }
 
     if (payload.type === "SET_DEFENSE_PLAYERS") {
-      setDefensePlayers(payload.defensePlayers);
+      applyDefensePlayers(payload.defensePlayers);
     }
 
     if (payload.type === "SET_ZONES") {
@@ -4286,7 +4286,7 @@ if (selectedFieldItem.type === "man") {
       const preload = parsed.find((play) => play.preloadOnOpen);
       if (preload) {
         setOffensePlayers(normalizeOffenseOnLOS(preload.offensePlayers));
-        setDefensePlayers(preload.defensePlayers.map((p) => ({ ...p })));
+        applyDefensePlayers(preload.defensePlayers.map((p) => ({ ...p })));
         setRoutes(preload.routes.map((r) => ({ ...r })));
         setDrawnLines(
           preload.drawnLines.map((line) => ({
@@ -4453,7 +4453,7 @@ if (selectedFieldItem.type === "man") {
     if (saved && FOOTBALL_TEAM_SIZE_OPTIONS[saved]) {
       setFootballTeamSize(saved);
       setOffensePlayers(getDefaultOffensePlayers(saved));
-      setDefensePlayers(getDefaultDefensePlayers(saved));
+      applyDefensePlayers(getDefaultDefensePlayers(saved));
       setSelectedPlayerId(getDefaultOffensePlayers(saved)[0]?.id ?? "x");
       setSelectedSide("offense");
       setSelectedPlayId("");
@@ -4499,7 +4499,7 @@ if (selectedFieldItem.type === "man") {
     const nextOffense = getDefaultOffensePlayers(nextSize);
     const nextDefense = getDefaultDefensePlayers(nextSize);
     setOffensePlayers(nextOffense);
-    setDefensePlayers(nextDefense);
+    applyDefensePlayers(nextDefense);
     setSelectedPlayerId(
       coachFocus === "defense"
         ? nextDefense[0]?.id ?? "d1"
@@ -4918,7 +4918,7 @@ function finalizeDrawing() {
     }
 
     if (draggingSide === "defense") {
-      setDefensePlayers((players) => {
+      applyDefensePlayers((players) => {
   const nextPlayers = players.map((p) =>
     p.id === draggingId
       ? {
@@ -4980,7 +4980,7 @@ realtimeChannelRef.current?.send({
         )
       );
     else
-      setDefensePlayers((players) =>
+      applyDefensePlayers((players) =>
         players.map((p) =>
           p.id === selectedPlayerId ? { ...p, position: label } : p
         )
@@ -5008,7 +5008,7 @@ realtimeChannelRef.current?.send({
       p.id === selectedPlayerId ? { ...p, color } : p
     );
 
-    setDefensePlayers(nextPlayers);
+    applyDefensePlayers(nextPlayers);
 
     realtimeChannelRef.current?.send({
       type: "broadcast",
@@ -5023,7 +5023,7 @@ realtimeChannelRef.current?.send({
 
   function applyTechnique(tech: Technique) {
     if (selectedSide !== "defense") return;
-    setDefensePlayers((players) => {
+    applyDefensePlayers((players) => {
   const nextPlayers = players.map((p) =>
     p.id === draggingId
       ? {
@@ -5066,7 +5066,7 @@ onLOS: p.onLOS,
   }
 
   function applyDefensePlayers(nextPlayers: Player[]) {
-  setDefensePlayers(nextPlayers);
+  applyDefensePlayers(nextPlayers);
 
   realtimeChannelRef.current?.send({
     type: "broadcast",
@@ -5082,7 +5082,7 @@ onLOS: p.onLOS,
     if (footballTeamSize !== "11man") return;
     setSelectedDefenseFront(preset);
     if (preset === "4-3 Over")
-      setDefensePlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -5096,7 +5096,7 @@ onLOS: p.onLOS,
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "4-3 Under")
-      setDefensePlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 30, LOS_YARDS - 8),
@@ -5110,7 +5110,7 @@ onLOS: p.onLOS,
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-4 Base")
-      setDefensePlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -5124,7 +5124,7 @@ onLOS: p.onLOS,
         makeD("d11", "DE", 61, LOS_YARDS - 1, true),
       ]);
     if (preset === "4-2-5")
-      setDefensePlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 66, LOS_YARDS - 8),
@@ -5138,7 +5138,7 @@ onLOS: p.onLOS,
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-3 Stack")
-      setDefensePlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -5152,7 +5152,7 @@ onLOS: p.onLOS,
         makeD("d11", "ROV", 30, LOS_YARDS - 6),
       ]);
     if (preset === "Bear")
-      setDefensePlayers([
+      applyDefensePlayers([
         // Bear = 5-man front + 3 linebackers + 3 defensive backs.
         // This keeps both edges on the LOS instead of accidentally leaving the front short.
         makeD("d1", "CB", 10, LOS_YARDS - 7),
@@ -5168,7 +5168,7 @@ onLOS: p.onLOS,
         makeD("d11", "DT", 59, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-5")
-      setDefensePlayers([
+      applyDefensePlayers([
         // 3-5 = 3 down linemen + 5 linebackers + 3 defensive backs.
         // The previous version only had two true down linemen; this restores the full 3-man front.
         makeD("d1", "CB", 10, LOS_YARDS - 7),
@@ -5184,7 +5184,7 @@ onLOS: p.onLOS,
         makeD("d11", "DE", 61, LOS_YARDS - 1, true),
       ]);
     if (preset === "Nickel")
-      setDefensePlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 42, LOS_YARDS - 12),
         makeD("d3", "SS", 62, LOS_YARDS - 12),
@@ -5198,7 +5198,7 @@ onLOS: p.onLOS,
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "Dime")
-      setDefensePlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 42, LOS_YARDS - 12),
         makeD("d3", "SS", 62, LOS_YARDS - 12),
@@ -5212,7 +5212,7 @@ onLOS: p.onLOS,
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "Goal Line")
-      setDefensePlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 20, LOS_YARDS - 4),
         makeD("d2", "S", 50, LOS_YARDS - 7),
         makeD("d3", "CB", 80, LOS_YARDS - 4),
@@ -5358,7 +5358,7 @@ onLOS: p.onLOS,
   setShowPressureOverlay(false);
   setManAssignments(nextManAssignments);
   setZoneAssignments(nextZones);
-  setDefensePlayers(nextDefensePlayers);
+  applyDefensePlayers(nextDefensePlayers);
   setDrawnLines(nextDrawnLines);
   setSelectedSide("defense");
   setActivePanelTab("defense");
@@ -5488,7 +5488,7 @@ onLOS: p.onLOS,
     if (!play) return;
 
     setOffensePlayers(normalizeOffenseOnLOS(play.offensePlayers));
-    setDefensePlayers(play.defensePlayers.map((p) => ({ ...p })));
+    applyDefensePlayers(play.defensePlayers.map((p) => ({ ...p })));
     setRoutes(play.routes.map((r) => ({ ...r })));
     setDrawnLines(
       play.drawnLines.map((line) => ({
