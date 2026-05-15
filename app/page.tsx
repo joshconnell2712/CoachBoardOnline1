@@ -5496,16 +5496,46 @@ onLOS: p.onLOS,
   }
 
   function loadCustomOffensePreset(id: string) {
-    const preset = customOffensePresets.find((p) => p.id === id);
-    if (preset) {
-      setOffensePlayers(normalizeOffenseOnLOS(preset.players));
-      setSelectedPlayFormationId(id);
-      setSelectedPresetDropdownId(id);
-      setSelectedPlayId("");
-      setRoutes([]);
-      setDrawnLines([]);
-    }
+  const preset = customOffensePresets.find((p) => p.id === id);
+
+  if (preset) {
+    const nextPlayers = normalizeOffenseOnLOS(preset.players);
+
+    setOffensePlayers(nextPlayers);
+    setSelectedPlayFormationId(id);
+    setSelectedPresetDropdownId(id);
+    setSelectedPlayId("");
+    setRoutes([]);
+    setDrawnLines([]);
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_OFFENSE_PLAYERS",
+        offensePlayers: nextPlayers,
+      },
+    });
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ROUTES",
+        routes: [],
+      },
+    });
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_DRAWN_LINES",
+        drawnLines: [],
+      },
+    });
   }
+}
 
   function overwriteCustomOffensePreset(id: string) {
     setCustomOffensePresets((current) =>
