@@ -3382,7 +3382,7 @@ if (selectedFieldItem.type === "man") {
   ? defensiveReadPlayerIds.filter((id) => id !== selectedPlayer.id)
   : [...defensiveReadPlayerIds, selectedPlayer.id];
 
-  setDefensiveReadPlayerIds(nextReadPlayerId);
+  setDefensiveReadPlayerIds(nextReadPlayerIds);
 
   realtimeChannelRef.current?.send({
     type: "broadcast",
