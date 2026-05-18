@@ -1898,6 +1898,17 @@ if (payload.type === "SET_SELECTED_SIDE") {
     if (payload.type === "SET_ZONES") {
       setZoneAssignments(payload.zoneAssignments);
     }
+
+    if (payload.type === "SET_TEAM_SETUP") {
+  setFootballTeamSize(payload.footballTeamSize);
+  setOffensePlayers(payload.offensePlayers);
+  setDefensePlayers(payload.defensePlayers);
+  setSelectedPlayerId(payload.selectedPlayerId);
+  setSelectedSide(payload.selectedSide);
+  setActivePanelTab(payload.activePanelTab);
+  setRoutes(payload.routes);
+  setDrawnLines(payload.drawnLines);
+}
   });
 
   channel.on("broadcast", { event: "board-event" }, (event) => {
