@@ -6143,6 +6143,70 @@ realtimeChannelRef.current?.send({
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
 
+  if (!teamCode) {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#020617",
+        color: "white",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Arial",
+      }}
+    >
+      <div
+        style={{
+          width: 420,
+          padding: 32,
+          background: "#111827",
+          borderRadius: 24,
+        }}
+      >
+        <h1>CoachBoard Login</h1>
+
+        <input
+          value={teamCodeInput}
+          onChange={(e) => setTeamCodeInput(e.target.value)}
+          placeholder="hershey-football"
+          style={{
+            width: "100%",
+            padding: 14,
+            borderRadius: 12,
+            marginBottom: 16,
+          }}
+        />
+
+        <button
+          onClick={() => {
+            const cleaned = teamCodeInput
+              .trim()
+              .toLowerCase()
+              .replace(/\s+/g, "-");
+
+            if (!cleaned) return;
+
+            localStorage.setItem(
+              "coachboard_team_code",
+              cleaned
+            );
+
+            setTeamCode(cleaned);
+          }}
+          style={{
+            width: "100%",
+            padding: 14,
+            borderRadius: 12,
+            fontWeight: 900,
+          }}
+        >
+          Enter CoachBoard
+        </button>
+      </div>
+    </div>
+  );
+}
   return (
     <div
       style={{
