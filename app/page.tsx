@@ -1928,6 +1928,13 @@ if (payload.type === "SET_SELECTED_SIDE") {
     supabase.removeChannel(channel);
   };
 }, [ROOM_ID]);
+  useEffect(() => {
+  const saved = localStorage.getItem("coachboard_team_code");
+
+  if (saved) {
+    setTeamCode(saved);
+  }
+}, []);
   const selectedZone = selectedZoneId
     ? zoneAssignments.find((zone) => zone.id === selectedZoneId) ?? null
     : null;
