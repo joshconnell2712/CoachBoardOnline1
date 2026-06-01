@@ -1673,7 +1673,11 @@ const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
 const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
-  const ROOM_ID = teamCode ? `coachboard-${teamCode}` : "";
+  const ROOM_ID = user
+  ? teamCode
+    ? `coachboard-team-${teamCode}`
+    : `coachboard-user-${user.id}`
+  : "";
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
     DEFAULT_FOOTBALL_TEAM_SIZE
   );
