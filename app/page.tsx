@@ -6158,7 +6158,7 @@ realtimeChannelRef.current?.send({
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
 
-  if (!teamCode) {
+  if (!user) {
   return (
     <div
       style={{
@@ -6179,44 +6179,91 @@ realtimeChannelRef.current?.send({
           borderRadius: 24,
         }}
       >
-        <h1>CoachBoard Login</h1>
+        <h1 style={{ marginBottom: 8 }}>CoachBoard</h1>
+
+        <p style={{ color: "#9ca3af", marginBottom: 24 }}>
+          {authMode === "login"
+            ? "Login to your CoachBoard account"
+            : "Create your CoachBoard account"}
+        </p>
 
         <input
-          value={teamCodeInput}
-          onChange={(e) => setTeamCodeInput(e.target.value)}
-          placeholder="hershey-football"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
           style={{
             width: "100%",
             padding: 14,
             borderRadius: 12,
-            marginBottom: 16,
+            marginBottom: 12,
+          }}
+        />
+
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          style={{
+            width: "100%",
+            padding: 14,
+            borderRadius: 12,
+            marginBottom: 18,
           }}
         />
 
         <button
-          onClick={() => {
-            const cleaned = teamCodeInput
-              .trim()
-              .toLowerCase()
-              .replace(/\s+/g, "-");
+          onClick={async () => {
+            if (authMode === "signup") {
+              const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+              });
 
-            if (!cleaned) return;
+              if (!error) {
+                setUser(data.user);
+              }
+            } else {
+              const { data, error } =
+                await supabase.auth.signInWithPassword({
+                  email,
+                  password,
+                });
 
-            localStorage.setItem(
-              "coachboard_team_code",
-              cleaned
-            );
-
-            setTeamCode(cleaned);
+              if (!error) {
+                setUser(data.user);
+              }
+            }
           }}
           style={{
             width: "100%",
             padding: 14,
             borderRadius: 12,
             fontWeight: 900,
+            marginBottom: 16,
           }}
         >
-          Enter CoachBoard
+          {authMode === "login" ? "Login" : "Create Account"}
+        </button>
+
+        <button
+          onClick={() =>
+            setAuthMode(
+              authMode === "login" ? "signup" : "login"
+            )
+          }
+          style={{
+            width: "100%",
+            padding: 10,
+            borderRadius: 12,
+            background: "transparent",
+            color: "white",
+            border: "1px solid rgba(255,255,255,.15)",
+          }}
+        >
+          {authMode === "login"
+            ? "Need an account? Sign Up"
+            : "Already have an account? Login"}
         </button>
       </div>
     </div>
