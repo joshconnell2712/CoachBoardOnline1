@@ -1925,7 +1925,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
     realtimeChannelRef.current = null;
     supabase.removeChannel(channel);
   };
-}, []);
+}, [ROOM_ID]);
   const selectedZone = selectedZoneId
     ? zoneAssignments.find((zone) => zone.id === selectedZoneId) ?? null
     : null;
