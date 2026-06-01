@@ -6550,7 +6550,7 @@ setUser(data.user);
             <div>Share it.</div>
             <div>Win it.</div>
           </div>
-          <div style={{ marginTop: 14 }}>
+      <div style={{ marginTop: 14 }}>
   <button
     onClick={async () => {
       await supabase.auth.signOut();
@@ -6574,8 +6574,6 @@ setUser(data.user);
   >
     Logout
   </button>
-</div>
-
 </div>
         </div>
 
