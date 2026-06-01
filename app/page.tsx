@@ -1943,6 +1943,23 @@ if (payload.type === "SET_SELECTED_SIDE") {
     setTeamCode(saved);
   }
 }, []);
+  useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    if (data.user) {
+      setUser(data.user);
+    }
+  });
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    setUser(session?.user ?? null);
+  });
+
+  return () => {
+    subscription.unsubscribe();
+  };
+}, []);
   const selectedZone = selectedZoneId
     ? zoneAssignments.find((zone) => zone.id === selectedZoneId) ?? null
     : null;
