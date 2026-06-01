@@ -6196,6 +6196,9 @@ realtimeChannelRef.current?.send({
             padding: 14,
             borderRadius: 12,
             marginBottom: 12,
+            color: "black",
+background: "white",
+border: "1px solid #374151",
           }}
         />
 
@@ -6209,6 +6212,9 @@ realtimeChannelRef.current?.send({
             padding: 14,
             borderRadius: 12,
             marginBottom: 18,
+            color: "black",
+background: "white",
+border: "1px solid #374151",
           }}
         />
 
