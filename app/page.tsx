@@ -1668,6 +1668,10 @@ function SmallButton({
 function CoachBoardWebApp() {
   const [teamCode, setTeamCode] = useState("");
   const [teamCodeInput, setTeamCodeInput] = useState("");
+  const [user, setUser] = useState<User | null>(null);
+const [email, setEmail] = useState("");
+const [password, setPassword] = useState("");
+const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
   const ROOM_ID = teamCode ? `coachboard-${teamCode}` : "";
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
