@@ -6550,6 +6550,33 @@ setUser(data.user);
             <div>Share it.</div>
             <div>Win it.</div>
           </div>
+          <div style={{ marginTop: 14 }}>
+  <button
+    onClick={async () => {
+      await supabase.auth.signOut();
+
+      localStorage.removeItem("coachboard_team_code");
+
+      setTeamCode("");
+      setUser(null);
+    }}
+    style={{
+      width: "100%",
+      padding: "12px 14px",
+      borderRadius: 14,
+      background: "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)",
+      color: "white",
+      border: "1px solid rgba(248,113,113,.55)",
+      fontWeight: 900,
+      cursor: "pointer",
+      marginTop: 12,
+    }}
+  >
+    Logout
+  </button>
+</div>
+
+</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
