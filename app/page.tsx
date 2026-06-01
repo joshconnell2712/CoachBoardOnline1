@@ -6175,370 +6175,353 @@ realtimeChannelRef.current?.send({
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
 
- if (!user) {
-  return (
+ <div
+  style={{
+    minHeight: "100vh",
+    background:
+      "radial-gradient(circle at top, #111827 0%, #020617 50%, #000000 100%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+    fontFamily: "Arial",
+  }}
+>
+  <div
+    style={{
+      width: "100%",
+      maxWidth: 1450,
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 48,
+      alignItems: "center",
+    }}
+  >
+    {/* LEFT SIDE */}
     <div
       style={{
-        minHeight: "100vh",
-        background:
-          "radial-gradient(circle at top, #111827 0%, #020617 45%, #000000 100%)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 32,
-        fontFamily: "Arial",
-        overflow: "hidden",
+        color: "white",
+        paddingRight: 20,
       }}
     >
-      <div
+      <img
+        src="/coachboard-logo.png"
+        alt="CoachBoard"
         style={{
           width: "100%",
-          maxWidth: 1400,
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 40,
-          alignItems: "center",
+          maxWidth: 360,
+          marginBottom: 30,
+        }}
+      />
+
+      <div
+        style={{
+          fontSize: 58,
+          fontWeight: 900,
+          lineHeight: 1.05,
+          marginBottom: 24,
         }}
       >
-        {/* LEFT SIDE */}
-        <div
-          style={{
-            color: "white",
-            padding: 20,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              marginBottom: 24,
-            }}
-          >
-            <img
-              src="/coachboard-logo.png"
-              alt="CoachBoard"
-              style={{
-                width: "100%",
-                maxWidth: 500,
-                objectFit: "contain",
-              }}
-            />
-          </div>
+        The Ultimate Coaching
+        <br />
+        <span style={{ color: "#ef4444" }}>
+          Whiteboard
+        </span>{" "}
+        Platform
+        <br />
+        for Winners.
+      </div>
 
+      <div
+        style={{
+          display: "grid",
+          gap: 30,
+          marginTop: 36,
+        }}
+      >
+        <div>
           <div
             style={{
-              fontSize: 52,
+              fontSize: 30,
               fontWeight: 900,
-              lineHeight: 1.05,
-              marginBottom: 18,
-              color: "white",
+              marginBottom: 8,
             }}
           >
-            The Ultimate Coaching
-            <br />
-            <span style={{ color: "#ef4444" }}>
-              Whiteboard
-            </span>{" "}
-            Platform
-            <br />
-            for Winners.
+            Draw it.
           </div>
 
           <div
             style={{
-              display: "grid",
-              gap: 26,
-              marginTop: 40,
+              color: "#9ca3af",
+              fontSize: 19,
+              lineHeight: 1.7,
             }}
           >
-            <div>
-              <div
-                style={{
-                  fontSize: 30,
-                  fontWeight: 900,
-                  color: "white",
-                  marginBottom: 6,
-                }}
-              >
-                Draw it.
-              </div>
-
-              <div
-                style={{
-                  color: "#9ca3af",
-                  fontSize: 18,
-                  lineHeight: 1.6,
-                }}
-              >
-                Create formations, plays, coverages,
-                and game plans with professional
-                coaching tools.
-              </div>
-            </div>
-
-            <div>
-              <div
-                style={{
-                  fontSize: 30,
-                  fontWeight: 900,
-                  color: "white",
-                  marginBottom: 6,
-                }}
-              >
-                Share it.
-              </div>
-
-              <div
-                style={{
-                  color: "#9ca3af",
-                  fontSize: 18,
-                  lineHeight: 1.6,
-                }}
-              >
-                Collaborate live with your staff in
-                real time from anywhere.
-              </div>
-            </div>
-
-            <div>
-              <div
-                style={{
-                  fontSize: 30,
-                  fontWeight: 900,
-                  color: "white",
-                  marginBottom: 6,
-                }}
-              >
-                Win it.
-              </div>
-
-              <div
-                style={{
-                  color: "#9ca3af",
-                  fontSize: 18,
-                  lineHeight: 1.6,
-                }}
-              >
-                Build championship-level systems,
-                scouting, and strategy together.
-              </div>
-            </div>
+            Create formations, concepts,
+            coverages, and game plans with
+            elite coaching tools.
           </div>
         </div>
 
-        {/* RIGHT SIDE */}
-        <div
-          style={{
-            background: "rgba(15,23,42,.82)",
-            border: "1px solid rgba(255,255,255,.08)",
-            borderRadius: 32,
-            padding: 48,
-            backdropFilter: "blur(18px)",
-            boxShadow:
-              "0 25px 70px rgba(0,0,0,.45)",
-          }}
-        >
+        <div>
           <div
             style={{
-              fontSize: 52,
+              fontSize: 30,
               fontWeight: 900,
-              color: "white",
-              marginBottom: 10,
+              marginBottom: 8,
             }}
           >
-            Welcome{" "}
-            <span style={{ color: "#ef4444" }}>
-              Back
-            </span>
+            Share it.
           </div>
 
           <div
             style={{
               color: "#9ca3af",
-              fontSize: 20,
-              marginBottom: 40,
+              fontSize: 19,
+              lineHeight: 1.7,
             }}
           >
-            Log in to your CoachBoard account
+            Collaborate live with your staff
+            in real time from anywhere.
           </div>
+        </div>
 
+        <div>
           <div
             style={{
-              color: "white",
-              fontWeight: 700,
-              marginBottom: 10,
-              fontSize: 18,
-            }}
-          >
-            Email
-          </div>
-
-          <input
-            value={email}
-            onChange={(e) =>
-              setEmail(e.target.value)
-            }
-            placeholder="Enter your email"
-            style={{
-              width: "100%",
-              padding: 18,
-              borderRadius: 18,
-              marginBottom: 28,
-              color: "white",
-              background: "rgba(255,255,255,.05)",
-              border:
-                "1px solid rgba(255,255,255,.12)",
-              fontSize: 18,
-            }}
-          />
-
-          <div
-            style={{
-              color: "white",
-              fontWeight: 700,
-              marginBottom: 10,
-              fontSize: 18,
-            }}
-          >
-            Password
-          </div>
-
-          <input
-            type="password"
-            value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
-            placeholder="Enter your password"
-            style={{
-              width: "100%",
-              padding: 18,
-              borderRadius: 18,
-              marginBottom: 34,
-              color: "white",
-              background: "rgba(255,255,255,.05)",
-              border:
-                "1px solid rgba(255,255,255,.12)",
-              fontSize: 18,
-            }}
-          />
-
-          <button
-            onClick={async () => {
-              if (authMode === "signup") {
-                const { data, error } =
-                  await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: {
-                      emailRedirectTo:
-                        "https://coach-board-online1.vercel.app",
-                    },
-                  });
-
-                if (error) {
-                  alert(error.message);
-                  return;
-                }
-
-                alert(
-                  "Check your email to confirm your account."
-                );
-              } else {
-                const { data, error } =
-                  await supabase.auth.signInWithPassword(
-                    {
-                      email,
-                      password,
-                    }
-                  );
-
-                if (error) {
-                  alert(error.message);
-                  return;
-                }
-
-                if (
-                  !data.user?.email_confirmed_at
-                ) {
-                  alert(
-                    "Please verify your email before logging in."
-                  );
-                  return;
-                }
-
-                setUser(data.user);
-              }
-            }}
-            style={{
-              width: "100%",
-              padding: 20,
-              borderRadius: 18,
-              background:
-                "linear-gradient(180deg, #ef4444 0%, #b91c1c 100%)",
-              color: "white",
-              border: "none",
-              fontSize: 22,
+              fontSize: 30,
               fontWeight: 900,
-              cursor: "pointer",
-              marginBottom: 24,
-              boxShadow:
-                "0 18px 35px rgba(239,68,68,.35)",
+              marginBottom: 8,
             }}
           >
-            {authMode === "login"
-              ? "Log In"
-              : "Create Account"}
-          </button>
-
-          <button
-            onClick={() =>
-              setAuthMode(
-                authMode === "login"
-                  ? "signup"
-                  : "login"
-              )
-            }
-            style={{
-              width: "100%",
-              padding: 18,
-              borderRadius: 18,
-              background: "transparent",
-              color: "white",
-              border:
-                "1px solid rgba(255,255,255,.15)",
-              fontSize: 18,
-              cursor: "pointer",
-            }}
-          >
-            {authMode === "login"
-              ? "Create your CoachBoard account"
-              : "Already have an account? Login"}
-          </button>
+            Win it.
+          </div>
 
           <div
             style={{
-              marginTop: 36,
-              textAlign: "center",
               color: "#9ca3af",
-              fontSize: 16,
+              fontSize: 19,
+              lineHeight: 1.7,
             }}
           >
-            Built for coaches. Designed for{" "}
-            <span
-              style={{
-                color: "#ef4444",
-                fontWeight: 900,
-              }}
-            >
-              champions.
-            </span>
+            Build championship-level systems
+            and strategy together.
           </div>
         </div>
       </div>
     </div>
-  );
-}
+
+    {/* RIGHT SIDE */}
+    <div
+      style={{
+        background: "rgba(15,23,42,.88)",
+        borderRadius: 34,
+        padding: 52,
+        border: "1px solid rgba(255,255,255,.08)",
+        backdropFilter: "blur(18px)",
+        boxShadow:
+          "0 25px 80px rgba(0,0,0,.55)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 58,
+          fontWeight: 900,
+          color: "white",
+          marginBottom: 10,
+        }}
+      >
+        Welcome{" "}
+        <span style={{ color: "#ef4444" }}>
+          Back
+        </span>
+      </div>
+
+      <div
+        style={{
+          color: "#9ca3af",
+          fontSize: 20,
+          marginBottom: 40,
+        }}
+      >
+        Log in to your CoachBoard account
+      </div>
+
+      <div
+        style={{
+          color: "white",
+          fontWeight: 700,
+          marginBottom: 10,
+          fontSize: 18,
+        }}
+      >
+        Email
+      </div>
+
+      <input
+        value={email}
+        onChange={(e) =>
+          setEmail(e.target.value)
+        }
+        placeholder="Enter your email"
+        style={{
+          width: "100%",
+          padding: 18,
+          borderRadius: 18,
+          marginBottom: 28,
+          color: "white",
+          background: "rgba(255,255,255,.04)",
+          border:
+            "1px solid rgba(255,255,255,.1)",
+          fontSize: 18,
+        }}
+      />
+
+      <div
+        style={{
+          color: "white",
+          fontWeight: 700,
+          marginBottom: 10,
+          fontSize: 18,
+        }}
+      >
+        Password
+      </div>
+
+      <input
+        type="password"
+        value={password}
+        onChange={(e) =>
+          setPassword(e.target.value)
+        }
+        placeholder="Enter your password"
+        style={{
+          width: "100%",
+          padding: 18,
+          borderRadius: 18,
+          marginBottom: 36,
+          color: "white",
+          background: "rgba(255,255,255,.04)",
+          border:
+            "1px solid rgba(255,255,255,.1)",
+          fontSize: 18,
+        }}
+      />
+
+      <button
+        onClick={async () => {
+          if (authMode === "signup") {
+            const { error } =
+              await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                  emailRedirectTo:
+                    "https://coach-board-online1.vercel.app",
+                },
+              });
+
+            if (error) {
+              alert(error.message);
+              return;
+            }
+
+            alert(
+              "Check your email to confirm your account."
+            );
+          } else {
+            const { data, error } =
+              await supabase.auth.signInWithPassword(
+                {
+                  email,
+                  password,
+                }
+              );
+
+            if (error) {
+              alert(error.message);
+              return;
+            }
+
+            if (
+              !data.user?.email_confirmed_at
+            ) {
+              alert(
+                "Please verify your email before logging in."
+              );
+              return;
+            }
+
+            setUser(data.user);
+          }
+        }}
+        style={{
+          width: "100%",
+          padding: 20,
+          borderRadius: 18,
+          background:
+            "linear-gradient(180deg,#ef4444 0%,#b91c1c 100%)",
+          color: "white",
+          border: "none",
+          fontSize: 22,
+          fontWeight: 900,
+          cursor: "pointer",
+          marginBottom: 22,
+          boxShadow:
+            "0 18px 35px rgba(239,68,68,.35)",
+        }}
+      >
+        {authMode === "login"
+          ? "Log In"
+          : "Create Account"}
+      </button>
+
+      <button
+        onClick={() =>
+          setAuthMode(
+            authMode === "login"
+              ? "signup"
+              : "login"
+          )
+        }
+        style={{
+          width: "100%",
+          padding: 18,
+          borderRadius: 18,
+          background: "transparent",
+          color: "white",
+          border:
+            "1px solid rgba(255,255,255,.12)",
+          fontSize: 18,
+          cursor: "pointer",
+        }}
+      >
+        {authMode === "login"
+          ? "Create your CoachBoard account"
+          : "Already have an account? Login"}
+      </button>
+
+      <div
+        style={{
+          marginTop: 38,
+          textAlign: "center",
+          color: "#9ca3af",
+          fontSize: 16,
+        }}
+      >
+        Built for coaches. Designed for{" "}
+        <span
+          style={{
+            color: "#ef4444",
+            fontWeight: 900,
+          }}
+        >
+          champions.
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
   return (
     <div
       style={{
