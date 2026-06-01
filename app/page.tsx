@@ -6222,9 +6222,13 @@ border: "1px solid #374151",
           onClick={async () => {
             if (authMode === "signup") {
               const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-              });
+  email,
+  password,
+  options: {
+    emailRedirectTo:
+      "https://coach-board-online1.vercel.app",
+  },
+});
 
               if (!error) {
                 setUser(data.user);
