@@ -1855,7 +1855,9 @@ const lineStroke = Math.max(0.35, playerPx * 0.018);
     (a, b) => Number(!!a.isSystem) - Number(!!b.isSystem)
   );
 useEffect(() => {
-  const channel = supabase.channel(ROOM_ID);
+  if (!ROOM_ID) return;
+
+const channel = supabase.channel(ROOM_ID);
 
   realtimeChannelRef.current = channel;
 
