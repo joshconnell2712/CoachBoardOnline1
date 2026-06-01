@@ -6603,6 +6603,28 @@ setUser(data.user);
                 }}
               >
                 CoachBoard
+                <button
+  onClick={async () => {
+    await supabase.auth.signOut();
+
+    localStorage.removeItem("coachboard_team_code");
+
+    setUser(null);
+    setTeamCode("");
+  }}
+  style={{
+    marginTop: 12,
+    padding: "10px 14px",
+    borderRadius: 12,
+    background: "#dc2626",
+    color: "white",
+    border: "none",
+    fontWeight: 700,
+    cursor: "pointer",
+  }}
+>
+  Logout
+</button>
               </div>
               <div
                 style={{
