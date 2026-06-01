@@ -6230,9 +6230,17 @@ border: "1px solid #374151",
   },
 });
 
-              if (!error) {
-                setUser(data.user);
-              }
+              if (error) {
+  alert(error.message);
+  return;
+}
+
+if (!data.user?.email_confirmed_at) {
+  alert("Please verify your email before logging in.");
+  return;
+}
+
+setUser(data.user);
             } else {
               const { data, error } =
                 await supabase.auth.signInWithPassword({
