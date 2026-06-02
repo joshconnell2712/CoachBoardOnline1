@@ -6771,13 +6771,15 @@ realtimeChannelRef.current?.send({
       <div style={{ marginTop: 14 }}>
   <button
     onClick={async () => {
-      await supabase.auth.signOut();
+  await supabase.auth.signOut();
 
-      localStorage.removeItem("coachboard_team_code");
+  localStorage.removeItem("coachboard_team_code");
 
-      setTeamCode("");
-      setUser(null);
-    }}
+  setTeamCode("");
+  setUser(null);
+  setEmail("");
+  setPassword("");
+}}
     style={{
       width: "100%",
       padding: "12px 14px",
