@@ -6770,16 +6770,24 @@ realtimeChannelRef.current?.send({
           </div>
       <div style={{ marginTop: 14 }}>
   <button
-    onClick={async () => {
-  await supabase.auth.signOut();
+  type="button"
+  onClick={async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  localStorage.removeItem("coachboard_team_code");
+    await supabase.auth.signOut();
 
-  setTeamCode("");
-  setUser(null);
-  setEmail("");
-  setPassword("");
-}}
+    localStorage.removeItem("coachboard_team_code");
+
+    setTeamCode("");
+    setTeamCodeInput("");
+    setUser(null);
+    setEmail("");
+    setPassword("");
+    setAuthMode("login");
+
+    window.location.reload();
+  }}
     style={{
       width: "100%",
       padding: "12px 14px",
