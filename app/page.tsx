@@ -6174,8 +6174,23 @@ realtimeChannelRef.current?.send({
   const activeFieldHash =
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
+async function handleLogout() {
+  await supabase.auth.signOut();
 
- <div
+  localStorage.removeItem("coachboard_team_code");
+
+  setTeamCode("");
+  setTeamCodeInput("");
+  setUser(null);
+  setEmail("");
+  setPassword("");
+  setAuthMode("login");
+
+  window.location.reload();
+}
+if (!user) {
+  return (
+  <div
   style={{
     minHeight: "100vh",
     background:
