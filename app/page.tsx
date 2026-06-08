@@ -6789,18 +6789,6 @@ if (!user) {
   <button
   type="button"
   onClick={handleLogout}
-
-    localStorage.removeItem("coachboard_team_code");
-
-    setTeamCode("");
-    setTeamCodeInput("");
-    setUser(null);
-    setEmail("");
-    setPassword("");
-    setAuthMode("login");
-
-    window.location.reload();
-  }}
     style={{
       width: "100%",
       padding: "12px 14px",
