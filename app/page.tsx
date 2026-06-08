@@ -6537,6 +6537,8 @@ if (!user) {
     </div>
   </div>
 </div>
+      );
+}
   return (
     <div
       style={{
