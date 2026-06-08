@@ -6771,7 +6771,7 @@ realtimeChannelRef.current?.send({
       <div style={{ marginTop: 14 }}>
   <button
   type="button"
-  onClick={async (e) => {
+  onClick={handleLogout}
     e.preventDefault();
     e.stopPropagation();
 
