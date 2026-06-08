@@ -6789,10 +6789,6 @@ if (!user) {
   <button
   type="button"
   onClick={handleLogout}
-    e.preventDefault();
-    e.stopPropagation();
-
-    await supabase.auth.signOut();
 
     localStorage.removeItem("coachboard_team_code");
 
