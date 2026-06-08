@@ -6204,6 +6204,42 @@ if (!user) {
     fontFamily: "Arial",
   }}
 >
+    <div
+  style={{
+    position: "absolute",
+    inset: 0,
+    backgroundImage:
+      "linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px)",
+    backgroundSize: "60px 60px",
+    opacity: 0.35,
+  }}
+/>
+
+<div
+  style={{
+    position: "absolute",
+    width: 600,
+    height: 600,
+    borderRadius: "50%",
+    background: "rgba(239,68,68,.18)",
+    filter: "blur(140px)",
+    left: -200,
+    top: -150,
+  }}
+/>
+
+<div
+  style={{
+    position: "absolute",
+    width: 600,
+    height: 600,
+    borderRadius: "50%",
+    background: "rgba(220,38,38,.14)",
+    filter: "blur(140px)",
+    right: -200,
+    bottom: -150,
+  }}
+/>
   <div
     style={{
       width: "100%",
