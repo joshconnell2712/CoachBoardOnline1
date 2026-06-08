@@ -22,23 +22,19 @@ body {
 
   .coachboard-login-page {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
   position: relative;
   overflow: hidden;
-
   background:
-    linear-gradient(
-      rgba(0,0,0,.35),
-      rgba(0,0,0,.55)
-    ),
-    url('/login-bg.png');
-
+    linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.65)),
+    url("/login-bg.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 42px;
 }
 
   .coachboard-login-page::before {
