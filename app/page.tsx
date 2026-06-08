@@ -6193,8 +6193,10 @@ if (!user) {
   <div
   style={{
     minHeight: "100vh",
+    position: "relative",
+    overflow: "hidden",
     background:
-      "radial-gradient(circle at top, #111827 0%, #020617 50%, #000000 100%)",
+      "radial-gradient(circle at 20% 20%, rgba(239,68,68,.25), transparent 28%), radial-gradient(circle at 80% 80%, rgba(185,28,28,.18), transparent 30%), linear-gradient(135deg, #020617 0%, #0f172a 45%, #000000 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
