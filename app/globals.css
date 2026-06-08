@@ -20,12 +20,18 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-  .coachboard-login-page {
-  min-height: 100vh;
-  position: relative;
+  html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.coachboard-login-page {
+  height: 100vh;
   overflow: hidden;
-  background:
-    linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.65)),
+  position: relative;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.68)),
     url("/login-bg.png.png");
   background-size: cover;
   background-position: center;
@@ -34,197 +40,209 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 42px;
+  padding: 28px 42px;
 }
 
-
-  .coachboard-login-shell {
+.coachboard-login-shell {
   width: 100%;
   max-width: 1450px;
-
+  max-height: 100vh;
   display: grid;
   grid-template-columns: 1fr 520px;
-
-  gap: 90px;
-
+  gap: 70px;
   align-items: center;
 }
 
+.coachboard-brand-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.coachboard-logo {
+  width: 100%;
+  max-width: 360px;
+  display: block;
+  margin-bottom: 18px;
+  filter: drop-shadow(0 24px 42px rgba(0, 0, 0, 0.55));
+}
+
+.coachboard-brand-side h1 {
+  font-size: 42px;
+  line-height: 1.08;
+  font-weight: 950;
+  margin: 0 0 24px;
+  letter-spacing: -1px;
+}
+
+.coachboard-brand-side h1 span {
+  color: #ef4444;
+}
+
+.coachboard-features {
+  display: grid;
+  gap: 16px;
+}
+
+.coachboard-feature {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.coachboard-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.coachboard-feature h3 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  font-weight: 950;
+}
+
+.coachboard-feature p {
+  margin: 0;
+  color: #d1d5db;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.coachboard-login-card {
+  width: 520px;
+  background: rgba(2, 8, 23, 0.88);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 30px;
+  padding: 42px;
+  box-shadow:
+    0 40px 120px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.coachboard-login-card h2 {
+  text-align: center;
+  font-size: 42px;
+  font-weight: 950;
+  margin: 0 0 8px;
+}
+
+.coachboard-login-card h2 span {
+  color: #ef4444;
+}
+
+.coachboard-subtitle {
+  text-align: center;
+  color: #e5e7eb;
+  font-size: 18px;
+  margin: 0 0 20px;
+}
+
+.coachboard-divider,
+.coachboard-or {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  color: #ef4444;
+  margin: 18px 0 24px;
+}
+
+.coachboard-divider div,
+.coachboard-or div {
+  height: 1px;
+  background: rgba(239, 68, 68, 0.45);
+}
+
+.coachboard-login-card label {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.coachboard-login-card input {
+  width: 100%;
+  padding: 15px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.28);
+  color: white;
+  font-size: 16px;
+  margin-bottom: 18px;
+  outline: none;
+}
+
+.coachboard-login-options {
+  display: flex;
+  justify-content: space-between;
+  color: #e5e7eb;
+  font-size: 15px;
+  margin-bottom: 24px;
+}
+
+.coachboard-login-options span:last-child {
+  color: #ef4444;
+}
+
+.coachboard-login-button {
+  width: 100%;
+  padding: 17px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(180deg, #ff4d4d 0%, #dc2626 100%);
+  color: white;
+  font-size: 21px;
+  font-weight: 950;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.4);
+}
+
+.coachboard-create-button {
+  width: 100%;
+  padding: 15px;
+  border-radius: 14px;
+  border: 2px solid #ef4444;
+  background: transparent;
+  color: white;
+  font-size: 17px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.coachboard-footer {
+  text-align: center;
+  color: #e5e7eb;
+  font-size: 15px;
+  margin: 24px 0 0;
+}
+
+.coachboard-footer span {
+  color: #ef4444;
+  font-weight: 900;
+}
+
+@media (max-width: 1000px) {
+  .coachboard-login-shell {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
   .coachboard-brand-side {
-    padding-left: 20px;
-  }
-
-  .coachboard-logo {
-    width: 100%;
-    max-width: 380px;
-    margin-bottom: 34px;
-    filter: drop-shadow(0 25px 45px rgba(0,0,0,.55));
-  }
-
-  .coachboard-brand-side h1 {
-    font-size: 44px;
-    line-height: 1.12;
-    font-weight: 950;
-    margin: 0 0 34px;
-    letter-spacing: -1px;
-  }
-
-  .coachboard-brand-side h1 span {
-    color: #ef4444;
-  }
-
-  .coachboard-features {
-    display: grid;
-    gap: 28px;
-  }
-
-  .coachboard-feature {
-    display: grid;
-    grid-template-columns: 86px 1fr;
-    gap: 20px;
-    align-items: center;
-  }
-
-  .coachboard-icon {
-    width: 72px;
-    height: 72px;
-    border-radius: 18px;
-    border: 1px solid rgba(255,255,255,.14);
-    background: rgba(255,255,255,.05);
-    color: #ef4444;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 30px;
-    font-weight: 900;
-  }
-
-  .coachboard-feature h3 {
-    margin: 0 0 6px;
-    font-size: 28px;
-    font-weight: 950;
-  }
-
-  .coachboard-feature p {
-    margin: 0;
-    color: #d1d5db;
-    font-size: 18px;
-    line-height: 1.45;
+    display: none;
   }
 
   .coachboard-login-card {
-  width: 520px;
-  background: rgba(8,15,30,.75);
-  backdrop-filter: blur(12px);
-
-  border: 1px solid rgba(255,255,255,.12);
-
-  border-radius: 28px;
-
-  padding: 48px;
-
-  box-shadow:
-    0 30px 80px rgba(0,0,0,.55);
+    width: min(520px, 100%);
+  }
 }
-
-  .coachboard-login-card h2 {
-    text-align: center;
-    font-size: 46px;
-    font-weight: 950;
-    margin: 0 0 12px;
-  }
-
-  .coachboard-login-card h2 span {
-    color: #ef4444;
-  }
-
-  .coachboard-subtitle {
-    text-align: center;
-    color: #e5e7eb;
-    font-size: 20px;
-    margin: 0 0 28px;
-  }
-
-  .coachboard-divider,
-  .coachboard-or {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: 20px;
-    color: #ef4444;
-    margin: 26px 0 34px;
-  }
-
-  .coachboard-divider div,
-  .coachboard-or div {
-    height: 1px;
-    background: rgba(239,68,68,.45);
-  }
-
-  .coachboard-login-card label {
-    display: block;
-    font-size: 18px;
-    font-weight: 800;
-    margin-bottom: 10px;
-  }
-
-  .coachboard-login-card input {
-    width: 100%;
-    padding: 18px 20px;
-    border-radius: 14px;
-    border: 1px solid rgba(255,255,255,.25);
-    background: rgba(0,0,0,.22);
-    color: white;
-    font-size: 18px;
-    margin-bottom: 28px;
-    outline: none;
-  }
-
-  .coachboard-login-options {
-    display: flex;
-    justify-content: space-between;
-    color: #e5e7eb;
-    font-size: 17px;
-    margin-bottom: 32px;
-  }
-
-  .coachboard-login-options span:last-child {
-    color: #ef4444;
-  }
-
-  .coachboard-login-button {
-    width: 100%;
-    padding: 20px;
-    border-radius: 14px;
-    border: none;
-    background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
-    color: white;
-    font-size: 24px;
-    font-weight: 950;
-    cursor: pointer;
-    box-shadow: 0 20px 42px rgba(239,68,68,.35);
-  }
-
-  .coachboard-create-button {
-    width: 100%;
-    padding: 18px;
-    border-radius: 14px;
-    border: 2px solid #ef4444;
-    background: transparent;
-    color: white;
-    font-size: 19px;
-    font-weight: 850;
-    cursor: pointer;
-  }
-
-  .coachboard-footer {
-    text-align: center;
-    color: #e5e7eb;
-    font-size: 17px;
-    margin: 34px 0 0;
-  }
-
-  .coachboard-footer span {
-    color: #ef4444;
-    font-weight: 900;
-  }
