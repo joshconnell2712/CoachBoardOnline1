@@ -6190,393 +6190,151 @@ async function handleLogout() {
 }
 if (!user) {
   return (
-  <div
-  style={{
-    minHeight: "100vh",
-    position: "relative",
-    overflow: "hidden",
-    background:
-      "radial-gradient(circle at 20% 20%, rgba(239,68,68,.25), transparent 28%), radial-gradient(circle at 80% 80%, rgba(185,28,28,.18), transparent 30%), linear-gradient(135deg, #020617 0%, #0f172a 45%, #000000 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 32,
-    fontFamily: "Arial",
-  }}
->
-    <div
-  style={{
-    position: "absolute",
-    inset: 0,
-    backgroundImage:
-      "linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px)",
-    backgroundSize: "60px 60px",
-    opacity: 0.35,
-  }}
-/>
+    <div className="coachboard-login-page">
+      <div className="coachboard-login-bg" />
 
-<div
-  style={{
-    position: "absolute",
-    width: 600,
-    height: 600,
-    borderRadius: "50%",
-    background: "rgba(239,68,68,.18)",
-    filter: "blur(140px)",
-    left: -200,
-    top: -150,
-  }}
-/>
+      <div className="coachboard-login-shell">
+        <section className="coachboard-brand-side">
+          <img
+            src="/coachboard-logo.png"
+            alt="CoachBoard"
+            className="coachboard-logo"
+          />
 
-<div
-  style={{
-    position: "absolute",
-    width: 600,
-    height: 600,
-    borderRadius: "50%",
-    background: "rgba(220,38,38,.14)",
-    filter: "blur(140px)",
-    right: -200,
-    bottom: -150,
-  }}
-/>
-  <div
-    style={{
-      width: "100%",
-      maxWidth: 1450,
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 48,
-      alignItems: "center",
-    }}
-  >
-    {/* LEFT SIDE */}
-    <div
-      style={{
-        color: "white",
-        paddingRight: 20,
-      }}
-    >
-      <img
-        src="/coachboard-logo.png"
-        alt="CoachBoard"
-        style={{
-          width: "100%",
-          maxWidth: 360,
-          marginBottom: 30,
-        }}
-      />
+          <h1>
+            The Ultimate Coaching
+            <br />
+            <span>Whiteboard</span> Platform
+            <br />
+            for Winners.
+          </h1>
 
-      <div
-        style={{
-          fontSize: 58,
-          fontWeight: 900,
-          lineHeight: 1.05,
-          marginBottom: 24,
-        }}
-      >
-        The Ultimate Coaching
-        <br />
-        <span style={{ color: "#ef4444" }}>
-          Whiteboard
-        </span>{" "}
-        Platform
-        <br />
-        for Winners.
-      </div>
+          <div className="coachboard-features">
+            <div className="coachboard-feature">
+              <div className="coachboard-icon">▧</div>
+              <div>
+                <h3>Draw it.</h3>
+                <p>Create plays and strategies with our easy-to-use tools.</p>
+              </div>
+            </div>
 
-      <div
-        style={{
-          display: "grid",
-          gap: 30,
-          marginTop: 36,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: 30,
-              fontWeight: 900,
-              marginBottom: 8,
-            }}
-          >
-            Draw it.
+            <div className="coachboard-feature">
+              <div className="coachboard-icon">↗</div>
+              <div>
+                <h3>Share it.</h3>
+                <p>Share your boards instantly with your team.</p>
+              </div>
+            </div>
+
+            <div className="coachboard-feature">
+              <div className="coachboard-icon">🏆</div>
+              <div>
+                <h3>Win it.</h3>
+                <p>Execute your game plan and achieve victory.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="coachboard-login-card">
+          <h2>
+            Welcome <span>Back</span>
+          </h2>
+
+          <p className="coachboard-subtitle">
+            Log in to your CoachBoard account
+          </p>
+
+          <div className="coachboard-divider">
+            <div />
+            <span>★</span>
+            <div />
           </div>
 
-          <div
-            style={{
-              color: "#9ca3af",
-              fontSize: 19,
-              lineHeight: 1.7,
-            }}
-          >
-            Create formations, concepts,
-            coverages, and game plans with
-            elite coaching tools.
-          </div>
-        </div>
+          <label>Email</label>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Enter your email"
+          />
 
-        <div>
-          <div
-            style={{
-              fontSize: 30,
-              fontWeight: 900,
-              marginBottom: 8,
-            }}
-          >
-            Share it.
+          <label>Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter your password"
+          />
+
+          <div className="coachboard-login-options">
+            <span>☐ Remember me</span>
+            <span>Forgot password?</span>
           </div>
 
-          <div
-            style={{
-              color: "#9ca3af",
-              fontSize: 19,
-              lineHeight: 1.7,
-            }}
-          >
-            Collaborate live with your staff
-            in real time from anywhere.
-          </div>
-        </div>
-
-        <div>
-          <div
-            style={{
-              fontSize: 30,
-              fontWeight: 900,
-              marginBottom: 8,
-            }}
-          >
-            Win it.
-          </div>
-
-          <div
-            style={{
-              color: "#9ca3af",
-              fontSize: 19,
-              lineHeight: 1.7,
-            }}
-          >
-            Build championship-level systems
-            and strategy together.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* RIGHT SIDE */}
-    <div
-      style={{
-        background: "rgba(15,23,42,.88)",
-        borderRadius: 34,
-        padding: 52,
-        border: "1px solid rgba(255,255,255,.08)",
-        backdropFilter: "blur(18px)",
-        boxShadow:
-          "0 25px 80px rgba(0,0,0,.55)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: 58,
-          fontWeight: 900,
-          color: "white",
-          marginBottom: 10,
-        }}
-      >
-        Welcome{" "}
-        <span style={{ color: "#ef4444" }}>
-          Back
-        </span>
-      </div>
-
-      <div
-        style={{
-          color: "#9ca3af",
-          fontSize: 20,
-          marginBottom: 40,
-        }}
-      >
-        Log in to your CoachBoard account
-      </div>
-
-      <div
-        style={{
-          color: "white",
-          fontWeight: 700,
-          marginBottom: 10,
-          fontSize: 18,
-        }}
-      >
-        Email
-      </div>
-
-      <input
-        value={email}
-        onChange={(e) =>
-          setEmail(e.target.value)
-        }
-        placeholder="Enter your email"
-        style={{
-          width: "100%",
-          padding: 18,
-          borderRadius: 18,
-          marginBottom: 28,
-          color: "white",
-          background: "rgba(255,255,255,.04)",
-          border:
-            "1px solid rgba(255,255,255,.1)",
-          fontSize: 18,
-        }}
-      />
-
-      <div
-        style={{
-          color: "white",
-          fontWeight: 700,
-          marginBottom: 10,
-          fontSize: 18,
-        }}
-      >
-        Password
-      </div>
-
-      <input
-        type="password"
-        value={password}
-        onChange={(e) =>
-          setPassword(e.target.value)
-        }
-        placeholder="Enter your password"
-        style={{
-          width: "100%",
-          padding: 18,
-          borderRadius: 18,
-          marginBottom: 36,
-          color: "white",
-          background: "rgba(255,255,255,.04)",
-          border:
-            "1px solid rgba(255,255,255,.1)",
-          fontSize: 18,
-        }}
-      />
-
-      <button
-        onClick={async () => {
-          if (authMode === "signup") {
-            const { error } =
-              await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                  emailRedirectTo:
-                    "https://coach-board-online1.vercel.app",
-                },
-              });
-
-            if (error) {
-              alert(error.message);
-              return;
-            }
-
-            alert(
-              "Check your email to confirm your account."
-            );
-          } else {
-            const { data, error } =
-              await supabase.auth.signInWithPassword(
-                {
+          <button
+            className="coachboard-login-button"
+            onClick={async () => {
+              if (authMode === "signup") {
+                const { error } = await supabase.auth.signUp({
                   email,
                   password,
+                  options: {
+                    emailRedirectTo:
+                      "https://coach-board-online1.vercel.app",
+                  },
+                });
+
+                if (error) {
+                  alert(error.message);
+                  return;
                 }
-              );
 
-            if (error) {
-              alert(error.message);
-              return;
+                alert("Check your email to confirm your account.");
+              } else {
+                const { data, error } =
+                  await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                  });
+
+                if (error) {
+                  alert(error.message);
+                  return;
+                }
+
+                setUser(data.user);
+              }
+            }}
+          >
+            {authMode === "login" ? "Log In →" : "Create Account →"}
+          </button>
+
+          <div className="coachboard-or">
+            <div />
+            <span>or</span>
+            <div />
+          </div>
+
+          <button
+            className="coachboard-create-button"
+            onClick={() =>
+              setAuthMode(authMode === "login" ? "signup" : "login")
             }
+          >
+            {authMode === "login"
+              ? "Create your CoachBoard account"
+              : "Already have an account? Login"}
+          </button>
 
-            if (
-              !data.user?.email_confirmed_at
-            ) {
-              alert(
-                "Please verify your email before logging in."
-              );
-              return;
-            }
-
-            setUser(data.user);
-          }
-        }}
-        style={{
-          width: "100%",
-          padding: 20,
-          borderRadius: 18,
-          background:
-            "linear-gradient(180deg,#ef4444 0%,#b91c1c 100%)",
-          color: "white",
-          border: "none",
-          fontSize: 22,
-          fontWeight: 900,
-          cursor: "pointer",
-          marginBottom: 22,
-          boxShadow:
-            "0 18px 35px rgba(239,68,68,.35)",
-        }}
-      >
-        {authMode === "login"
-          ? "Log In"
-          : "Create Account"}
-      </button>
-
-      <button
-        onClick={() =>
-          setAuthMode(
-            authMode === "login"
-              ? "signup"
-              : "login"
-          )
-        }
-        style={{
-          width: "100%",
-          padding: 18,
-          borderRadius: 18,
-          background: "transparent",
-          color: "white",
-          border:
-            "1px solid rgba(255,255,255,.12)",
-          fontSize: 18,
-          cursor: "pointer",
-        }}
-      >
-        {authMode === "login"
-          ? "Create your CoachBoard account"
-          : "Already have an account? Login"}
-      </button>
-
-      <div
-        style={{
-          marginTop: 38,
-          textAlign: "center",
-          color: "#9ca3af",
-          fontSize: 16,
-        }}
-      >
-        Built for coaches. Designed for{" "}
-        <span
-          style={{
-            color: "#ef4444",
-            fontWeight: 900,
-          }}
-        >
-          champions.
-        </span>
+          <p className="coachboard-footer">
+            Built for coaches. Designed for <span>champions.</span>
+          </p>
+        </section>
       </div>
     </div>
-  </div>
-</div>
-      );
+  );
 }
+
   return (
     <div
       style={{
