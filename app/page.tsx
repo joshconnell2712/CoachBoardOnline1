@@ -1547,9 +1547,9 @@ function buildDefensivePackageLines(
 }
 
 const cardStyle: React.CSSProperties = {
-  background:
-    "linear-gradient(180deg, rgba(17,18,24,.96) 0%, rgba(6,8,13,.98) 100%)",
-  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(2, 8, 23, 0.78)",
+backdropFilter: "blur(18px)",
+  border: "1px solid rgba(255,255,255,.10)",
   borderRadius: 22,
   boxShadow:
     "0 18px 48px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05)",
