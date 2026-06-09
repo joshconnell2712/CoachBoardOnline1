@@ -6211,7 +6211,14 @@ if (!user) {
 
           <div className="coachboard-features">
             <div className="coachboard-feature">
-              <div className="coachboard-icon">▧</div>
+              <div className="feature-icon">
+  <img
+    src="/clipboard.svg"
+    alt="Draw"
+    width="28"
+    height="28"
+  />
+</div>
               <div>
                 <h3>Draw it.</h3>
                 <p>Create plays and strategies with our easy-to-use tools.</p>
@@ -6219,7 +6226,14 @@ if (!user) {
             </div>
 
             <div className="coachboard-feature">
-              <div className="coachboard-icon">↗</div>
+              <div className="feature-icon">
+  <img
+    src="/share.svg"
+    alt="Share"
+    width="28"
+    height="28"
+  />
+</div>
               <div>
                 <h3>Share it.</h3>
                 <p>Share your boards instantly with your team.</p>
@@ -6227,7 +6241,14 @@ if (!user) {
             </div>
 
             <div className="coachboard-feature">
-              <div className="coachboard-icon">🏆</div>
+              <div className="feature-icon">
+  <img
+    src="/trophy.svg"
+    alt="Win"
+    width="28"
+    height="28"
+  />
+</div>
               <div>
                 <h3>Win it.</h3>
                 <p>Execute your game plan and achieve victory.</p>
