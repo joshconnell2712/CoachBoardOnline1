@@ -6384,13 +6384,14 @@ if (!user) {
 }
 
   return (
-    <div
+   <div
   className="coachboard-app-background"
   style={{
     color: "white",
     padding: 18,
     fontFamily: "Arial",
   }}
+>
       onPointerMove={(e) => {
         updateDraggedPlayer(e.clientX, e.clientY);
         updateDrawing(e.clientX, e.clientY);
