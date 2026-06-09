@@ -1553,7 +1553,6 @@ backdropFilter: "blur(18px)",
   borderRadius: 22,
   boxShadow:
     "0 18px 48px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05)",
-  backdropFilter: "blur(14px)",
 };
 
 const panelHeaderStyle: React.CSSProperties = {
