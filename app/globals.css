@@ -229,3 +229,15 @@ body {
   color: #ef4444;
   font-weight: 900;
 }
+.coachboard-app-background {
+  background-image:
+    linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.55)),
+    url("/login-bg.png");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+
+  min-height: 100vh;
+}
