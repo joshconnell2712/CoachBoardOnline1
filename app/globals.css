@@ -45,29 +45,29 @@ body {
 
 .coachboard-login-shell {
   width: 100%;
-  max-width: 1320px;
+  max-width: 1180px;
   height: calc(100vh - 36px);
   display: grid;
-  grid-template-columns: 470px 560px;
-  gap: 90px;
+  grid-template-columns: 380px 500px;
+  gap: 70px;
   align-items: center;
   justify-content: center;
 }
 
 .coachboard-logo {
   width: 100%;
-  max-width: 395px;
+  max-width: 300px;
   display: block;
-  margin: 0 0 18px;
-  filter: drop-shadow(0 24px 44px rgba(0, 0, 0, 0.65));
+  margin: 0 0 14px;
+  filter: drop-shadow(0 20px 36px rgba(0, 0, 0, 0.65));
 }
 
 .coachboard-brand-side h1 {
-  font-size: 31px;
-  line-height: 1.18;
+  font-size: 24px;
+  line-height: 1.16;
   font-weight: 950;
-  margin: 0 0 24px;
-  letter-spacing: -0.7px;
+  margin: 0 0 18px;
+  letter-spacing: -0.5px;
 }
 
 .coachboard-brand-side h1 span {
@@ -76,51 +76,51 @@ body {
 
 .coachboard-features {
   display: grid;
-  gap: 20px;
+  gap: 14px;
 }
 
 .coachboard-feature {
   display: grid;
-  grid-template-columns: 76px 1fr;
-  gap: 18px;
+  grid-template-columns: 58px 1fr;
+  gap: 14px;
   align-items: center;
 }
 
 .coachboard-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.055);
   color: #ef4444;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 18px;
   font-weight: 900;
 }
 
 .coachboard-feature h3 {
-  margin: 0 0 5px;
-  font-size: 22px;
+  margin: 0 0 4px;
+  font-size: 18px;
   font-weight: 950;
 }
 
 .coachboard-feature p {
   margin: 0;
   color: #e5e7eb;
-  font-size: 15px;
-  line-height: 1.38;
+  font-size: 13px;
+  line-height: 1.32;
 }
 
 .coachboard-login-card {
-  width: 560px;
+  width: 500px;
   box-sizing: border-box;
   background: rgba(2, 8, 23, 0.78);
   backdrop-filter: blur(18px);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 30px;
-  padding: 42px 46px;
+  padding: 34px 38px;
   box-shadow:
     0 40px 120px rgba(0, 0, 0, 0.68),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -128,10 +128,10 @@ body {
 
 .coachboard-login-card h2 {
   text-align: center;
-  font-size: 38px;
+  font-size: 34px;
   line-height: 1;
   font-weight: 950;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
 }
 
 .coachboard-login-card h2 span {
@@ -141,8 +141,8 @@ body {
 .coachboard-subtitle {
   text-align: center;
   color: #e5e7eb;
-  font-size: 17px;
-  margin: 0 0 26px;
+  font-size: 15px;
+  margin: 0 0 20px;
 }
 
 .coachboard-divider,
@@ -150,9 +150,9 @@ body {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   color: #ef4444;
-  margin: 16px 0 26px;
+  margin: 14px 0 20px;
 }
 
 .coachboard-divider div,
@@ -163,21 +163,21 @@ body {
 
 .coachboard-login-card label {
   display: block;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 850;
-  margin-bottom: 9px;
+  margin-bottom: 7px;
 }
 
 .coachboard-login-card input {
   width: 100%;
   box-sizing: border-box;
-  padding: 15px 18px;
-  border-radius: 14px;
+  padding: 10px 14px;
+  border-radius: 13px;
   border: 1px solid rgba(255, 255, 255, 0.24);
   background: rgba(0, 0, 0, 0.25);
   color: white;
-  font-size: 16px;
-  margin-bottom: 22px;
+  font-size: 14px;
+  margin-bottom: 16px;
   outline: none;
 }
 
@@ -185,8 +185,8 @@ body {
   display: flex;
   justify-content: space-between;
   color: #e5e7eb;
-  font-size: 15px;
-  margin-bottom: 24px;
+  font-size: 13px;
+  margin-bottom: 18px;
 }
 
 .coachboard-login-options span:last-child {
@@ -195,12 +195,12 @@ body {
 
 .coachboard-login-button {
   width: 100%;
-  padding: 17px;
+  padding: 13px;
   border-radius: 14px;
   border: none;
   background: linear-gradient(180deg, #ff4d4d 0%, #dc2626 100%);
   color: white;
-  font-size: 21px;
+  font-size: 18px;
   font-weight: 950;
   cursor: pointer;
   box-shadow: 0 0 32px rgba(239, 68, 68, 0.42);
@@ -208,12 +208,12 @@ body {
 
 .coachboard-create-button {
   width: 100%;
-  padding: 16px;
+  padding: 12px;
   border-radius: 14px;
   border: 2px solid #ef4444;
   background: transparent;
   color: white;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 850;
   cursor: pointer;
 }
@@ -221,8 +221,8 @@ body {
 .coachboard-footer {
   text-align: center;
   color: #e5e7eb;
-  font-size: 15px;
-  margin: 24px 0 0;
+  font-size: 13px;
+  margin: 18px 0 0;
 }
 
 .coachboard-footer span {
