@@ -6288,40 +6288,37 @@ if (!user) {
           />
 
           <div className="coachboard-login-options">
-            <button
-  type="button"
-  onClick={async () => {
-    if (!email) {
-      alert("Enter your email first.");
-      return;
-    }
+  <button
+    type="button"
+    onClick={async () => {
+      if (!email) {
+        alert("Enter your email first.");
+        return;
+      }
 
-    const { error } =
-      await supabase.auth.resetPasswordForEmail(
-        email,
-        {
-          redirectTo:
-            "https://coach-board-online1.vercel.app",
-        }
-      );
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: "https://coach-board-online1.vercel.app",
+      });
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+      if (error) {
+        alert(error.message);
+        return;
+      }
 
-    alert("Password reset email sent.");
-  }}
-  style={{
-    background: "none",
-    border: "none",
-    color: "#ef4444",
-    cursor: "pointer",
-    fontWeight: 700,
-  }}
->
-  Forgot password?
-</button>
+      alert("Password reset email sent.");
+    }}
+    style={{
+      background: "none",
+      border: "none",
+      color: "#ef4444",
+      cursor: "pointer",
+      fontWeight: 700,
+      padding: 0,
+    }}
+  >
+    Forgot password?
+  </button>
+</div>
 
           <button
             className="coachboard-login-button"
