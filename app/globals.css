@@ -26,23 +26,26 @@ body {
   padding: 0;
 }
 
-.coachboard-login-page {
-  height: 100vh;
-  overflow: hidden;
+.coachboard-app-background {
+  min-height: 100vh;
   position: relative;
+  isolation: isolate;
+}
+
+.coachboard-app-background::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+
   background-image:
-    linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.45)),
-    url("/login-bg.png.png");
+    linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.65)),
+    url("/login-bg.png");
+
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px 42px;
 }
-
 .coachboard-login-shell {
   width: 100%;
   max-width: 1180px;
