@@ -33,7 +33,7 @@ body {
 
   background-image:
     linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.68)),
-    url("/login-bg.png");
+    url("/login-bg.png.png");
 
   background-size: cover;
   background-position: center;
