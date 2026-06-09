@@ -6386,14 +6386,12 @@ if (!user) {
 
   return (
     <div
-      style={{
-        minHeight: "100vh",
-        background:
-          "radial-gradient(circle at top, rgba(127,29,29,.22) 0%, rgba(3,7,18,1) 42%, #000 100%)",
-        color: "white",
-        padding: 18,
-        fontFamily: "Arial",
-      }}
+  className="coachboard-app-background"
+  style={{
+    color: "white",
+    padding: 18,
+    fontFamily: "Arial",
+  }}
       onPointerMove={(e) => {
         updateDraggedPlayer(e.clientX, e.clientY);
         updateDrawing(e.clientX, e.clientY);
