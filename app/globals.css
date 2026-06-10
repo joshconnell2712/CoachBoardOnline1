@@ -31,21 +31,6 @@ body {
   position: relative;
   isolation: isolate;
 }
-
-.coachboard-app-background::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-
-  background-image:
-    linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.65)),
-    url("/login-bg.png.png");
-
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
 .coachboard-login-shell {
   width: 100%;
   max-width: 1180px;
@@ -232,11 +217,12 @@ body {
   color: #ef4444;
   font-weight: 900;
 }
+.coachboard-login-page,
 .coachboard-app-background {
   min-height: 100vh;
 
   background-image:
-    linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.55)),
+    linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.60)),
     url("/login-bg.png.png") !important;
 
   background-size: cover !important;
