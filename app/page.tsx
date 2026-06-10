@@ -6610,42 +6610,7 @@ if (!user) {
               setShowPlaybooks(false);
               setShowGamePlan(false);
             }}
-          >
-            
-            Team Setup
-          </button>
-          <div
-            style={{
-              marginTop: "auto",
-              color: "#9ca3af",
-              fontSize: 11,
-              lineHeight: 1.7,
-              letterSpacing: ".08em",
-              textTransform: "uppercase",
-            }}
-          >
-            <div style={{ color: "#ef4444", fontWeight: 900 }}>CoachBoard</div>
-            <div>Draw it.</div>
-            <div>Share it.</div>
-            <div>Win it.</div>
-          </div>
-      <div style={{ marginTop: 14 }}>
-  <button
-  type="button"
-  onClick={handleLogout}
-    style={{
-      width: "100%",
-      padding: "12px 14px",
-      borderRadius: 14,
-      background: "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)",
-      color: "white",
-      border: "1px solid rgba(248,113,113,.55)",
-      fontWeight: 900,
-      cursor: "pointer",
-      marginTop: 12,
-    }}
-  >
-     <div style={{ marginTop: 14 }}>
+          <div style={{ marginTop: 14 }}>
   <div
     style={{
       fontSize: 12,
@@ -6713,6 +6678,40 @@ if (!user) {
     </button>
   )}
 </div>
+            
+            Team Setup
+          </button>
+          <div
+            style={{
+              marginTop: "auto",
+              color: "#9ca3af",
+              fontSize: 11,
+              lineHeight: 1.7,
+              letterSpacing: ".08em",
+              textTransform: "uppercase",
+            }}
+          >
+            <div style={{ color: "#ef4444", fontWeight: 900 }}>CoachBoard</div>
+            <div>Draw it.</div>
+            <div>Share it.</div>
+            <div>Win it.</div>
+          </div>
+      <div style={{ marginTop: 14 }}>
+  <button
+  type="button"
+  onClick={handleLogout}
+    style={{
+      width: "100%",
+      padding: "12px 14px",
+      borderRadius: 14,
+      background: "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)",
+      color: "white",
+      border: "1px solid rgba(248,113,113,.55)",
+      fontWeight: 900,
+      cursor: "pointer",
+      marginTop: 12,
+    }}
+  >
     Logout
   </button>
 </div>
