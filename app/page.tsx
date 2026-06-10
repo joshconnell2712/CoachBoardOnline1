@@ -6597,6 +6597,19 @@ if (!user) {
               color: "white",
               padding: "8px",
             }}
+            
+            onClick={() => {
+              const next = !showTeamSetup;
+              setShowTeamSetup(next);
+              setShowCreateOffenseSet(false);
+              setShowManageOffenseSets(false);
+              setShowCreatePlay(false);
+              setShowManagePlays(false);
+              setShowCreateConcept(false);
+              setShowManageConcepts(false);
+              setShowPlaybooks(false);
+              setShowGamePlan(false);
+            }}
             <div style={{ marginTop: 14 }}>
   <div
     style={{
@@ -6665,18 +6678,6 @@ if (!user) {
     </button>
   )}
 </div>
-            onClick={() => {
-              const next = !showTeamSetup;
-              setShowTeamSetup(next);
-              setShowCreateOffenseSet(false);
-              setShowManageOffenseSets(false);
-              setShowCreatePlay(false);
-              setShowManagePlays(false);
-              setShowCreateConcept(false);
-              setShowManageConcepts(false);
-              setShowPlaybooks(false);
-              setShowGamePlan(false);
-            }}
           >
             
             Team Setup
