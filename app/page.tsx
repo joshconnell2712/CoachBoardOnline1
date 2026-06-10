@@ -6391,7 +6391,6 @@ if (!user) {
     padding: 18,
     fontFamily: "Arial",
   }}
->
       onPointerMove={(e) => {
         updateDraggedPlayer(e.clientX, e.clientY);
         updateDrawing(e.clientX, e.clientY);
