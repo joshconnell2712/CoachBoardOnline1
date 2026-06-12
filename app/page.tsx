@@ -1671,6 +1671,13 @@ function CoachBoardWebApp() {
 const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
 const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [showGamedayRoom, setShowGamedayRoom] = useState(false);
+
+const [coachName, setCoachName] = useState(
+  localStorage.getItem("coachboard_coach_name") || ""
+);
+
+const [roomMembers, setRoomMembers] = useState<string[]>([]);
 
   const ROOM_ID = user
   ? teamCode
