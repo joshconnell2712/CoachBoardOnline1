@@ -9929,7 +9929,6 @@ realtimeChannelRef.current?.send({
           </div>
         )}
       </div>
-    </div>
              {showGamedayRoom && (
   <div
     style={{
