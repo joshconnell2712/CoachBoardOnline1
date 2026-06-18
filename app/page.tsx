@@ -9929,8 +9929,7 @@ realtimeChannelRef.current?.send({
             {playerPanelContent}
           </div>
         )}
-      </div>
-        </div>        
+      </div>       
   );
 }  
 
