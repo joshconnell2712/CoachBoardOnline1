@@ -9994,7 +9994,7 @@ realtimeChannelRef.current?.send({
     </div>
   </div>
 )}
-      </div>
+      </>
   );
 }  
 
