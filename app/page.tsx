@@ -6607,63 +6607,18 @@ if (!user) {
       marginBottom: 8,
     }}
   >
-    Gameday Room
-  </div>
-
-  <input
-    value={teamCodeInput}
-    onChange={(e) => setTeamCodeInput(e.target.value)}
-    placeholder="Enter team code"
-    style={{
-      width: "100%",
-      padding: 10,
-      borderRadius: 10,
-      marginBottom: 8,
-      color: "black",
-    }}
-  />
-
-  <button
-    onClick={() => {
-      const cleaned = teamCodeInput.trim().toLowerCase().replace(/\s+/g, "-");
-      if (!cleaned) return;
-
-      localStorage.setItem("coachboard_team_code", cleaned);
-      setTeamCode(cleaned);
-    }}
-    style={{
-      width: "100%",
-      padding: 10,
-      borderRadius: 10,
-      fontWeight: 900,
-      background: "#dc2626",
-      color: "white",
-      border: "none",
-      cursor: "pointer",
-    }}
-  >
-    Join Gameday Room
-  </button>
-
-  {teamCode && (
-    <button
-      onClick={() => {
-        localStorage.removeItem("coachboard_team_code");
-        setTeamCode("");
-        setTeamCodeInput("");
-      }}
-      style={{
-        width: "100%",
-        padding: 10,
-        borderRadius: 10,
-        marginTop: 8,
-        fontWeight: 900,
-      }}
-    >
-      Leave Gameday Room
-    </button>
-  )}
-</div>
+   <button
+  style={{
+    ...buttonBase,
+    width: "100%",
+    background: teamCode ? "#dc2626" : "#090b10",
+    color: "white",
+    padding: "8px",
+  }}
+  onClick={() => setShowGamedayRoom(true)}
+>
+  Gameday Room
+</button>
           <button
             style={{
               ...buttonBase,
