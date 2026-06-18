@@ -9930,6 +9930,11 @@ realtimeChannelRef.current?.send({
         )}
       </div>
     </div>
+              {showGamedayRoom && (
+        // popup code here
+      )}
+
+    </div>
   );
 }  
 
