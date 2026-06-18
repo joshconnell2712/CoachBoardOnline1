@@ -6391,6 +6391,7 @@ if (!user) {
 }
 
   return (
+    <>
    <div
   className="coachboard-app-background"
   style={{
