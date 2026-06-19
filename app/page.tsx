@@ -1691,10 +1691,21 @@ function cleanTeamCode(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
 }
 
+function getCoachDisplayName(user: User | null) {
+  const profileName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")[0] ||
+    "Unknown Coach";
+
+  return profileName.toLowerCase().startsWith("coach:")
+    ? profileName
+    : `Coach: ${profileName}`;
+}
+
 function CoachBoardWebApp() {
   const [teamCode, setTeamCode] = useState("");
   const [teamCodeInput, setTeamCodeInput] = useState("");
-  const [coachName, setCoachName] = useState("");
   const [roomCoaches, setRoomCoaches] = useState<RoomCoach[]>([]);
   const [showGamedayRoom, setShowGamedayRoom] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -1888,7 +1899,7 @@ const lineStroke = Math.max(0.35, playerPx * 0.018);
     (a, b) => Number(!!a.isSystem) - Number(!!b.isSystem)
   );
 useEffect(() => {
-  if (!ROOM_ID || !user || !coachName.trim()) return;
+  if (!ROOM_ID || !user) return;
 
   const channel = supabase.channel(ROOM_ID, {
     config: {
@@ -1973,7 +1984,7 @@ useEffect(() => {
     if (status === "SUBSCRIBED") {
       await channel.track({
         userId: user.id,
-        name: coachName.trim(),
+        name: getCoachDisplayName(user),
         joinedAt: new Date().toISOString(),
       });
     }
@@ -1984,19 +1995,14 @@ useEffect(() => {
     setRoomCoaches([]);
     supabase.removeChannel(channel);
   };
-}, [ROOM_ID, user, coachName]);
+}, [ROOM_ID, user]);
 
 useEffect(() => {
   const savedCode = localStorage.getItem("coachboard_team_code");
-  const savedName = localStorage.getItem("coachboard_coach_name");
 
   if (savedCode) {
     setTeamCode(savedCode);
     setTeamCodeInput(savedCode);
-  }
-
-  if (savedName) {
-    setCoachName(savedName);
   }
 }, []);
   useEffect(() => {
@@ -6238,7 +6244,6 @@ async function handleLogout() {
 
   setTeamCode("");
   setTeamCodeInput("");
-  setCoachName("");
   setRoomCoaches([]);
   setUser(null);
   setEmail("");
@@ -6501,18 +6506,9 @@ if (!user) {
               {teamCode ? `Room Code: ${teamCode}` : "Create or Join a Room"}
             </div>
 
-            <input
-              value={coachName}
-              onChange={(e) => setCoachName(e.target.value)}
-              placeholder="Your name"
-              style={{
-                padding: 12,
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,.15)",
-                color: "black",
-                fontWeight: 800,
-              }}
-            />
+            <div style={{ color: "#d1d5db", fontSize: 13, fontWeight: 800 }}>
+              You will appear as {getCoachDisplayName(user)}.
+            </div>
 
             <input
               value={teamCodeInput}
@@ -6530,21 +6526,17 @@ if (!user) {
 
             <button
               onClick={() => {
-                const cleanedName = coachName.trim();
-
-                if (!cleanedName) {
-                  alert("Enter your name first.");
+                if (!user) {
+                  alert("Sign in before creating a Gameday Room.");
                   return;
                 }
 
                 const newCode = generateTeamCode();
 
                 localStorage.setItem("coachboard_team_code", newCode);
-                localStorage.setItem("coachboard_coach_name", cleanedName);
 
                 setTeamCode(newCode);
                 setTeamCodeInput(newCode);
-                setCoachName(cleanedName);
               }}
               style={{
                 ...buttonBase,
@@ -6557,11 +6549,10 @@ if (!user) {
 
             <button
               onClick={() => {
-                const cleanedName = coachName.trim();
                 const cleanedCode = cleanTeamCode(teamCodeInput);
 
-                if (!cleanedName) {
-                  alert("Enter your name first.");
+                if (!user) {
+                  alert("Sign in before joining a Gameday Room.");
                   return;
                 }
 
@@ -6571,11 +6562,9 @@ if (!user) {
                 }
 
                 localStorage.setItem("coachboard_team_code", cleanedCode);
-                localStorage.setItem("coachboard_coach_name", cleanedName);
 
                 setTeamCode(cleanedCode);
                 setTeamCodeInput(cleanedCode);
-                setCoachName(cleanedName);
               }}
               style={{
                 ...buttonBase,
@@ -6620,6 +6609,7 @@ if (!user) {
                 <button
                   onClick={() => {
                     localStorage.removeItem("coachboard_team_code");
+                    localStorage.removeItem("coachboard_coach_name");
                     setTeamCode("");
                     setTeamCodeInput("");
                     setRoomCoaches([]);
