@@ -6266,10 +6266,39 @@ async function handleLogout() {
 }
 if (!user) {
   return (
-    <div className="coachboard-login-page">
-      <div className="coachboard-login-bg" />
+    <div
+      className="coachboard-login-page"
+      style={{
+        position: "relative",
+        minHeight: "100svh",
+        overflowX: "hidden",
+        backgroundColor: "#050505",
+      }}
+    >
+      <div
+        className="coachboard-login-bg"
+        style={{
+          position: "fixed",
+          inset: 0,
+          width: "100%",
+          height: "100svh",
+          minHeight: "100svh",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      />
 
-      <div className="coachboard-login-shell">
+      <div
+        className="coachboard-login-shell"
+        style={{
+          position: "relative",
+          zIndex: 1,
+          minHeight: "100svh",
+        }}
+      >
         <section className="coachboard-brand-side">
           <img
             src="/coachboard-logo.png"
