@@ -1646,7 +1646,7 @@ function SmallButton({
     <button
       onClick={onClick}
       style={{
-        .....buttonBase,
+        ...buttonBase,
         background: active
           ? "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)"
           : "linear-gradient(180deg, rgba(31,41,55,.92) 0%, rgba(12,16,23,.95) 100%)",
