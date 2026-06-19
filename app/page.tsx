@@ -1269,7 +1269,7 @@ function findSharpBreakPoint(points: FieldPoint[]) {
   // If the drawn shape closely fits two straight segments, treat it as a straight break.
   // If not, keep it as a rounded/curved freehand route.
   const allowedError = Math.max(1.15, totalLength * 0.065);
-  return best.error <= allowedError ? best...point : null;
+  return best.error <= allowedError ? best.point : null;
 }
 
 function cleanDrawnPoints(points: FieldPoint[]) {
