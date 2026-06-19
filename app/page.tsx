@@ -1269,7 +1269,7 @@ function findSharpBreakPoint(points: FieldPoint[]) {
   // If the drawn shape closely fits two straight segments, treat it as a straight break.
   // If not, keep it as a rounded/curved freehand route.
   const allowedError = Math.max(1.15, totalLength * 0.065);
-  return best.error <= allowedError ? best.point : null;
+  return best.error <= allowedError ? best...point : null;
 }
 
 function cleanDrawnPoints(points: FieldPoint[]) {
@@ -1646,7 +1646,7 @@ function SmallButton({
     <button
       onClick={onClick}
       style={{
-        ...buttonBase,
+        .....buttonBase,
         background: active
           ? "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)"
           : "linear-gradient(180deg, rgba(31,41,55,.92) 0%, rgba(12,16,23,.95) 100%)",
@@ -1873,7 +1873,7 @@ useEffect(() => {
 
 const channel = supabase.channel(ROOM_ID);
 
-  realtimeChannelRef.current = channel;
+  realtimeChannelRef...current = channel;
 
   channel.on("broadcast", { event: "board-event" }, ({ payload }) => {
     if (payload.type === "SET_DRAWN_LINES") {
@@ -1898,7 +1898,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
     if (payload.type === "SET_BOARD_STATE") {
   setDrawnLines(payload.drawnLines);
   setRoutes(payload.routes);
-  setZoneAssignments(payload.zoneAssignments);
+  setZoneAssignments(payload...zoneAssignments);
       setManAssignments(payload.manAssignments);
 }
     
@@ -1915,7 +1915,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
     }
 
     if (payload.type === "SET_ZONES") {
-      setZoneAssignments(payload.zoneAssignments);
+      setZoneAssignments(payload...zoneAssignments);
     }
 
     if (payload.type === "SET_TEAM_SETUP") {
@@ -1938,7 +1938,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
   });
 
   return () => {
-    realtimeChannelRef.current = null;
+    realtimeChannelRef...current = null;
     supabase.removeChannel(channel);
   };
 }, [ROOM_ID]);
@@ -1977,13 +1977,13 @@ if (payload.type === "SET_SELECTED_SIDE") {
 
   const nextZones = zoneAssignments.map((zone) =>
     zone.id === selectedZoneId
-      ? { ...zone, radius: clampedRadius }
+      ? { .....zone, radius: clampedRadius }
       : zone
   );
 
   setZoneAssignments(nextZones);
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -2008,7 +2008,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
   function cloneDrawnLinesForHistory(lines: DrawLine[]) {
     return lines.map((line) => ({
       ...line,
-      points: line.points.map((point) => ({ ...point })),
+      points: line...points.map((point) => ({ .....point })),
     }));
   }
 
@@ -2017,12 +2017,12 @@ if (payload.type === "SET_SELECTED_SIDE") {
   }
 
   function cloneZonesForHistory(zones: CustomZoneAssignment[]) {
-    return zones.map((zone) => ({ ...zone }));
+    return zones.map((zone) => ({ .....zone }));
   }
 
   function pushUndoSnapshot() {
     setUndoStack((current) => [
-      ...current.slice(-24),
+      .....current.slice(-24),
       {
         drawnLines: cloneDrawnLinesForHistory(drawnLines),
         routes: cloneRoutesForHistory(routes),
@@ -2039,14 +2039,14 @@ if (payload.type === "SET_SELECTED_SIDE") {
 
     const nextLines = cloneDrawnLinesForHistory(snapshot.drawnLines);
     const nextRoutes = cloneRoutesForHistory(snapshot.routes);
-    const nextZones = cloneZonesForHistory(snapshot.zoneAssignments);
+    const nextZones = cloneZonesForHistory(snapshot...zoneAssignments);
 
     setDrawnLines(nextLines);
     setRoutes(nextRoutes);
     setZoneAssignments(nextZones);
     setManAssignments({ ...snapshot.manAssignments });
 
-    realtimeChannelRef.current?.send({
+    realtimeChannelRef...current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -2085,7 +2085,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
 
   setDrawnLines(nextLines);
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -2114,7 +2114,7 @@ if (selectedFieldItem.type === "man") {
 
   setManAssignments(nextAssignments);
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -2461,7 +2461,7 @@ if (selectedFieldItem.type === "man") {
     const weakSide: "left" | "right" = strength === "right" ? "left" : "right";
 
     return {
-      ...base,
+      .......base,
       leftThreats,
       rightThreats,
       tripsSide,
@@ -3291,7 +3291,7 @@ if (selectedFieldItem.type === "man") {
     fieldYFromYards(displayYardsFromCanonical(yardsFromGoal));
 
   const displayPoint = (point: FieldPoint): FieldPoint => ({
-    ...point,
+    .....point,
     y: fieldYFromYards(displayYardsFromCanonical(yardsFromPercentY(point.y))),
   });
 
@@ -3373,7 +3373,7 @@ if (selectedFieldItem.type === "man") {
       {activePanelTab === "player" && (
         <>
           <button
-            style={{ ...buttonBase, background: "#dc2626", color: "white" }}
+            style={{ .....buttonBase, background: "#dc2626", color: "white" }}
             onClick={() => setOffensePlayers((p) => autoSpaceOffensiveLine(p))}
           >
             Auto Space OL
@@ -3424,7 +3424,7 @@ if (selectedFieldItem.type === "man") {
           {selectedSide === "defense" && (
             <button
               style={{
-                ...buttonBase,
+                .....buttonBase,
                 background:
                   defensiveReadPlayerIds.includes(selectedPlayer.id)
                     ? "linear-gradient(180deg, #a855f7 0%, #6d28d9 100%)"
@@ -3438,7 +3438,7 @@ if (selectedFieldItem.type === "man") {
 
   setDefensiveReadPlayerIds(nextReadPlayerIds);
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -3520,7 +3520,7 @@ if (selectedFieldItem.type === "man") {
               <button
                 disabled={undoStack.length === 0}
                 style={{
-                  ...buttonBase,
+                  .....buttonBase,
                   background: undoStack.length ? "#374151" : "#111827",
                   color: "white",
                   padding: "8px 10px",
@@ -3533,7 +3533,7 @@ if (selectedFieldItem.type === "man") {
               <button
                 disabled={!selectedFieldItem}
                 style={{
-                  ...buttonBase,
+                  .....buttonBase,
                   background: selectedFieldItem ? "#7f1111" : "#111827",
                   color: "white",
                   padding: "8px 10px",
@@ -3697,7 +3697,7 @@ if (selectedFieldItem.type === "man") {
             </div>
             <button
               style={{
-                ...buttonBase,
+                .....buttonBase,
                 background: "#090b10",
                 color: "white",
                 padding: "6px 9px",
@@ -3709,7 +3709,7 @@ if (selectedFieldItem.type === "man") {
             </button>
           </div>
           <button
-            style={{ ...buttonBase, background: "#7f1111", color: "white" }}
+            style={{ .....buttonBase, background: "#7f1111", color: "white" }}
             onClick={() => {
               pushUndoSnapshot();
               setDrawnLines([]);
@@ -3823,7 +3823,7 @@ if (selectedFieldItem.type === "man") {
                 Change the player color to change this route color.
               </div>
               <button
-                style={{ ...buttonBase, background: "#dc2626", color: "white" }}
+                style={{ .....buttonBase, background: "#dc2626", color: "white" }}
                 onClick={applyRoute}
               >
                 Apply Route
@@ -3839,7 +3839,7 @@ if (selectedFieldItem.type === "man") {
               >
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     background: undoStack.length
                       ? "linear-gradient(180deg, rgba(31,41,55,.92), rgba(12,16,23,.95))"
                       : "rgba(15,23,42,.45)",
@@ -3857,7 +3857,7 @@ if (selectedFieldItem.type === "man") {
 
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     background:
                       selectedFieldItem?.type === "route"
                         ? "linear-gradient(180deg, #ef4444, #7f1d1d)"
@@ -3882,7 +3882,7 @@ if (selectedFieldItem.type === "man") {
 
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     background: routes.length
                       ? "linear-gradient(180deg, #b91c1c, #7f1d1d)"
                       : "rgba(127,29,29,.38)",
@@ -4042,7 +4042,7 @@ if (selectedFieldItem.type === "man") {
               >
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     background: "#090b10",
                     color: "white",
                     padding: "8px 10px",
@@ -4104,7 +4104,7 @@ if (selectedFieldItem.type === "man") {
                   />
                   <button
                     style={{
-                      ...buttonBase,
+                      .....buttonBase,
                       background: "#dc2626",
                       color: "white",
                     }}
@@ -4127,7 +4127,7 @@ if (selectedFieldItem.type === "man") {
                       >
                         <button
                           style={{
-                            ...buttonBase,
+                            .....buttonBase,
                             background: "#090b10",
                             color: "white",
                             textAlign: "left",
@@ -4139,7 +4139,7 @@ if (selectedFieldItem.type === "man") {
                         </button>
                         <button
                           style={{
-                            ...buttonBase,
+                            .....buttonBase,
                             background: "#374151",
                             color: "white",
                             padding: "8px",
@@ -4150,7 +4150,7 @@ if (selectedFieldItem.type === "man") {
                         </button>
                         <button
                           style={{
-                            ...buttonBase,
+                            .....buttonBase,
                             background: "#7f1111",
                             color: "white",
                             padding: "8px",
@@ -4283,9 +4283,9 @@ if (selectedFieldItem.type === "man") {
 
   useEffect(() => {
     function updateFieldSize() {
-      if (fieldRef.current) {
-        setFieldPixelHeight(fieldRef.current.offsetHeight);
-        setFieldPixelWidth(fieldRef.current.offsetWidth);
+      if (fieldRef...current) {
+        setFieldPixelHeight(fieldRef...current.offsetHeight);
+        setFieldPixelWidth(fieldRef...current.offsetWidth);
       }
     }
 
@@ -4345,7 +4345,7 @@ if (selectedFieldItem.type === "man") {
         setDrawnLines(
           preload.drawnLines.map((line) => ({
             ...line,
-            points: line.points.map((point) => ({ ...point })),
+            points: line...points.map((point) => ({ .....point })),
           }))
         );
         setSelectedPlayId(preload.id);
@@ -4527,7 +4527,7 @@ if (selectedFieldItem.type === "man") {
   function applyCoachFocus(nextFocus: CoachFocus) {
     setCoachFocus(nextFocus);
 
-    realtimeChannelRef.current?.send({
+    realtimeChannelRef...current?.send({
   type: "broadcast",
   event: "board-event",
   payload: {
@@ -4578,7 +4578,7 @@ if (selectedFieldItem.type === "man") {
   setRoutes([]);
   setDrawnLines([]);
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -4618,8 +4618,8 @@ if (selectedFieldItem.type === "man") {
     clientX: number,
     clientY: number
   ): FieldPoint | null {
-    if (!fieldRef.current) return null;
-    const rect = fieldRef.current.getBoundingClientRect();
+    if (!fieldRef...current) return null;
+    const rect = fieldRef...current.getBoundingClientRect();
     const screenY = Math.max(
       0,
       Math.min(100, ((clientY - rect.top) / rect.height) * 100)
@@ -4636,8 +4636,8 @@ if (selectedFieldItem.type === "man") {
     clientX: number,
     clientY: number
   ): FieldPoint | null {
-    if (!fieldRef.current) return null;
-    const rect = fieldRef.current.getBoundingClientRect();
+    if (!fieldRef...current) return null;
+    const rect = fieldRef...current.getBoundingClientRect();
     return {
       x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
       y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)),
@@ -4709,7 +4709,7 @@ if (selectedFieldItem.type === "man") {
     // Snap the start of every drawn line to the closest player when the coach
     // begins drawing near a player. This works for solid, dotted, and block lines.
     const closestPlayerMatch = closestPlayerTo(point, 5.5);
-    const snappedStart = closestPlayerMatch ? closestPlayerMatch.point : point;
+    const snappedStart = closestPlayerMatch ? closestPlayerMatch...point : point;
     const drawingPlayer = closestPlayerMatch
       ? closestPlayerMatch.player
       : selectedPlayer;
@@ -4752,7 +4752,7 @@ if (selectedFieldItem.type === "man") {
     const zoneId = crypto.randomUUID();
     setSelectedFieldItem({ type: "zone", id: zoneId });
     const nextZones = [
-  ...zoneAssignments,
+  .....zoneAssignments,
   {
     id: zoneId,
     defenderId: selectedDefender.id,
@@ -4764,7 +4764,7 @@ if (selectedFieldItem.type === "man") {
 
 setZoneAssignments(nextZones);
 
-realtimeChannelRef.current?.send({
+realtimeChannelRef...current?.send({
   type: "broadcast",
   event: "board-event",
   payload: {
@@ -4787,14 +4787,14 @@ realtimeChannelRef.current?.send({
   const nextRadius = Math.hypot(point.x - zone.x, point.y - zone.y);
 
   return {
-    ...zone,
+    .....zone,
     radius: Math.max(2.5, Math.min(22, nextRadius)),
   };
 });
 
 setZoneAssignments(nextZones);
 
-realtimeChannelRef.current?.send({
+realtimeChannelRef...current?.send({
   type: "broadcast",
   event: "board-event",
   payload: {
@@ -4837,7 +4837,7 @@ realtimeChannelRef.current?.send({
       current.map((zone) => {
         if (zone.id !== zoneDrag.id) return zone;
         return {
-          ...zone,
+          .....zone,
           x: Math.max(0, Math.min(100, point.x + zoneDrag.offsetX)),
           y: Math.max(0, Math.min(100, point.y + zoneDrag.offsetY)),
         };
@@ -4859,7 +4859,7 @@ realtimeChannelRef.current?.send({
       lines.map((line) => {
         if (line.id !== activeLineId) return line;
 
-        const last = line.points[line.points.length - 1];
+        const last = line...points[line...points.length - 1];
 
         // Block lines need extra control because the T-cap can feel jumpy.
         // Very small movement increments let the coach aim the T-end more precisely.
@@ -4868,7 +4868,7 @@ realtimeChannelRef.current?.send({
         if (Math.hypot(point.x - last.x, point.y - last.y) < minPointDistance)
           return line;
 
-        return { ...line, points: [...line.points, point] };
+        return { ...line, points: [...line...points, point] };
       })
     );
   }
@@ -4884,7 +4884,7 @@ function finalizeDrawing() {
 
   const finishedLine: DrawLine = {
     ...lineToFinish,
-    points: cleanup(lineToFinish.points),
+    points: cleanup(lineToFinish...points),
   };
 
   const nextLines = drawnLines.map((line) =>
@@ -4893,8 +4893,8 @@ function finalizeDrawing() {
 
   setDrawnLines(nextLines);
 
-  if (realtimeChannelRef.current) {
-    realtimeChannelRef.current.send({
+  if (realtimeChannelRef...current) {
+    realtimeChannelRef...current.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -4955,9 +4955,9 @@ function finalizeDrawing() {
   }
 
   function updateDraggedPlayer(clientX: number, clientY: number) {
-    if (!fieldRef.current || !draggingId || !draggingSide) return;
+    if (!fieldRef...current || !draggingId || !draggingSide) return;
 
-    const rect = fieldRef.current.getBoundingClientRect();
+    const rect = fieldRef...current.getBoundingClientRect();
     const x = Math.max(
       4,
       Math.min(96, ((clientX - rect.left) / rect.width) * 100)
@@ -4986,7 +4986,7 @@ function finalizeDrawing() {
 
   const nextPlayers = enforceLegalOffenseFormation(moved);
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5012,7 +5012,7 @@ setDefensePlayers((players) => {
       : p
   );
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5043,7 +5043,7 @@ setDefensePlayers((players) => {
 
 setRoutes(nextRoutes);
 
-realtimeChannelRef.current?.send({
+realtimeChannelRef...current?.send({
   type: "broadcast",
   event: "board-event",
   payload: {
@@ -5077,7 +5077,7 @@ realtimeChannelRef.current?.send({
 
     setOffensePlayers(nextPlayers);
 
-    realtimeChannelRef.current?.send({
+    realtimeChannelRef...current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -5092,7 +5092,7 @@ realtimeChannelRef.current?.send({
 
     applyDefensePlayers(nextPlayers);
 
-    realtimeChannelRef.current?.send({
+    realtimeChannelRef...current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -5119,7 +5119,7 @@ realtimeChannelRef.current?.send({
 
   setDefensePlayers(nextPlayers);
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5149,7 +5149,7 @@ realtimeChannelRef.current?.send({
   function applyDefensePlayers(nextPlayers: Player[]) {
   setDefensePlayers(nextPlayers);
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5320,7 +5320,7 @@ realtimeChannelRef.current?.send({
 
   setManAssignments(nextAssignments);
    console.log("SENDING MAN ASSIGNMENT:", nextAssignments); 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5339,7 +5339,7 @@ realtimeChannelRef.current?.send({
 
   setManAssignments(nextAssignments);
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5413,12 +5413,12 @@ realtimeChannelRef.current?.send({
       defensePlayers: defensePlayers.map((p) => ({ ...p })),
       drawnLines: drawnLines.map((line) => ({
         ...line,
-        points: line.points.map((point) => ({ ...point })),
+        points: line...points.map((point) => ({ .....point })),
       })),
       manAssignments: { ...manAssignments },
-      zoneAssignments: zoneAssignments.map((zone) => ({ ...zone })),
+      zoneAssignments: zoneAssignments.map((zone) => ({ .....zone })),
     };
-    setSavedDefensivePackages((current) => [...current, pkg]);
+    setSavedDefensivePackages((current) => [.....current, pkg]);
     setDefensivePackageName("");
   }
 
@@ -5427,11 +5427,11 @@ realtimeChannelRef.current?.send({
   if (!pkg) return;
 
   const nextManAssignments = pkg.manAssignments ?? {};
-  const nextZones = (pkg.zoneAssignments ?? []).map((zone) => ({ ...zone }));
+  const nextZones = (pkg...zoneAssignments ?? []).map((zone) => ({ .....zone }));
   const nextDefensePlayers = pkg.defensePlayers.map((p) => ({ ...p }));
   const nextDrawnLines = pkg.drawnLines.map((line) => ({
     ...line,
-    points: line.points.map((point) => ({ ...point })),
+    points: line...points.map((point) => ({ .....point })),
   }));
 
   setSelectedDefenseFront(pkg.front);
@@ -5444,7 +5444,7 @@ realtimeChannelRef.current?.send({
   setSelectedSide("defense");
   setActivePanelTab("defense");
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5453,7 +5453,7 @@ realtimeChannelRef.current?.send({
     },
   });
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5462,7 +5462,7 @@ realtimeChannelRef.current?.send({
     },
   });
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5471,7 +5471,7 @@ realtimeChannelRef.current?.send({
     },
   });
 
-  realtimeChannelRef.current?.send({
+  realtimeChannelRef...current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5493,10 +5493,10 @@ realtimeChannelRef.current?.send({
               defensePlayers: defensePlayers.map((p) => ({ ...p })),
               drawnLines: drawnLines.map((line) => ({
                 ...line,
-                points: line.points.map((point) => ({ ...point })),
+                points: line...points.map((point) => ({ .....point })),
               })),
               manAssignments: { ...manAssignments },
-              zoneAssignments: zoneAssignments.map((zone) => ({ ...zone })),
+              zoneAssignments: zoneAssignments.map((zone) => ({ .....zone })),
             }
           : pkg
       )
@@ -5514,7 +5514,7 @@ realtimeChannelRef.current?.send({
     if (!name) return;
     const mainCount = sortedOffensePresets.filter((p) => p.isMain).length;
     setCustomOffensePresets((current) => [
-      ...current,
+      .....current,
       {
         id: crypto.randomUUID(),
         name,
@@ -5550,12 +5550,12 @@ realtimeChannelRef.current?.send({
       routes: routes.map((r) => ({ ...r })),
       drawnLines: drawnLines.map((line) => ({
         ...line,
-        points: line.points.map((point) => ({ ...point })),
+        points: line...points.map((point) => ({ .....point })),
       })),
       preloadOnOpen: false,
     };
 
-    setSavedPlays((current) => [...current, play]);
+    setSavedPlays((current) => [.....current, play]);
     setSavedPlayName("");
   }
 
@@ -5574,7 +5574,7 @@ realtimeChannelRef.current?.send({
     setDrawnLines(
       play.drawnLines.map((line) => ({
         ...line,
-        points: line.points.map((point) => ({ ...point })),
+        points: line...points.map((point) => ({ .....point })),
       }))
     );
     setSelectedPlayId(id);
@@ -5592,7 +5592,7 @@ realtimeChannelRef.current?.send({
               routes: routes.map((r) => ({ ...r })),
               drawnLines: drawnLines.map((line) => ({
                 ...line,
-                points: line.points.map((point) => ({ ...point })),
+                points: line...points.map((point) => ({ .....point })),
               })),
             }
           : play
@@ -5640,7 +5640,7 @@ realtimeChannelRef.current?.send({
     setRoutes([]);
     setDrawnLines([]);
 
-    realtimeChannelRef.current?.send({
+    realtimeChannelRef...current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -5649,7 +5649,7 @@ realtimeChannelRef.current?.send({
       },
     });
 
-    realtimeChannelRef.current?.send({
+    realtimeChannelRef...current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -5658,7 +5658,7 @@ realtimeChannelRef.current?.send({
       },
     });
 
-    realtimeChannelRef.current?.send({
+    realtimeChannelRef...current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -5783,14 +5783,14 @@ realtimeChannelRef.current?.send({
 
     const drawingAssignments: ConceptAssignment[] = drawnLines
       .map((line) => {
-        const firstPoint = line.points[0];
+        const firstPoint = line...points[0];
         const anchorPlayer = firstPoint
           ? closestOffensivePlayerToPoint(firstPoint)
           : null;
-        if (!anchorPlayer || line.points.length < 2) return null;
+        if (!anchorPlayer || line...points.length < 2) return null;
 
         const anchorPoint = visiblePlayerPoint(anchorPlayer);
-        const relativePoints = line.points.map((point) => ({
+        const relativePoints = line...points.map((point) => ({
           x: point.x - anchorPoint.x,
           y: point.y - anchorPoint.y,
         }));
@@ -5814,7 +5814,7 @@ realtimeChannelRef.current?.send({
     }
 
     setPlayConcepts((current) => [
-      ...current,
+      .....current,
       { id: crypto.randomUUID(), name, assignments },
     ]);
     setConceptName("");
@@ -5910,7 +5910,7 @@ realtimeChannelRef.current?.send({
       playIds: [],
     };
 
-    setGamePlans((current) => [...current, plan]);
+    setGamePlans((current) => [.....current, plan]);
     setSelectedGamePlanId(plan.id);
     setCurrentGamePlanIndex(0);
     setGamePlanName("");
@@ -6004,7 +6004,7 @@ realtimeChannelRef.current?.send({
       formationConcepts: {},
     };
 
-    setPlaybooks((current) => [...current, playbook]);
+    setPlaybooks((current) => [.....current, playbook]);
     setSelectedPlaybookId(playbook.id);
     setPlaybookName("");
   }
@@ -6054,7 +6054,7 @@ realtimeChannelRef.current?.send({
             ...formationConcepts,
             [formationId]: exists
               ? currentConcepts.filter((id) => id !== conceptId)
-              : [...currentConcepts, conceptId],
+              : [.....currentConcepts, conceptId],
           },
         };
       })
@@ -6133,7 +6133,7 @@ realtimeChannelRef.current?.send({
         (existing) =>
           existing.formationId === formationId && existing.name === play.name
       );
-      return alreadyExists ? current : [...current, play];
+      return alreadyExists ? current : [.....current, play];
     });
 
     setSelectedPlayId(play.id);
@@ -6142,7 +6142,7 @@ realtimeChannelRef.current?.send({
     setDrawnLines(
       play.drawnLines.map((line) => ({
         ...line,
-        points: line.points.map((point) => ({ ...point })),
+        points: line...points.map((point) => ({ .....point })),
       }))
     );
   }
@@ -6167,7 +6167,7 @@ realtimeChannelRef.current?.send({
       const uniqueNew = playsToAdd.filter(
         (play) => !existingKeys.has(`${play.formationId}|${play.name}`)
       );
-      return [...current, ...uniqueNew];
+      return [.....current, ...uniqueNew];
     });
   }
 
@@ -6433,7 +6433,7 @@ if (!user) {
       >
         <div
           style={{
-            ...cardStyle,
+            .........cardStyle,
             padding: 14,
             display: "flex",
             flexDirection: "column",
@@ -6458,7 +6458,7 @@ if (!user) {
             </div>
             <button
               style={{
-                ...buttonBase,
+                .....buttonBase,
                 width: "100%",
                 background: coachFocus === "offense" ? "#dc2626" : "#090b10",
                 color: "white",
@@ -6470,7 +6470,7 @@ if (!user) {
             </button>
             <button
               style={{
-                ...buttonBase,
+                .....buttonBase,
                 width: "100%",
                 background: coachFocus === "defense" ? "#dc2626" : "#090b10",
                 color: "white",
@@ -6483,7 +6483,7 @@ if (!user) {
           </div>
           <button
             style={{
-              ...buttonBase,
+              .....buttonBase,
               width: "100%",
               background:
                 showCreateOffenseSet || showManageOffenseSets
@@ -6508,7 +6508,7 @@ if (!user) {
           </button>
           <button
             style={{
-              ...buttonBase,
+              .....buttonBase,
               width: "100%",
               background:
                 showCreatePlay || showManagePlays ? "#dc2626" : "#090b10",
@@ -6531,7 +6531,7 @@ if (!user) {
           </button>
           <button
             style={{
-              ...buttonBase,
+              .....buttonBase,
               width: "100%",
               background:
                 showCreateConcept || showManageConcepts ? "#dc2626" : "#090b10",
@@ -6554,7 +6554,7 @@ if (!user) {
           </button>
           <button
             style={{
-              ...buttonBase,
+              .....buttonBase,
               width: "100%",
               background: showPlaybooks ? "#dc2626" : "#090b10",
               color: "white",
@@ -6576,7 +6576,7 @@ if (!user) {
           </button>
           <button
             style={{
-              ...buttonBase,
+              .....buttonBase,
               width: "100%",
               background: showGamePlan ? "#dc2626" : "#090b10",
               color: "white",
@@ -6610,7 +6610,7 @@ if (!user) {
   >
    <button
   style={{
-    ...buttonBase,
+    .....buttonBase,
     width: "100%",
     background: teamCode ? "#dc2626" : "#090b10",
     color: "white",
@@ -6622,7 +6622,7 @@ if (!user) {
 </button>
           <button
             style={{
-              ...buttonBase,
+              .....buttonBase,
               width: "100%",
               background: showTeamSetup ? "#dc2626" : "#090b10",
               color: "white",
@@ -6684,7 +6684,7 @@ if (!user) {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div
             style={{
-              ...cardStyle,
+              .........cardStyle,
               minHeight: 94,
               padding: "10px 20px",
               position: "relative",
@@ -6751,7 +6751,7 @@ if (!user) {
 
           <div
             style={{
-              ...cardStyle,
+              .........cardStyle,
               padding: fieldFullscreen ? 18 : 12,
               position: fieldFullscreen ? "fixed" : "relative",
               inset: fieldFullscreen ? 0 : undefined,
@@ -6765,7 +6765,7 @@ if (!user) {
           >
             <button
               style={{
-                ...buttonBase,
+                .....buttonBase,
                 position: "absolute",
                 top: fieldFullscreen ? 28 : 18,
                 right: fieldFullscreen ? 28 : 18,
@@ -6788,7 +6788,7 @@ if (!user) {
               <>
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     position: "fixed",
                     top: 28,
                     left: 28,
@@ -6837,7 +6837,7 @@ if (!user) {
                   >
                     <button
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background: tool === "Move" ? "#dc2626" : "#090b10",
                         color: "white",
                         padding: "8px 6px",
@@ -6850,7 +6850,7 @@ if (!user) {
                     </button>
                     <button
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background:
                           tool === "Draw" && drawingStyle === "solid"
                             ? "#dc2626"
@@ -6866,7 +6866,7 @@ if (!user) {
                     </button>
                     <button
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background:
                           tool === "Draw" && drawingStyle === "dotted"
                             ? "#dc2626"
@@ -6882,7 +6882,7 @@ if (!user) {
                     </button>
                     <button
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background:
                           tool === "Draw" && drawingStyle === "block"
                             ? "#dc2626"
@@ -6905,7 +6905,7 @@ if (!user) {
                     >
                       <button
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           background:
                             drawingMode === "curve" ? "#dc2626" : "#090b10",
                           color: "white",
@@ -6919,7 +6919,7 @@ if (!user) {
                       </button>
                       <button
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           background:
                             drawingMode === "straight" ? "#dc2626" : "#090b10",
                           color: "white",
@@ -6934,7 +6934,7 @@ if (!user) {
                     </div>
                     <button
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background: tool === "Zone" ? "#dc2626" : "#090b10",
                         color: "white",
                         padding: "8px 6px",
@@ -6947,7 +6947,7 @@ if (!user) {
                     </button>
                     <button
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background: tool === "Man" ? "#dc2626" : "#090b10",
                         color: "white",
                         padding: "8px 6px",
@@ -6960,7 +6960,7 @@ if (!user) {
                     </button>
                     <button
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background: undoStack.length
                           ? "#090b10"
                           : "rgba(15,23,42,.45)",
@@ -6979,7 +6979,7 @@ if (!user) {
                     </button>
                     <button
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background: selectedFieldItem
                           ? "#7f1d1d"
                           : "rgba(127,29,29,.38)",
@@ -7005,7 +7005,7 @@ if (!user) {
                     />
                     <button
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background: showFullscreenPlayerPanel
                           ? "#dc2626"
                           : "#090b10",
@@ -7026,7 +7026,7 @@ if (!user) {
                     </button>
                     <button
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background: showFullscreenToolsPanel
                           ? "#dc2626"
                           : "#090b10",
@@ -7052,7 +7052,7 @@ if (!user) {
             {fieldFullscreen && showFullscreenPlayerPanel && (
               <div
                 style={{
-                  ...cardStyle,
+                  .........cardStyle,
                   position: "fixed",
                   top: 28,
                   left: 126,
@@ -7078,7 +7078,7 @@ if (!user) {
             {fieldFullscreen && showFullscreenToolsPanel && (
               <div
                 style={{
-                  ...cardStyle,
+                  .........cardStyle,
                   position: "fixed",
                   top: 28,
                   left: 126,
@@ -7120,7 +7120,7 @@ if (!user) {
                   </div>
                   <button
                     style={{
-                      ...buttonBase,
+                      .....buttonBase,
                       width: "100%",
                       background:
                         coachFocus === "offense" ? "#dc2626" : "#090b10",
@@ -7133,7 +7133,7 @@ if (!user) {
                   </button>
                   <button
                     style={{
-                      ...buttonBase,
+                      .....buttonBase,
                       width: "100%",
                       background:
                         coachFocus === "defense" ? "#dc2626" : "#090b10",
@@ -7147,7 +7147,7 @@ if (!user) {
                 </div>
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     width: "100%",
                     background:
                       showCreateOffenseSet || showManageOffenseSets
@@ -7174,7 +7174,7 @@ if (!user) {
                 </button>
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     width: "100%",
                     background:
                       showCreatePlay || showManagePlays ? "#dc2626" : "#090b10",
@@ -7197,7 +7197,7 @@ if (!user) {
                 </button>
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     width: "100%",
                     background:
                       showCreateConcept || showManageConcepts
@@ -7222,7 +7222,7 @@ if (!user) {
                 </button>
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     width: "100%",
                     background: showPlaybooks ? "#dc2626" : "#090b10",
                     color: "white",
@@ -7244,7 +7244,7 @@ if (!user) {
                 </button>
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     width: "100%",
                     background: showGamePlan ? "#dc2626" : "#090b10",
                     color: "white",
@@ -7267,7 +7267,7 @@ if (!user) {
                 </button>
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     width: "100%",
                     background: showTeamSetup ? "#dc2626" : "#090b10",
                     color: "white",
@@ -7294,7 +7294,7 @@ if (!user) {
               ref={fieldRef}
               onPointerDown={(e) => {
                 e.preventDefault();
-                e.currentTarget.setPointerCapture(e.pointerId);
+                e...currentTarget.setPointerCapture(e...pointerId);
                 if (tool === "Draw") startDrawing(e.clientX, e.clientY);
                 if (tool === "Zone") startZoneCircle(e.clientX, e.clientY);
                 if (tool === "Select") clearActiveTool();
@@ -7395,7 +7395,7 @@ if (!user) {
                 >
                   <button
                     style={{
-                      ...buttonBase,
+                      .....buttonBase,
                       background: "#090b10",
                       color: "white",
                     }}
@@ -7417,7 +7417,7 @@ if (!user) {
                   </div>
                   <button
                     style={{
-                      ...buttonBase,
+                      .....buttonBase,
                       background: "#dc2626",
                       color: "white",
                     }}
@@ -7806,7 +7806,7 @@ const isCenter = player.position === &quot;something&quot;;
                         onPointerDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          e.currentTarget.setPointerCapture(e.pointerId);
+                          e...currentTarget.setPointerCapture(e...pointerId);
                           startZoneDrag(zone, e.clientX, e.clientY);
                         }}
                         style={{
@@ -7911,7 +7911,7 @@ style={{ cursor: "pointer" }}
                       ? cleanCurvedDrawnPoints
                       : cleanDrawnPoints;
                   const canonicalPoints =
-                    line.points.length > 2 ? cleanup(line.points) : line.points;
+                    line...points.length > 2 ? cleanup(line...points) : line...points;
                   const renderedPoints = canonicalPoints.map(displayPoint);
                   const cap =
                     isBlock && renderedPoints.length > 1
@@ -8182,7 +8182,7 @@ style={{ cursor: "pointer" }}
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    e.currentTarget.setPointerCapture(e.pointerId);
+                    e...currentTarget.setPointerCapture(e...pointerId);
                     if (tool === "Move") {
                       setDraggingId(player.id);
                       setDraggingSide("defense");
@@ -8274,7 +8274,7 @@ clipPath:
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    e.currentTarget.setPointerCapture(e.pointerId);
+                    e...currentTarget.setPointerCapture(e...pointerId);
                     if (tool === "Move") {
                       setDraggingId(player.id);
                       setDraggingSide("offense");
@@ -8291,7 +8291,7 @@ clipPath:
 
 setManAssignments(nextAssignments);
 
-realtimeChannelRef.current?.send({
+realtimeChannelRef...current?.send({
   type: "broadcast",
   event: "board-event",
   payload: {
@@ -8365,7 +8365,7 @@ realtimeChannelRef.current?.send({
           </div>
 
           {showCreateOffenseSet && (
-            <div style={{ ...cardStyle, padding: 16, display: "grid", gap: 6 }}>
+            <div style={{ .........cardStyle, padding: 16, display: "grid", gap: 6 }}>
               <div style={{ fontSize: 18, fontWeight: 800 }}>
                 Create Offensive Set
               </div>
@@ -8395,7 +8395,7 @@ realtimeChannelRef.current?.send({
                 />
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     background: "#dc2626",
                     color: "white",
                   }}
@@ -8408,7 +8408,7 @@ realtimeChannelRef.current?.send({
           )}
 
           {showManageOffenseSets && (
-            <div style={{ ...cardStyle, padding: 16, display: "grid", gap: 6 }}>
+            <div style={{ .........cardStyle, padding: 16, display: "grid", gap: 6 }}>
               <div style={{ fontSize: 18, fontWeight: 800 }}>
                 Manage Offensive Sets
               </div>
@@ -8429,7 +8429,7 @@ realtimeChannelRef.current?.send({
                 </div>
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     background: "#7f1111",
                     color: "white",
                     padding: "8px 10px",
@@ -8519,7 +8519,7 @@ realtimeChannelRef.current?.send({
                     >
                       <button
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           padding: "8px",
                           background: preset.isMain ? "#dc2626" : "#2a303b",
                           color: "white",
@@ -8531,7 +8531,7 @@ realtimeChannelRef.current?.send({
                       <button
                         disabled={preset.isSystem}
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           padding: "8px",
                           background: preset.isSystem ? "#1f242e" : "#2a303b",
                           color: "white",
@@ -8544,7 +8544,7 @@ realtimeChannelRef.current?.send({
                       <button
                         disabled={preset.isSystem}
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           padding: "8px",
                           background: preset.isSystem ? "#1f242e" : "#7f1111",
                           color: "white",
@@ -8562,7 +8562,7 @@ realtimeChannelRef.current?.send({
           )}
 
           {showCreatePlay && (
-            <div style={{ ...cardStyle, padding: 16, display: "grid", gap: 6 }}>
+            <div style={{ .........cardStyle, padding: 16, display: "grid", gap: 6 }}>
               <div style={{ fontSize: 18, fontWeight: 800 }}>Create Play</div>
               <div style={{ color: "#9ca3af", fontSize: 13 }}>
                 Save the whole board: offense, defense, routes, blocking, and
@@ -8604,7 +8604,7 @@ realtimeChannelRef.current?.send({
                 />
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     background: "#dc2626",
                     color: "white",
                   }}
@@ -8617,7 +8617,7 @@ realtimeChannelRef.current?.send({
           )}
 
           {showManagePlays && (
-            <div style={{ ...cardStyle, padding: 16, display: "grid", gap: 6 }}>
+            <div style={{ .........cardStyle, padding: 16, display: "grid", gap: 6 }}>
               <div style={{ fontSize: 18, fontWeight: 800 }}>Manage Plays</div>
               <div style={{ color: "#9ca3af", fontSize: 13 }}>
                 No system play presets are included. Coaches only see plays they
@@ -8696,7 +8696,7 @@ realtimeChannelRef.current?.send({
                     >
                       <button
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           padding: "8px",
                           background: play.preloadOnOpen
                             ? "#b91c1c"
@@ -8709,7 +8709,7 @@ realtimeChannelRef.current?.send({
                       </button>
                       <button
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           padding: "8px",
                           background: "#dc2626",
                           color: "white",
@@ -8720,7 +8720,7 @@ realtimeChannelRef.current?.send({
                       </button>
                       <button
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           padding: "8px",
                           background: "#2a303b",
                           color: "white",
@@ -8731,7 +8731,7 @@ realtimeChannelRef.current?.send({
                       </button>
                       <button
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           padding: "8px",
                           background: "#7f1111",
                           color: "white",
@@ -8748,7 +8748,7 @@ realtimeChannelRef.current?.send({
           )}
 
           {showCreateConcept && (
-            <div style={{ ...cardStyle, padding: 16, display: "grid", gap: 6 }}>
+            <div style={{ .........cardStyle, padding: 16, display: "grid", gap: 6 }}>
               <div style={{ fontSize: 18, fontWeight: 800 }}>
                 Create Play Concept
               </div>
@@ -8779,7 +8779,7 @@ realtimeChannelRef.current?.send({
                 />
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     background: "#dc2626",
                     color: "white",
                   }}
@@ -8792,7 +8792,7 @@ realtimeChannelRef.current?.send({
           )}
 
           {showManageConcepts && (
-            <div style={{ ...cardStyle, padding: 16, display: "grid", gap: 6 }}>
+            <div style={{ .........cardStyle, padding: 16, display: "grid", gap: 6 }}>
               <div style={{ fontSize: 18, fontWeight: 800 }}>
                 Manage Concepts
               </div>
@@ -8853,7 +8853,7 @@ realtimeChannelRef.current?.send({
                     >
                       <button
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           padding: "8px",
                           background: "#dc2626",
                           color: "white",
@@ -8864,7 +8864,7 @@ realtimeChannelRef.current?.send({
                       </button>
                       <button
                         style={{
-                          ...buttonBase,
+                          .....buttonBase,
                           padding: "8px",
                           background: "#7f1111",
                           color: "white",
@@ -8882,7 +8882,7 @@ realtimeChannelRef.current?.send({
 
           {showTeamSetup && (
             <div
-              style={{ ...cardStyle, padding: 16, display: "grid", gap: 12 }}
+              style={{ .........cardStyle, padding: 16, display: "grid", gap: 12 }}
             >
               <div style={{ fontSize: 18, fontWeight: 800 }}>Team Setup</div>
               <div style={{ color: "#9ca3af", fontSize: 13 }}>
@@ -8909,7 +8909,7 @@ realtimeChannelRef.current?.send({
                     value={teamBranding.schoolName}
                     onChange={(e) =>
                       setTeamBranding((current) => ({
-                        ...current,
+                        .....current,
                         schoolName: e.target.value.toUpperCase(),
                       }))
                     }
@@ -8935,7 +8935,7 @@ realtimeChannelRef.current?.send({
                     value={teamBranding.mascot}
                     onChange={(e) =>
                       setTeamBranding((current) => ({
-                        ...current,
+                        .....current,
                         mascot: e.target.value.toUpperCase(),
                       }))
                     }
@@ -8962,7 +8962,7 @@ realtimeChannelRef.current?.send({
                     value={teamBranding.primaryColor}
                     onChange={(e) =>
                       setTeamBranding((current) => ({
-                        ...current,
+                        .....current,
                         primaryColor: e.target.value,
                       }))
                     }
@@ -8989,7 +8989,7 @@ realtimeChannelRef.current?.send({
                     value={teamBranding.secondaryColor}
                     onChange={(e) =>
                       setTeamBranding((current) => ({
-                        ...current,
+                        .....current,
                         secondaryColor: e.target.value,
                       }))
                     }
@@ -9016,7 +9016,7 @@ realtimeChannelRef.current?.send({
                     value={teamBranding.endzoneTextColor}
                     onChange={(e) =>
                       setTeamBranding((current) => ({
-                        ...current,
+                        .....current,
                         endzoneTextColor: e.target.value,
                       }))
                     }
@@ -9131,7 +9131,7 @@ realtimeChannelRef.current?.send({
               <button
                 onClick={resetTeamBranding}
                 style={{
-                  ...buttonBase,
+                  .....buttonBase,
                   background: "#090b10",
                   color: "white",
                   width: "fit-content",
@@ -9144,7 +9144,7 @@ realtimeChannelRef.current?.send({
 
           {showGamePlan && (
             <div
-              style={{ ...cardStyle, padding: 16, display: "grid", gap: 12 }}
+              style={{ .........cardStyle, padding: 16, display: "grid", gap: 12 }}
             >
               <div style={{ fontSize: 18, fontWeight: 800 }}>
                 Game Plan Mode
@@ -9176,7 +9176,7 @@ realtimeChannelRef.current?.send({
                 />
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     background: "#dc2626",
                     color: "white",
                   }}
@@ -9198,7 +9198,7 @@ realtimeChannelRef.current?.send({
                     <button
                       key={plan.id}
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background:
                           selectedGamePlanId === plan.id
                             ? "#dc2626"
@@ -9266,7 +9266,7 @@ realtimeChannelRef.current?.send({
                           />
                           <button
                             style={{
-                              ...buttonBase,
+                              .....buttonBase,
                               background: "#7f1111",
                               color: "white",
                               padding: "8px 10px",
@@ -9290,7 +9290,7 @@ realtimeChannelRef.current?.send({
                         >
                           <button
                             style={{
-                              ...buttonBase,
+                              .....buttonBase,
                               background: "#1f242e",
                               color: "white",
                             }}
@@ -9307,7 +9307,7 @@ realtimeChannelRef.current?.send({
                           </div>
                           <button
                             style={{
-                              ...buttonBase,
+                              .....buttonBase,
                               background: "#1f242e",
                               color: "white",
                             }}
@@ -9341,7 +9341,7 @@ realtimeChannelRef.current?.send({
                               <button
                                 key={play.id}
                                 style={{
-                                  ...buttonBase,
+                                  .....buttonBase,
                                   background: added ? "#dc2626" : "#1f242e",
                                   color: "white",
                                   textAlign: "left",
@@ -9391,7 +9391,7 @@ realtimeChannelRef.current?.send({
                               >
                                 <button
                                   style={{
-                                    ...buttonBase,
+                                    .....buttonBase,
                                     background:
                                       currentGamePlanIndex === index
                                         ? "#dc2626"
@@ -9405,7 +9405,7 @@ realtimeChannelRef.current?.send({
                                 </button>
                                 <button
                                   style={{
-                                    ...buttonBase,
+                                    .....buttonBase,
                                     background: "#1f242e",
                                     color: "white",
                                     padding: "8px",
@@ -9422,7 +9422,7 @@ realtimeChannelRef.current?.send({
                                 </button>
                                 <button
                                   style={{
-                                    ...buttonBase,
+                                    .....buttonBase,
                                     background: "#1f242e",
                                     color: "white",
                                     padding: "8px",
@@ -9439,7 +9439,7 @@ realtimeChannelRef.current?.send({
                                 </button>
                                 <button
                                   style={{
-                                    ...buttonBase,
+                                    .....buttonBase,
                                     background: "#7f1111",
                                     color: "white",
                                     padding: "8px",
@@ -9467,7 +9467,7 @@ realtimeChannelRef.current?.send({
 
           {showPlaybooks && (
             <div
-              style={{ ...cardStyle, padding: 16, display: "grid", gap: 12 }}
+              style={{ .........cardStyle, padding: 16, display: "grid", gap: 12 }}
             >
               <div style={{ fontSize: 18, fontWeight: 800 }}>Playbooks</div>
               <div style={{ color: "#9ca3af", fontSize: 13 }}>
@@ -9497,7 +9497,7 @@ realtimeChannelRef.current?.send({
                 />
                 <button
                   style={{
-                    ...buttonBase,
+                    .....buttonBase,
                     background: "#dc2626",
                     color: "white",
                   }}
@@ -9519,7 +9519,7 @@ realtimeChannelRef.current?.send({
                     <button
                       key={book.id}
                       style={{
-                        ...buttonBase,
+                        .....buttonBase,
                         background:
                           selectedPlaybookId === book.id
                             ? "#dc2626"
@@ -9573,7 +9573,7 @@ realtimeChannelRef.current?.send({
                         />
                         <button
                           style={{
-                            ...buttonBase,
+                            .....buttonBase,
                             background: "#b91c1c",
                             color: "white",
                             padding: "8px 10px",
@@ -9586,7 +9586,7 @@ realtimeChannelRef.current?.send({
                         </button>
                         <button
                           style={{
-                            ...buttonBase,
+                            .....buttonBase,
                             background: "#7f1111",
                             color: "white",
                             padding: "8px 10px",
@@ -9646,7 +9646,7 @@ realtimeChannelRef.current?.send({
                             <button
                               key={formation.id}
                               style={{
-                                ...buttonBase,
+                                .....buttonBase,
                                 padding: "8px",
                                 background: added ? "#dc2626" : "#1f242e",
                                 color: "white",
@@ -9704,7 +9704,7 @@ realtimeChannelRef.current?.send({
                               >
                                 <button
                                   style={{
-                                    ...buttonBase,
+                                    .....buttonBase,
                                     background:
                                       selectedPlayFormationId === formationId
                                         ? "#dc2626"
@@ -9720,7 +9720,7 @@ realtimeChannelRef.current?.send({
                                 </button>
                                 <button
                                   style={{
-                                    ...buttonBase,
+                                    .....buttonBase,
                                     background: "#b91c1c",
                                     color: "white",
                                     padding: "8px 10px",
@@ -9734,7 +9734,7 @@ realtimeChannelRef.current?.send({
                                 </button>
                                 <button
                                   style={{
-                                    ...buttonBase,
+                                    .....buttonBase,
                                     background: "#ef4444",
                                     color: "white",
                                     padding: "8px 10px",
@@ -9773,7 +9773,7 @@ realtimeChannelRef.current?.send({
                                     <button
                                       key={concept.id}
                                       style={{
-                                        ...buttonBase,
+                                        .....buttonBase,
                                         background: added
                                           ? "#991b1b"
                                           : "#1f242e",
@@ -9820,7 +9820,7 @@ realtimeChannelRef.current?.send({
                                       <button
                                         key={concept.id}
                                         style={{
-                                          ...buttonBase,
+                                          .....buttonBase,
                                           background: "#7f1d1d",
                                           color: "white",
                                           textAlign: "left",
@@ -9858,7 +9858,7 @@ realtimeChannelRef.current?.send({
                                     <button
                                       key={`${concept.id}-generate`}
                                       style={{
-                                        ...buttonBase,
+                                        .....buttonBase,
                                         background: "#b91c1c",
                                         color: "white",
                                         textAlign: "left",
@@ -9892,7 +9892,7 @@ realtimeChannelRef.current?.send({
                                     <button
                                       key={play.id}
                                       style={{
-                                        ...buttonBase,
+                                        .....buttonBase,
                                         background: "#090b10",
                                         color: "white",
                                         textAlign: "left",
@@ -9920,7 +9920,7 @@ realtimeChannelRef.current?.send({
              {!fieldFullscreen && (
           <div
             style={{
-              ...cardStyle,
+              .........cardStyle,
               padding: 18,
               display: "flex",
               flexDirection: "column",
@@ -9996,7 +9996,7 @@ realtimeChannelRef.current?.send({
 
                   setTeamCode(cleaned);
                   setRoomMembers((current) => [
-                    ...new Set([...current, coachName.trim()]),
+                    ..new Set([.....current, coachName.trim()]),
                   ]);
                   setShowGamedayRoom(false);
                 }}
