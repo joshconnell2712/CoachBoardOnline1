@@ -1898,7 +1898,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
     if (payload.type === "SET_BOARD_STATE") {
   setDrawnLines(payload.drawnLines);
   setRoutes(payload.routes);
-  setZoneAssignments(payload...zoneAssignments);
+  setZoneAssignments(payload.zoneAssignments);
       setManAssignments(payload.manAssignments);
 }
     
