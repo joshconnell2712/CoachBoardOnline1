@@ -9915,6 +9915,7 @@ realtimeChannelRef.current?.send({
             </div>
           )}
         </div>
+                  </div>
 
              {!fieldFullscreen && (
           <div
