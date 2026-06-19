@@ -1915,7 +1915,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
     }
 
     if (payload.type === "SET_ZONES") {
-      setZoneAssignments(payload...zoneAssignments);
+      setZoneAssignments(payload.zoneAssignments);
     }
 
     if (payload.type === "SET_TEAM_SETUP") {
@@ -1977,7 +1977,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
 
   const nextZones = zoneAssignments.map((zone) =>
     zone.id === selectedZoneId
-      ? { .....zone, radius: clampedRadius }
+      ? { ...zone, radius: clampedRadius }
       : zone
   );
 
