@@ -1691,12 +1691,22 @@ function cleanTeamCode(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
 }
 
-function getCoachDisplayName(user: User | null) {
-  const profileName =
+function getProfileFullName(user: User | null) {
+  const firstName = user?.user_metadata?.first_name?.trim?.() ?? "";
+  const lastName = user?.user_metadata?.last_name?.trim?.() ?? "";
+  const fullNameFromParts = `${firstName} ${lastName}`.trim();
+
+  return (
+    fullNameFromParts ||
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
     user?.email?.split("@")[0] ||
-    "Unknown Coach";
+    "Unknown Coach"
+  );
+}
+
+function getCoachDisplayName(user: User | null) {
+  const profileName = getProfileFullName(user);
 
   return profileName.toLowerCase().startsWith("coach:")
     ? profileName
@@ -1711,6 +1721,8 @@ function CoachBoardWebApp() {
   const [user, setUser] = useState<User | null>(null);
 const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
+const [firstName, setFirstName] = useState("");
+const [lastName, setLastName] = useState("");
 const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
   const ROOM_ID = teamCode ? `coachboard-gameday-${teamCode}` : "";
@@ -6323,11 +6335,13 @@ if (!user) {
 
         <section className="coachboard-login-card">
           <h2>
-            Welcome <span>Back</span>
+            {authMode === "login" ? "Welcome" : "Create"} <span>{authMode === "login" ? "Back" : "Account"}</span>
           </h2>
 
           <p className="coachboard-subtitle">
-            Log in to your CoachBoard account
+            {authMode === "login"
+              ? "Log in to your CoachBoard account"
+              : "Enter your name so coaches know who is in the Gameday Room"}
           </p>
 
           <div className="coachboard-divider">
@@ -6335,6 +6349,24 @@ if (!user) {
             <span>★</span>
             <div />
           </div>
+
+          {authMode === "signup" && (
+            <>
+              <label>First Name</label>
+              <input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Enter your first name"
+              />
+
+              <label>Last Name</label>
+              <input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Enter your last name"
+              />
+            </>
+          )}
 
           <label>Email</label>
           <input
@@ -6388,12 +6420,27 @@ if (!user) {
             className="coachboard-login-button"
             onClick={async () => {
               if (authMode === "signup") {
+                const cleanedFirstName = firstName.trim();
+                const cleanedLastName = lastName.trim();
+                const fullName = `${cleanedFirstName} ${cleanedLastName}`.trim();
+
+                if (!cleanedFirstName || !cleanedLastName) {
+                  alert("Enter your first and last name.");
+                  return;
+                }
+
                 const { error } = await supabase.auth.signUp({
                   email,
                   password,
                   options: {
                     emailRedirectTo:
                       "https://coach-board-online1.vercel.app",
+                    data: {
+                      first_name: cleanedFirstName,
+                      last_name: cleanedLastName,
+                      full_name: fullName,
+                      name: fullName,
+                    },
                   },
                 });
 
@@ -6402,7 +6449,7 @@ if (!user) {
                   return;
                 }
 
-                alert("Check your email to confirm your account.");
+                alert("Check your email to confirm your account. Your name will be used in Gameday Rooms after you sign in.");
               } else {
                 const { data, error } =
                   await supabase.auth.signInWithPassword({
@@ -6507,7 +6554,7 @@ if (!user) {
             </div>
 
             <div style={{ color: "#d1d5db", fontSize: 13, fontWeight: 800 }}>
-              You will appear as {getCoachDisplayName(user)}.
+              You will appear as {getCoachDisplayName(user)} based on the name saved to your account.
             </div>
 
             <input
