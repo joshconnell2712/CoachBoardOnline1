@@ -1938,7 +1938,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
   });
 
   return () => {
-    realtimeChannelRef...current = null;
+    realtimeChannelRef.current = null;
     supabase.removeChannel(channel);
   };
 }, [ROOM_ID]);
@@ -1983,7 +1983,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
 
   setZoneAssignments(nextZones);
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -2022,7 +2022,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
 
   function pushUndoSnapshot() {
     setUndoStack((current) => [
-      .....current.slice(-24),
+      ...current.slice(-24),
       {
         drawnLines: cloneDrawnLinesForHistory(drawnLines),
         routes: cloneRoutesForHistory(routes),
@@ -2046,7 +2046,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
     setZoneAssignments(nextZones);
     setManAssignments({ ...snapshot.manAssignments });
 
-    realtimeChannelRef...current?.send({
+    realtimeChannelRef.current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -2085,7 +2085,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
 
   setDrawnLines(nextLines);
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -2114,7 +2114,7 @@ if (selectedFieldItem.type === "man") {
 
   setManAssignments(nextAssignments);
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -3438,7 +3438,7 @@ if (selectedFieldItem.type === "man") {
 
   setDefensiveReadPlayerIds(nextReadPlayerIds);
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -4283,9 +4283,9 @@ if (selectedFieldItem.type === "man") {
 
   useEffect(() => {
     function updateFieldSize() {
-      if (fieldRef...current) {
-        setFieldPixelHeight(fieldRef...current.offsetHeight);
-        setFieldPixelWidth(fieldRef...current.offsetWidth);
+      if (fieldRef.current) {
+        setFieldPixelHeight(fieldRef.current.offsetHeight);
+        setFieldPixelWidth(fieldRef.current.offsetWidth);
       }
     }
 
@@ -4527,7 +4527,7 @@ if (selectedFieldItem.type === "man") {
   function applyCoachFocus(nextFocus: CoachFocus) {
     setCoachFocus(nextFocus);
 
-    realtimeChannelRef...current?.send({
+    realtimeChannelRef.current?.send({
   type: "broadcast",
   event: "board-event",
   payload: {
@@ -4578,7 +4578,7 @@ if (selectedFieldItem.type === "man") {
   setRoutes([]);
   setDrawnLines([]);
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -4618,8 +4618,8 @@ if (selectedFieldItem.type === "man") {
     clientX: number,
     clientY: number
   ): FieldPoint | null {
-    if (!fieldRef...current) return null;
-    const rect = fieldRef...current.getBoundingClientRect();
+    if (!fieldRef.current) return null;
+    const rect = fieldRef.current.getBoundingClientRect();
     const screenY = Math.max(
       0,
       Math.min(100, ((clientY - rect.top) / rect.height) * 100)
@@ -4636,8 +4636,8 @@ if (selectedFieldItem.type === "man") {
     clientX: number,
     clientY: number
   ): FieldPoint | null {
-    if (!fieldRef...current) return null;
-    const rect = fieldRef...current.getBoundingClientRect();
+    if (!fieldRef.current) return null;
+    const rect = fieldRef.current.getBoundingClientRect();
     return {
       x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
       y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)),
@@ -4764,7 +4764,7 @@ if (selectedFieldItem.type === "man") {
 
 setZoneAssignments(nextZones);
 
-realtimeChannelRef...current?.send({
+realtimeChannelRef.current?.send({
   type: "broadcast",
   event: "board-event",
   payload: {
@@ -4794,7 +4794,7 @@ realtimeChannelRef...current?.send({
 
 setZoneAssignments(nextZones);
 
-realtimeChannelRef...current?.send({
+realtimeChannelRef.current?.send({
   type: "broadcast",
   event: "board-event",
   payload: {
@@ -4893,8 +4893,8 @@ function finalizeDrawing() {
 
   setDrawnLines(nextLines);
 
-  if (realtimeChannelRef...current) {
-    realtimeChannelRef...current.send({
+  if (realtimeChannelRef.current) {
+    realtimeChannelRef.current.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -4955,9 +4955,9 @@ function finalizeDrawing() {
   }
 
   function updateDraggedPlayer(clientX: number, clientY: number) {
-    if (!fieldRef...current || !draggingId || !draggingSide) return;
+    if (!fieldRef.current || !draggingId || !draggingSide) return;
 
-    const rect = fieldRef...current.getBoundingClientRect();
+    const rect = fieldRef.current.getBoundingClientRect();
     const x = Math.max(
       4,
       Math.min(96, ((clientX - rect.left) / rect.width) * 100)
@@ -4986,7 +4986,7 @@ function finalizeDrawing() {
 
   const nextPlayers = enforceLegalOffenseFormation(moved);
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5012,7 +5012,7 @@ setDefensePlayers((players) => {
       : p
   );
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5043,7 +5043,7 @@ setDefensePlayers((players) => {
 
 setRoutes(nextRoutes);
 
-realtimeChannelRef...current?.send({
+realtimeChannelRef.current?.send({
   type: "broadcast",
   event: "board-event",
   payload: {
@@ -5077,7 +5077,7 @@ realtimeChannelRef...current?.send({
 
     setOffensePlayers(nextPlayers);
 
-    realtimeChannelRef...current?.send({
+    realtimeChannelRef.current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -5092,7 +5092,7 @@ realtimeChannelRef...current?.send({
 
     applyDefensePlayers(nextPlayers);
 
-    realtimeChannelRef...current?.send({
+    realtimeChannelRef.current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -5119,7 +5119,7 @@ realtimeChannelRef...current?.send({
 
   setDefensePlayers(nextPlayers);
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5149,7 +5149,7 @@ realtimeChannelRef...current?.send({
   function applyDefensePlayers(nextPlayers: Player[]) {
   setDefensePlayers(nextPlayers);
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5320,7 +5320,7 @@ realtimeChannelRef...current?.send({
 
   setManAssignments(nextAssignments);
    console.log("SENDING MAN ASSIGNMENT:", nextAssignments); 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5339,7 +5339,7 @@ realtimeChannelRef...current?.send({
 
   setManAssignments(nextAssignments);
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5418,7 +5418,7 @@ realtimeChannelRef...current?.send({
       manAssignments: { ...manAssignments },
       zoneAssignments: zoneAssignments.map((zone) => ({ .....zone })),
     };
-    setSavedDefensivePackages((current) => [.....current, pkg]);
+    setSavedDefensivePackages((current) => [...current, pkg]);
     setDefensivePackageName("");
   }
 
@@ -5444,7 +5444,7 @@ realtimeChannelRef...current?.send({
   setSelectedSide("defense");
   setActivePanelTab("defense");
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5453,7 +5453,7 @@ realtimeChannelRef...current?.send({
     },
   });
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5462,7 +5462,7 @@ realtimeChannelRef...current?.send({
     },
   });
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5471,7 +5471,7 @@ realtimeChannelRef...current?.send({
     },
   });
 
-  realtimeChannelRef...current?.send({
+  realtimeChannelRef.current?.send({
     type: "broadcast",
     event: "board-event",
     payload: {
@@ -5514,7 +5514,7 @@ realtimeChannelRef...current?.send({
     if (!name) return;
     const mainCount = sortedOffensePresets.filter((p) => p.isMain).length;
     setCustomOffensePresets((current) => [
-      .....current,
+      ...current,
       {
         id: crypto.randomUUID(),
         name,
@@ -5555,7 +5555,7 @@ realtimeChannelRef...current?.send({
       preloadOnOpen: false,
     };
 
-    setSavedPlays((current) => [.....current, play]);
+    setSavedPlays((current) => [...current, play]);
     setSavedPlayName("");
   }
 
@@ -5640,7 +5640,7 @@ realtimeChannelRef...current?.send({
     setRoutes([]);
     setDrawnLines([]);
 
-    realtimeChannelRef...current?.send({
+    realtimeChannelRef.current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -5649,7 +5649,7 @@ realtimeChannelRef...current?.send({
       },
     });
 
-    realtimeChannelRef...current?.send({
+    realtimeChannelRef.current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -5658,7 +5658,7 @@ realtimeChannelRef...current?.send({
       },
     });
 
-    realtimeChannelRef...current?.send({
+    realtimeChannelRef.current?.send({
       type: "broadcast",
       event: "board-event",
       payload: {
@@ -5814,7 +5814,7 @@ realtimeChannelRef...current?.send({
     }
 
     setPlayConcepts((current) => [
-      .....current,
+      ...current,
       { id: crypto.randomUUID(), name, assignments },
     ]);
     setConceptName("");
@@ -5910,7 +5910,7 @@ realtimeChannelRef...current?.send({
       playIds: [],
     };
 
-    setGamePlans((current) => [.....current, plan]);
+    setGamePlans((current) => [...current, plan]);
     setSelectedGamePlanId(plan.id);
     setCurrentGamePlanIndex(0);
     setGamePlanName("");
@@ -6004,7 +6004,7 @@ realtimeChannelRef...current?.send({
       formationConcepts: {},
     };
 
-    setPlaybooks((current) => [.....current, playbook]);
+    setPlaybooks((current) => [...current, playbook]);
     setSelectedPlaybookId(playbook.id);
     setPlaybookName("");
   }
@@ -6054,7 +6054,7 @@ realtimeChannelRef...current?.send({
             ...formationConcepts,
             [formationId]: exists
               ? currentConcepts.filter((id) => id !== conceptId)
-              : [.....currentConcepts, conceptId],
+              : [...currentConcepts, conceptId],
           },
         };
       })
@@ -6133,7 +6133,7 @@ realtimeChannelRef...current?.send({
         (existing) =>
           existing.formationId === formationId && existing.name === play.name
       );
-      return alreadyExists ? current : [.....current, play];
+      return alreadyExists ? current : [...current, play];
     });
 
     setSelectedPlayId(play.id);
@@ -6167,7 +6167,7 @@ realtimeChannelRef...current?.send({
       const uniqueNew = playsToAdd.filter(
         (play) => !existingKeys.has(`${play.formationId}|${play.name}`)
       );
-      return [.....current, ...uniqueNew];
+      return [...current, ...uniqueNew];
     });
   }
 
@@ -7294,7 +7294,7 @@ if (!user) {
               ref={fieldRef}
               onPointerDown={(e) => {
                 e.preventDefault();
-                e...currentTarget.setPointerCapture(e...pointerId);
+                e.currentTarget.setPointerCapture(e...pointerId);
                 if (tool === "Draw") startDrawing(e.clientX, e.clientY);
                 if (tool === "Zone") startZoneCircle(e.clientX, e.clientY);
                 if (tool === "Select") clearActiveTool();
@@ -7806,7 +7806,7 @@ const isCenter = player.position === &quot;something&quot;;
                         onPointerDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          e...currentTarget.setPointerCapture(e...pointerId);
+                          e.currentTarget.setPointerCapture(e...pointerId);
                           startZoneDrag(zone, e.clientX, e.clientY);
                         }}
                         style={{
@@ -8182,7 +8182,7 @@ style={{ cursor: "pointer" }}
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    e...currentTarget.setPointerCapture(e...pointerId);
+                    e.currentTarget.setPointerCapture(e...pointerId);
                     if (tool === "Move") {
                       setDraggingId(player.id);
                       setDraggingSide("defense");
@@ -8274,7 +8274,7 @@ clipPath:
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    e...currentTarget.setPointerCapture(e...pointerId);
+                    e.currentTarget.setPointerCapture(e...pointerId);
                     if (tool === "Move") {
                       setDraggingId(player.id);
                       setDraggingSide("offense");
@@ -8291,7 +8291,7 @@ clipPath:
 
 setManAssignments(nextAssignments);
 
-realtimeChannelRef...current?.send({
+realtimeChannelRef.current?.send({
   type: "broadcast",
   event: "board-event",
   payload: {
@@ -8909,7 +8909,7 @@ realtimeChannelRef...current?.send({
                     value={teamBranding.schoolName}
                     onChange={(e) =>
                       setTeamBranding((current) => ({
-                        .....current,
+                        ...current,
                         schoolName: e.target.value.toUpperCase(),
                       }))
                     }
@@ -8935,7 +8935,7 @@ realtimeChannelRef...current?.send({
                     value={teamBranding.mascot}
                     onChange={(e) =>
                       setTeamBranding((current) => ({
-                        .....current,
+                        ...current,
                         mascot: e.target.value.toUpperCase(),
                       }))
                     }
@@ -8962,7 +8962,7 @@ realtimeChannelRef...current?.send({
                     value={teamBranding.primaryColor}
                     onChange={(e) =>
                       setTeamBranding((current) => ({
-                        .....current,
+                        ...current,
                         primaryColor: e.target.value,
                       }))
                     }
@@ -8989,7 +8989,7 @@ realtimeChannelRef...current?.send({
                     value={teamBranding.secondaryColor}
                     onChange={(e) =>
                       setTeamBranding((current) => ({
-                        .....current,
+                        ...current,
                         secondaryColor: e.target.value,
                       }))
                     }
@@ -9016,7 +9016,7 @@ realtimeChannelRef...current?.send({
                     value={teamBranding.endzoneTextColor}
                     onChange={(e) =>
                       setTeamBranding((current) => ({
-                        .....current,
+                        ...current,
                         endzoneTextColor: e.target.value,
                       }))
                     }
@@ -9996,7 +9996,7 @@ realtimeChannelRef...current?.send({
 
                   setTeamCode(cleaned);
                   setRoomMembers((current) => [
-                    ..new Set([.....current, coachName.trim()]),
+                    ..new Set([...current, coachName.trim()]),
                   ]);
                   setShowGamedayRoom(false);
                 }}
