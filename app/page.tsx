@@ -1664,19 +1664,45 @@ function SmallButton({
   );
 }
 
+type RoomCoach = {
+  userId: string;
+  name: string;
+  joinedAt: string;
+};
+
+function generateTeamCode(length = 6) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const values = new Uint32Array(length);
+
+  if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(values);
+  } else {
+    for (let i = 0; i < length; i++) {
+      values[i] = Math.floor(Math.random() * alphabet.length);
+    }
+  }
+
+  return Array.from(values)
+    .map((value) => alphabet[value % alphabet.length])
+    .join("");
+}
+
+function cleanTeamCode(value: string) {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+}
+
 function CoachBoardWebApp() {
   const [teamCode, setTeamCode] = useState("");
   const [teamCodeInput, setTeamCodeInput] = useState("");
+  const [coachName, setCoachName] = useState("");
+  const [roomCoaches, setRoomCoaches] = useState<RoomCoach[]>([]);
+  const [showGamedayRoom, setShowGamedayRoom] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
 const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
-  const ROOM_ID = user
-  ? teamCode
-    ? `coachboard-team-${teamCode}`
-    : `coachboard-user-${user.id}`
-  : "";
+  const ROOM_ID = teamCode ? `coachboard-gameday-${teamCode}` : "";
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
     DEFAULT_FOOTBALL_TEAM_SIZE
   );
@@ -1862,11 +1888,28 @@ const lineStroke = Math.max(0.35, playerPx * 0.018);
     (a, b) => Number(!!a.isSystem) - Number(!!b.isSystem)
   );
 useEffect(() => {
-  if (!ROOM_ID) return;
+  if (!ROOM_ID || !user || !coachName.trim()) return;
 
-const channel = supabase.channel(ROOM_ID);
+  const channel = supabase.channel(ROOM_ID, {
+    config: {
+      presence: {
+        key: user.id,
+      },
+    },
+  });
 
   realtimeChannelRef.current = channel;
+
+  channel.on("presence", { event: "sync" }, () => {
+    const presenceState = channel.presenceState() as Record<string, RoomCoach[]>;
+
+    const coaches = Object.values(presenceState)
+      .flatMap((entries) => entries ?? [])
+      .filter((coach) => coach?.userId && coach?.name)
+      .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
+
+    setRoomCoaches(coaches);
+  });
 
   channel.on("broadcast", { event: "board-event" }, ({ payload }) => {
     if (payload.type === "SET_DRAWN_LINES") {
@@ -1874,27 +1917,28 @@ const channel = supabase.channel(ROOM_ID);
     }
 
     if (payload.type === "SET_MAN_ASSIGNMENTS") {
-  setManAssignments(payload.manAssignments);
-}
-
-if (payload.type === "SET_COACH_FOCUS") {
-  setCoachFocus(payload.coachFocus);
-}
-    
-    if (payload.type === "SET_READ_KEYS") {
-  setDefensiveReadPlayerIds(payload.defensiveReadPlayerIds);
-}
-
-if (payload.type === "SET_SELECTED_SIDE") {
-  setSelectedSide(payload.selectedSide);
-}
-    if (payload.type === "SET_BOARD_STATE") {
-  setDrawnLines(payload.drawnLines);
-  setRoutes(payload.routes);
-  setZoneAssignments(payload.zoneAssignments);
       setManAssignments(payload.manAssignments);
-}
-    
+    }
+
+    if (payload.type === "SET_COACH_FOCUS") {
+      setCoachFocus(payload.coachFocus);
+    }
+
+    if (payload.type === "SET_READ_KEYS") {
+      setDefensiveReadPlayerIds(payload.defensiveReadPlayerIds);
+    }
+
+    if (payload.type === "SET_SELECTED_SIDE") {
+      setSelectedSide(payload.selectedSide);
+    }
+
+    if (payload.type === "SET_BOARD_STATE") {
+      setDrawnLines(payload.drawnLines);
+      setRoutes(payload.routes);
+      setZoneAssignments(payload.zoneAssignments);
+      setManAssignments(payload.manAssignments);
+    }
+
     if (payload.type === "SET_ROUTES") {
       setRoutes(payload.routes);
     }
@@ -1912,34 +1956,47 @@ if (payload.type === "SET_SELECTED_SIDE") {
     }
 
     if (payload.type === "SET_TEAM_SETUP") {
-  setFootballTeamSize(payload.footballTeamSize);
-  setOffensePlayers(payload.offensePlayers);
-  setDefensePlayers(payload.defensePlayers);
-  setSelectedPlayerId(payload.selectedPlayerId);
-  setSelectedSide(payload.selectedSide);
-  setActivePanelTab(payload.activePanelTab);
-  setRoutes(payload.routes);
-  setDrawnLines(payload.drawnLines);
-}
+      setFootballTeamSize(payload.footballTeamSize);
+      setOffensePlayers(payload.offensePlayers);
+      setDefensePlayers(payload.defensePlayers);
+      setSelectedPlayerId(payload.selectedPlayerId);
+      setSelectedSide(payload.selectedSide);
+      setActivePanelTab(payload.activePanelTab);
+      setRoutes(payload.routes);
+      setDrawnLines(payload.drawnLines);
+    }
   });
 
-  channel.on("broadcast", { event: "board-event" }, (event) => {
-  console.log("BOARD EVENT RECEIVED:", event);
-});
-  channel.subscribe((status) => {
+  channel.subscribe(async (status) => {
     console.log("REALTIME STATUS:", status);
+
+    if (status === "SUBSCRIBED") {
+      await channel.track({
+        userId: user.id,
+        name: coachName.trim(),
+        joinedAt: new Date().toISOString(),
+      });
+    }
   });
 
   return () => {
     realtimeChannelRef.current = null;
+    setRoomCoaches([]);
     supabase.removeChannel(channel);
   };
-}, [ROOM_ID]);
-  useEffect(() => {
-  const saved = localStorage.getItem("coachboard_team_code");
+}, [ROOM_ID, user, coachName]);
 
-  if (saved) {
-    setTeamCode(saved);
+useEffect(() => {
+  const savedCode = localStorage.getItem("coachboard_team_code");
+  const savedName = localStorage.getItem("coachboard_coach_name");
+
+  if (savedCode) {
+    setTeamCode(savedCode);
+    setTeamCodeInput(savedCode);
+  }
+
+  if (savedName) {
+    setCoachName(savedName);
   }
 }, []);
   useEffect(() => {
@@ -6177,9 +6234,12 @@ async function handleLogout() {
   await supabase.auth.signOut();
 
   localStorage.removeItem("coachboard_team_code");
+  localStorage.removeItem("coachboard_coach_name");
 
   setTeamCode("");
   setTeamCodeInput("");
+  setCoachName("");
+  setRoomCoaches([]);
   setUser(null);
   setEmail("");
   setPassword("");
@@ -6414,6 +6474,181 @@ if (!user) {
         setActiveLineId(null);
       }}
     >
+      {showGamedayRoom && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.72)",
+            zIndex: 2147483646,
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              ...cardStyle,
+              width: "min(460px, 100%)",
+              padding: 18,
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={panelHeaderStyle}>Gameday Room</div>
+
+            <div style={{ color: "white", fontWeight: 900, fontSize: 22 }}>
+              {teamCode ? `Room Code: ${teamCode}` : "Create or Join a Room"}
+            </div>
+
+            <input
+              value={coachName}
+              onChange={(e) => setCoachName(e.target.value)}
+              placeholder="Your name"
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,.15)",
+                color: "black",
+                fontWeight: 800,
+              }}
+            />
+
+            <input
+              value={teamCodeInput}
+              onChange={(e) => setTeamCodeInput(cleanTeamCode(e.target.value))}
+              placeholder="Enter team code"
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,.15)",
+                color: "black",
+                fontWeight: 800,
+                textTransform: "uppercase",
+              }}
+            />
+
+            <button
+              onClick={() => {
+                const cleanedName = coachName.trim();
+
+                if (!cleanedName) {
+                  alert("Enter your name first.");
+                  return;
+                }
+
+                const newCode = generateTeamCode();
+
+                localStorage.setItem("coachboard_team_code", newCode);
+                localStorage.setItem("coachboard_coach_name", cleanedName);
+
+                setTeamCode(newCode);
+                setTeamCodeInput(newCode);
+                setCoachName(cleanedName);
+              }}
+              style={{
+                ...buttonBase,
+                background: "#dc2626",
+                color: "white",
+              }}
+            >
+              Generate New Room Code
+            </button>
+
+            <button
+              onClick={() => {
+                const cleanedName = coachName.trim();
+                const cleanedCode = cleanTeamCode(teamCodeInput);
+
+                if (!cleanedName) {
+                  alert("Enter your name first.");
+                  return;
+                }
+
+                if (!cleanedCode) {
+                  alert("Enter a team code.");
+                  return;
+                }
+
+                localStorage.setItem("coachboard_team_code", cleanedCode);
+                localStorage.setItem("coachboard_coach_name", cleanedName);
+
+                setTeamCode(cleanedCode);
+                setTeamCodeInput(cleanedCode);
+                setCoachName(cleanedName);
+              }}
+              style={{
+                ...buttonBase,
+                background: "#16a34a",
+                color: "white",
+              }}
+            >
+              Join Room
+            </button>
+
+            {teamCode && (
+              <>
+                <div style={{ color: "#facc15", fontWeight: 900 }}>
+                  Share this code with your coaches: {teamCode}
+                </div>
+
+                <div style={{ color: "white", fontWeight: 900 }}>
+                  Coaches currently in room:
+                </div>
+
+                <div style={{ display: "grid", gap: 6 }}>
+                  {roomCoaches.length === 0 ? (
+                    <div style={{ color: "#9ca3af" }}>No one listed yet.</div>
+                  ) : (
+                    roomCoaches.map((coach) => (
+                      <div
+                        key={coach.userId}
+                        style={{
+                          background: "#090b10",
+                          borderRadius: 10,
+                          padding: "8px 10px",
+                          color: "white",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {coach.name}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("coachboard_team_code");
+                    setTeamCode("");
+                    setTeamCodeInput("");
+                    setRoomCoaches([]);
+                  }}
+                  style={{
+                    ...buttonBase,
+                    background: "#374151",
+                    color: "white",
+                  }}
+                >
+                  Leave Room
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => setShowGamedayRoom(false)}
+              style={{
+                ...buttonBase,
+                background: "#111827",
+                color: "white",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       <div
         style={{
           maxWidth: 1600,
@@ -6590,73 +6825,28 @@ if (!user) {
             Game Plan
           </button>
           <div style={{ marginTop: 14 }}>
-  <div
-    style={{
-      fontSize: 12,
-      fontWeight: 900,
-      color: "#f87171",
-      letterSpacing: ".12em",
-      textTransform: "uppercase",
-      marginBottom: 8,
-    }}
-  >
-    Gameday Room
-  </div>
+            <button
+              onClick={() => setShowGamedayRoom(true)}
+              style={{
+                width: "100%",
+                padding: 10,
+                borderRadius: 10,
+                fontWeight: 900,
+                background: teamCode ? "#16a34a" : "#dc2626",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              {teamCode ? `Gameday Room: ${teamCode}` : "Gameday Room"}
+            </button>
 
-  <input
-    value={teamCodeInput}
-    onChange={(e) => setTeamCodeInput(e.target.value)}
-    placeholder="Enter team code"
-    style={{
-      width: "100%",
-      padding: 10,
-      borderRadius: 10,
-      marginBottom: 8,
-      color: "black",
-    }}
-  />
-
-  <button
-    onClick={() => {
-      const cleaned = teamCodeInput.trim().toLowerCase().replace(/\s+/g, "-");
-      if (!cleaned) return;
-
-      localStorage.setItem("coachboard_team_code", cleaned);
-      setTeamCode(cleaned);
-    }}
-    style={{
-      width: "100%",
-      padding: 10,
-      borderRadius: 10,
-      fontWeight: 900,
-      background: "#dc2626",
-      color: "white",
-      border: "none",
-      cursor: "pointer",
-    }}
-  >
-    Join Gameday Room
-  </button>
-
-  {teamCode && (
-    <button
-      onClick={() => {
-        localStorage.removeItem("coachboard_team_code");
-        setTeamCode("");
-        setTeamCodeInput("");
-      }}
-      style={{
-        width: "100%",
-        padding: 10,
-        borderRadius: 10,
-        marginTop: 8,
-        fontWeight: 900,
-      }}
-    >
-      Leave Gameday Room
-    </button>
-  )}
-</div>
+            {teamCode && (
+              <div style={{ marginTop: 8, color: "#d1d5db", fontSize: 12 }}>
+                Coaches in room: {roomCoaches.length}
+              </div>
+            )}
+          </div>
           <button
             style={{
               ...buttonBase,
