@@ -2008,7 +2008,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
   function cloneDrawnLinesForHistory(lines: DrawLine[]) {
     return lines.map((line) => ({
       ...line,
-      points: line.points.map((point) => ({ .....point })),
+      points: line.points.map((point) => ({ ...point })),
     }));
   }
 
@@ -2017,7 +2017,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
   }
 
   function cloneZonesForHistory(zones: CustomZoneAssignment[]) {
-    return zones.map((zone) => ({ .....zone }));
+    return zones.map((zone) => ({ ...zone }));
   }
 
   function pushUndoSnapshot() {
