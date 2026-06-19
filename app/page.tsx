@@ -9929,7 +9929,78 @@ realtimeChannelRef.current?.send({
             {playerPanelContent}
           </div>
         )}
-      </div>       
+            </div>
+    </div>
+
+    {showGamedayRoom && (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,.65)",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 420,
+            background: "rgba(2,8,23,.95)",
+            border: "1px solid rgba(255,255,255,.14)",
+            borderRadius: 22,
+            padding: 24,
+            color: "white",
+          }}
+        >
+          <h2>Gameday Room</h2>
+
+          <input
+            value={coachName}
+            onChange={(e) => setCoachName(e.target.value)}
+            placeholder="Coach name"
+            style={{ width: "100%", padding: 12, marginBottom: 10, color: "black" }}
+          />
+
+          <input
+            value={teamCodeInput}
+            onChange={(e) => setTeamCodeInput(e.target.value)}
+            placeholder="Room code"
+            style={{ width: "100%", padding: 12, marginBottom: 12, color: "black" }}
+          />
+
+          <button
+            onClick={() => {
+              const cleaned = teamCodeInput.trim().toLowerCase().replace(/\s+/g, "-");
+              if (!cleaned || !coachName.trim()) return;
+
+              localStorage.setItem("coachboard_team_code", cleaned);
+              localStorage.setItem("coachboard_coach_name", coachName.trim());
+
+              setTeamCode(cleaned);
+              setRoomMembers((current) => [...new Set([...current, coachName.trim()])]);
+              setShowGamedayRoom(false);
+            }}
+            style={{ width: "100%", padding: 12, marginBottom: 10 }}
+          >
+            Enter Room
+          </button>
+
+          <button
+            onClick={() => setShowGamedayRoom(false)}
+            style={{ width: "100%", padding: 12 }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    )}
+  </>
+);
+}
+
+export default CoachBoardWebApp;       
   );
 }  
 
