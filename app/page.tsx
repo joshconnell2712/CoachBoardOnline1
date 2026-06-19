@@ -2008,7 +2008,7 @@ if (payload.type === "SET_SELECTED_SIDE") {
   function cloneDrawnLinesForHistory(lines: DrawLine[]) {
     return lines.map((line) => ({
       ...line,
-      points: line...points.map((point) => ({ .....point })),
+      points: line.points.map((point) => ({ .....point })),
     }));
   }
 
@@ -4345,7 +4345,7 @@ if (selectedFieldItem.type === "man") {
         setDrawnLines(
           preload.drawnLines.map((line) => ({
             ...line,
-            points: line...points.map((point) => ({ .....point })),
+            points: line.points.map((point) => ({ .....point })),
           }))
         );
         setSelectedPlayId(preload.id);
@@ -4859,7 +4859,7 @@ realtimeChannelRef.current?.send({
       lines.map((line) => {
         if (line.id !== activeLineId) return line;
 
-        const last = line...points[line...points.length - 1];
+        const last = line.points[line.points.length - 1];
 
         // Block lines need extra control because the T-cap can feel jumpy.
         // Very small movement increments let the coach aim the T-end more precisely.
@@ -4868,7 +4868,7 @@ realtimeChannelRef.current?.send({
         if (Math.hypot(point.x - last.x, point.y - last.y) < minPointDistance)
           return line;
 
-        return { ...line, points: [...line...points, point] };
+        return { ...line, points: [...line.points, point] };
       })
     );
   }
@@ -4884,7 +4884,7 @@ function finalizeDrawing() {
 
   const finishedLine: DrawLine = {
     ...lineToFinish,
-    points: cleanup(lineToFinish...points),
+    points: cleanup(lineToFinish.points),
   };
 
   const nextLines = drawnLines.map((line) =>
@@ -5413,7 +5413,7 @@ realtimeChannelRef.current?.send({
       defensePlayers: defensePlayers.map((p) => ({ ...p })),
       drawnLines: drawnLines.map((line) => ({
         ...line,
-        points: line...points.map((point) => ({ .....point })),
+        points: line.points.map((point) => ({ .....point })),
       })),
       manAssignments: { ...manAssignments },
       zoneAssignments: zoneAssignments.map((zone) => ({ .....zone })),
@@ -5431,7 +5431,7 @@ realtimeChannelRef.current?.send({
   const nextDefensePlayers = pkg.defensePlayers.map((p) => ({ ...p }));
   const nextDrawnLines = pkg.drawnLines.map((line) => ({
     ...line,
-    points: line...points.map((point) => ({ .....point })),
+    points: line.points.map((point) => ({ .....point })),
   }));
 
   setSelectedDefenseFront(pkg.front);
@@ -5493,7 +5493,7 @@ realtimeChannelRef.current?.send({
               defensePlayers: defensePlayers.map((p) => ({ ...p })),
               drawnLines: drawnLines.map((line) => ({
                 ...line,
-                points: line...points.map((point) => ({ .....point })),
+                points: line.points.map((point) => ({ .....point })),
               })),
               manAssignments: { ...manAssignments },
               zoneAssignments: zoneAssignments.map((zone) => ({ .....zone })),
@@ -5550,7 +5550,7 @@ realtimeChannelRef.current?.send({
       routes: routes.map((r) => ({ ...r })),
       drawnLines: drawnLines.map((line) => ({
         ...line,
-        points: line...points.map((point) => ({ .....point })),
+        points: line.points.map((point) => ({ .....point })),
       })),
       preloadOnOpen: false,
     };
@@ -5574,7 +5574,7 @@ realtimeChannelRef.current?.send({
     setDrawnLines(
       play.drawnLines.map((line) => ({
         ...line,
-        points: line...points.map((point) => ({ .....point })),
+        points: line.points.map((point) => ({ .....point })),
       }))
     );
     setSelectedPlayId(id);
@@ -5592,7 +5592,7 @@ realtimeChannelRef.current?.send({
               routes: routes.map((r) => ({ ...r })),
               drawnLines: drawnLines.map((line) => ({
                 ...line,
-                points: line...points.map((point) => ({ .....point })),
+                points: line.points.map((point) => ({ .....point })),
               })),
             }
           : play
@@ -5783,14 +5783,14 @@ realtimeChannelRef.current?.send({
 
     const drawingAssignments: ConceptAssignment[] = drawnLines
       .map((line) => {
-        const firstPoint = line...points[0];
+        const firstPoint = line.points[0];
         const anchorPlayer = firstPoint
           ? closestOffensivePlayerToPoint(firstPoint)
           : null;
-        if (!anchorPlayer || line...points.length < 2) return null;
+        if (!anchorPlayer || line.points.length < 2) return null;
 
         const anchorPoint = visiblePlayerPoint(anchorPlayer);
-        const relativePoints = line...points.map((point) => ({
+        const relativePoints = line.points.map((point) => ({
           x: point.x - anchorPoint.x,
           y: point.y - anchorPoint.y,
         }));
@@ -6142,7 +6142,7 @@ realtimeChannelRef.current?.send({
     setDrawnLines(
       play.drawnLines.map((line) => ({
         ...line,
-        points: line...points.map((point) => ({ .....point })),
+        points: line.points.map((point) => ({ .....point })),
       }))
     );
   }
@@ -7911,7 +7911,7 @@ style={{ cursor: "pointer" }}
                       ? cleanCurvedDrawnPoints
                       : cleanDrawnPoints;
                   const canonicalPoints =
-                    line...points.length > 2 ? cleanup(line...points) : line...points;
+                    line.points.length > 2 ? cleanup(line.points) : line.points;
                   const renderedPoints = canonicalPoints.map(displayPoint);
                   const cap =
                     isBlock && renderedPoints.length > 1
