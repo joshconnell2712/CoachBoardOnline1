@@ -1927,10 +1927,22 @@ useEffect(() => {
   channel.on("presence", { event: "sync" }, () => {
     const presenceState = channel.presenceState() as Record<string, RoomCoach[]>;
 
-    const coaches = Object.values(presenceState)
+    const coachesByUser = new Map<string, RoomCoach>();
+
+    Object.values(presenceState)
       .flatMap((entries) => entries ?? [])
       .filter((coach) => coach?.userId && coach?.name)
-      .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
+      .forEach((coach) => {
+        const existing = coachesByUser.get(coach.userId);
+
+        if (!existing || coach.joinedAt.localeCompare(existing.joinedAt) > 0) {
+          coachesByUser.set(coach.userId, coach);
+        }
+      });
+
+    const coaches = Array.from(coachesByUser.values()).sort((a, b) =>
+      a.joinedAt.localeCompare(b.joinedAt)
+    );
 
     setRoomCoaches(coaches);
   });
@@ -6571,18 +6583,24 @@ if (!user) {
             inset: 0,
             background: "rgba(0,0,0,.72)",
             zIndex: 2147483646,
-            display: "grid",
-            placeItems: "center",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
             padding: 20,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
           }}
         >
           <div
             style={{
               ...cardStyle,
               width: "min(460px, 100%)",
+              maxHeight: "calc(100vh - 40px)",
               padding: 18,
               display: "grid",
               gap: 12,
+              overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
             }}
           >
             <div style={panelHeaderStyle}>Gameday Room</div>
@@ -6670,7 +6688,15 @@ if (!user) {
                   Coaches currently in room:
                 </div>
 
-                <div style={{ display: "grid", gap: 6 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 6,
+                    maxHeight: 180,
+                    overflowY: "auto",
+                    paddingRight: 4,
+                  }}
+                >
                   {roomCoaches.length === 0 ? (
                     <div style={{ color: "#9ca3af" }}>No one listed yet.</div>
                   ) : (
