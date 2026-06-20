@@ -1829,6 +1829,7 @@ const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const [fieldTemplate, setFieldTemplate] = useState<FieldTemplate>(
     DEFAULT_FIELD_TEMPLATE
   );
+  const [fieldBlackWhiteMode, setFieldBlackWhiteMode] = useState(false);
   const fieldRef = useRef<HTMLDivElement | null>(null);
 
   // ===============================
@@ -2040,7 +2041,7 @@ useEffect(() => {
 
   async function enterTrueFieldFullscreen() {
     setFieldFullscreen(true);
-    setShowFullscreenQuickToolbar(true);
+    setShowFullscreenQuickToolbar(false);
     setShowFullscreenPlayerPanel(false);
     setShowFullscreenToolsPanel(false);
 
@@ -2076,25 +2077,6 @@ useEffect(() => {
 
     await enterTrueFieldFullscreen();
   }
-
-
-  useEffect(() => {
-    if (!fieldFullscreen) return;
-
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousBodyMargin = document.body.style.margin;
-
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.margin = "0";
-
-    return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.body.style.margin = previousBodyMargin;
-    };
-  }, [fieldFullscreen]);
 
   function updateSelectedZoneRadius(nextRadius: number) {
   if (!selectedZoneId) return;
@@ -4629,6 +4611,20 @@ if (selectedFieldItem.type === "man") {
   }, [fieldTemplate]);
 
   useEffect(() => {
+    const saved = window.localStorage.getItem("coachboard_black_white_mode");
+    if (saved !== null) {
+      setFieldBlackWhiteMode(saved === "true");
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      "coachboard_black_white_mode",
+      String(fieldBlackWhiteMode)
+    );
+  }, [fieldBlackWhiteMode]);
+
+  useEffect(() => {
     const saved = window.localStorage.getItem(
       "coachboard_coach_focus"
     ) as CoachFocus | null;
@@ -6037,10 +6033,12 @@ realtimeChannelRef.current?.send({
     setFieldTemplate(DEFAULT_FIELD_TEMPLATE);
     applyCoachFocus(DEFAULT_COACH_FOCUS);
     applyFootballTeamSize(DEFAULT_FOOTBALL_TEAM_SIZE);
+    setFieldBlackWhiteMode(false);
     window.localStorage.removeItem("coachboard_team_branding");
     window.localStorage.removeItem("coachboard_field_template");
     window.localStorage.removeItem("coachboard_football_team_size");
     window.localStorage.removeItem("coachboard_coach_focus");
+    window.localStorage.removeItem("coachboard_black_white_mode");
   }
 
   function createGamePlan() {
@@ -6323,6 +6321,35 @@ realtimeChannelRef.current?.send({
   const activeFieldHash =
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
+
+  const fieldBackgroundColor = fieldBlackWhiteMode
+    ? "#ffffff"
+    : teamBranding.secondaryColor || DEFAULT_TEAM_BRANDING.secondaryColor;
+  const fieldEndzoneColor = fieldBlackWhiteMode
+    ? "#ffffff"
+    : teamBranding.primaryColor || DEFAULT_TEAM_BRANDING.primaryColor;
+  const fieldEndzoneTextColor = fieldBlackWhiteMode
+    ? "#000000"
+    : teamBranding.endzoneTextColor || DEFAULT_TEAM_BRANDING.endzoneTextColor;
+  const fieldLineColor = fieldBlackWhiteMode
+    ? "rgba(0,0,0,.92)"
+    : "rgba(255,255,255,.78)";
+  const fieldGoalLineColor = fieldBlackWhiteMode
+    ? "rgba(0,0,0,.95)"
+    : "rgba(255,255,255,.9)";
+  const fieldHashColor = fieldBlackWhiteMode
+    ? "rgba(0,0,0,.92)"
+    : "rgba(255,255,255,.9)";
+  const fieldNumberColor = fieldBlackWhiteMode
+    ? "rgba(0,0,0,.88)"
+    : "rgba(255,255,255,.88)";
+  const fieldBorderColor = fieldBlackWhiteMode ? "#000000" : "#ffffff";
+  const losLineColor = fieldBlackWhiteMode ? "#000000" : "#38bdf8";
+  const defaultDefensePlayerColor = fieldBlackWhiteMode ? "#000000" : "#dc2626";
+  const defaultOffensePlayerColor = fieldBlackWhiteMode ? "#ffffff" : "#f3f4f6";
+  const defaultRouteColor = fieldBlackWhiteMode ? "#000000" : "#facc15";
+  const defaultBlockColor = fieldBlackWhiteMode ? "#000000" : "#090b10";
+
 async function handleLogout() {
   await supabase.auth.signOut();
 
@@ -7127,7 +7154,6 @@ if (!user) {
               background: fieldFullscreen
                 ? "#000"
                 : cardStyle.background,
-              overflow: fieldFullscreen ? "hidden" : undefined,
               borderRadius: fieldFullscreen ? 0 : cardStyle.borderRadius,
               border: fieldFullscreen ? "none" : cardStyle.border,
             }}
@@ -7158,7 +7184,7 @@ if (!user) {
                     top: 28,
                     left: 28,
                     zIndex: 2147483647,
-                    display: "block",
+                    display: "none",
                     background: showFullscreenQuickToolbar
                       ? "#dc2626"
                       : "rgba(15,23,42,.86)",
@@ -7201,19 +7227,6 @@ if (!user) {
                     onPointerMove={(e) => e.stopPropagation()}
                     onPointerUp={(e) => e.stopPropagation()}
                   >
-                    <button
-                      style={{
-                        ...buttonBase,
-                        background: "#374151",
-                        color: "white",
-                        padding: "8px 6px",
-                        fontSize: 11,
-                      }}
-                      onClick={exitTrueFieldFullscreen}
-                      title="Exit fullscreen"
-                    >
-                      Exit
-                    </button>
                     <button
                       style={{
                         ...buttonBase,
@@ -7687,16 +7700,14 @@ if (!user) {
               }}
               style={{
                 position: "relative",
-                width: fieldFullscreen ? "100dvw" : "100%",
-                height: fieldFullscreen ? "100dvh" : undefined,
+                width: fieldFullscreen ? "100vw" : "100%",
+                height: fieldFullscreen ? "100vh" : undefined,
                 aspectRatio: fieldFullscreen ? undefined : "10 / 11",
                 maxHeight: fieldFullscreen ? undefined : "78vh",
                 margin: fieldFullscreen ? 0 : undefined,
                 borderRadius: fieldFullscreen ? 0 : 28,
                 overflow: "hidden",
-                background:
-                  teamBranding.secondaryColor ||
-                  DEFAULT_TEAM_BRANDING.secondaryColor,
+                background: fieldBackgroundColor,
                 touchAction: "none",
                 userSelect: "none",
                 WebkitUserSelect: "none",
@@ -7831,7 +7842,7 @@ if (!user) {
                   bottom: 0,
                   left: 0,
                   width: "10px",
-                  background: "white",
+                  background: fieldBorderColor,
                   zIndex: 100,
                   pointerEvents: "none",
                 }}
@@ -7843,7 +7854,7 @@ if (!user) {
                   bottom: 0,
                   right: 0,
                   width: "10px",
-                  background: "white",
+                  background: fieldBorderColor,
                   zIndex: 100,
                   pointerEvents: "none",
                 }}
@@ -7855,7 +7866,7 @@ if (!user) {
                   left: 0,
                   right: 0,
                   height: "10px",
-                  background: "white",
+                  background: fieldBorderColor,
                   zIndex: 100,
                   pointerEvents: "none",
                 }}
@@ -7867,7 +7878,7 @@ if (!user) {
                   left: 0,
                   right: 0,
                   height: "10px",
-                  background: "white",
+                  background: fieldBorderColor,
                   zIndex: 100,
                   pointerEvents: "none",
                 }}
@@ -7878,15 +7889,17 @@ if (!user) {
                   insetInline: 0,
                   top: 0,
                   height: "16.666%",
-                  background: teamBranding.primaryColor,
+                  background: fieldEndzoneColor,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontWeight: 900,
                   fontSize: endzoneFontPx,
                   letterSpacing: endzoneLetterSpacing,
-                  color: teamBranding.endzoneTextColor,
-                  textShadow: "0 2px 8px rgba(0,0,0,.35)",
+                  color: fieldEndzoneTextColor,
+                  textShadow: fieldBlackWhiteMode
+                    ? "none"
+                    : "0 2px 8px rgba(0,0,0,.35)",
                   zIndex: 1,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -7903,7 +7916,7 @@ if (!user) {
                   left: "0%",
                   right: "0%",
                   height: 2,
-                  background: "rgba(255,255,255,.9)",
+                  background: fieldGoalLineColor,
                   top: "16.666%",
                   zIndex: 998,
                   pointerEvents: "none",
@@ -7918,7 +7931,7 @@ if (!user) {
                     left: "0%",
                     right: "0%",
                     height: 2,
-                    background: "rgba(255,255,255,.78)",
+                    background: fieldLineColor,
                     top: `${16.666 + i * (83.333 / 10)}%`,
                     zIndex: 3,
                   }}
@@ -7936,7 +7949,7 @@ if (!user) {
                         left: "10px",
                         width: isFive ? 18 : 10,
                         height: 1,
-                        background: "rgba(255,255,255,.9)",
+                        background: fieldHashColor,
                         top: `${y}%`,
                         zIndex: 4,
                       }}
@@ -7947,7 +7960,7 @@ if (!user) {
                         right: "10px",
                         width: isFive ? 18 : 10,
                         height: 1,
-                        background: "rgba(255,255,255,.9)",
+                        background: fieldHashColor,
                         top: `${y}%`,
                         zIndex: 4,
                       }}
@@ -7958,7 +7971,7 @@ if (!user) {
                         left: `${activeFieldHash.left}%`,
                         width: isFive ? 16 : 11,
                         height: 1,
-                        background: "rgba(255,255,255,.92)",
+                        background: fieldHashColor,
                         top: `${y}%`,
                         transform: "translateX(-50%)",
                         zIndex: 4,
@@ -7970,7 +7983,7 @@ if (!user) {
                         left: `${activeFieldHash.right}%`,
                         width: isFive ? 16 : 11,
                         height: 1,
-                        background: "rgba(255,255,255,.92)",
+                        background: fieldHashColor,
                         top: `${y}%`,
                         transform: "translateX(-50%)",
                         zIndex: 4,
@@ -7990,7 +8003,7 @@ if (!user) {
                       transform: "translate(-50%,-50%) rotate(90deg)",
                       fontWeight: 900,
                       fontSize: fieldFullscreen ? 34 : 24,
-                      color: "rgba(255,255,255,.88)",
+                      color: fieldNumberColor,
                       zIndex: 5,
                     }}
                   >
@@ -8004,7 +8017,7 @@ if (!user) {
                       transform: "translate(50%,-50%) rotate(-90deg)",
                       fontWeight: 900,
                       fontSize: fieldFullscreen ? 34 : 24,
-                      color: "rgba(255,255,255,.88)",
+                      color: fieldNumberColor,
                       zIndex: 5,
                     }}
                   >
@@ -8018,7 +8031,7 @@ if (!user) {
                   left: "1%",
                   right: "1%",
                   height: 3,
-                  background: "#38bdf8",
+                  background: losLineColor,
                   top: losTop,
                   zIndex: 1000,
                   pointerEvents: "none",
@@ -8314,7 +8327,7 @@ style={{ cursor: "pointer" }}
                   const drawingColorForDisplay =
                     linePlayer?.color ??
                     line.color ??
-                    (isBlock ? "#090b10" : "#facc15");
+                    (isBlock ? defaultBlockColor : defaultRouteColor);
 
                   return (
                     <g key={line.id}>
@@ -8459,7 +8472,7 @@ style={{ cursor: "pointer" }}
                     selectedFieldItem?.type === "route" &&
                     selectedFieldItem.id === route.playerId;
                   const routeColorForDisplay =
-                    player.color ?? route.color ?? "#facc15";
+                    player.color ?? route.color ?? defaultRouteColor;
 
                   return (
                     <g key={route.playerId}>
@@ -8587,8 +8600,8 @@ clipPath:
   defensiveReadPlayerIds.includes(player.id)
     ? "polygon(50% 0%, 0% 100%, 100% 100%)"
     : "none",
-                    background: player.color ?? "#dc2626",
-                    color: readableTextColor(player.color ?? "#dc2626"),
+                    background: player.color ?? defaultDefensePlayerColor,
+                    color: readableTextColor(player.color ?? defaultDefensePlayerColor),
                     fontWeight: 900,
                     fontSize: playerFontPx,
                     left: `${player.x}%`,
@@ -8700,8 +8713,8 @@ realtimeChannelRef.current?.send({
                     width: playerPx,
                     height: playerPx,
                     borderRadius: "50%",
-                    background: player.color ?? "#f3f4f6",
-                    color: readableTextColor(player.color ?? "#f3f4f6"),
+                    background: player.color ?? defaultOffensePlayerColor,
+                    color: readableTextColor(player.color ?? defaultOffensePlayerColor),
                     fontWeight: 900,
                     fontSize: playerFontPx,
                     left: `${player.x}%`,
@@ -9471,6 +9484,45 @@ realtimeChannelRef.current?.send({
                 <div
                   style={{
                     gridColumn: "1 / -1",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 14,
+                    background: fieldBlackWhiteMode
+                      ? "rgba(255,255,255,.12)"
+                      : "rgba(255,255,255,.06)",
+                    border: fieldBlackWhiteMode
+                      ? "1px solid rgba(255,255,255,.30)"
+                      : "1px solid rgba(255,255,255,.08)",
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: 4 }}>
+                    <div style={{ color: "white", fontWeight: 900 }}>
+                      Black & White Mode
+                    </div>
+                    <div style={{ color: "#9ca3af", fontSize: 12, lineHeight: 1.35 }}>
+                      White field with black lines, numbers, and black/white default icons.
+                      Player color choices still override the default icon colors.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setFieldBlackWhiteMode((current) => !current)}
+                    style={{
+                      ...buttonBase,
+                      background: fieldBlackWhiteMode ? "#16a34a" : "#090b10",
+                      color: "white",
+                      minWidth: 92,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {fieldBlackWhiteMode ? "ON" : "OFF"}
+                  </button>
+                </div>
+                <div
+                  style={{
+                    gridColumn: "1 / -1",
                     background: "rgba(255,255,255,.06)",
                     border: "1px solid rgba(255,255,255,.08)",
                     borderRadius: 12,
@@ -9482,9 +9534,11 @@ realtimeChannelRef.current?.send({
                 >
                   Current field:{" "}
                   <strong style={{ color: "white" }}>
-                    {activeFieldHash.label}
+                    {fieldBlackWhiteMode ? "Black & White" : activeFieldHash.label}
                   </strong>{" "}
-                  — {activeFieldHash.description}
+                  — {fieldBlackWhiteMode
+                    ? "White field with black markings. Turn it off to use team colors again."
+                    : activeFieldHash.description}
                 </div>
                 <div
                   style={{
