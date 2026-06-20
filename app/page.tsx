@@ -174,7 +174,6 @@ type TeamBranding = {
 };
 
 type FieldTemplate = "highschool" | "college" | "nfl";
-type FieldColorMode = "team" | "blackWhite";
 type FootballTeamSize = "11man" | "9man" | "8man" | "6man";
 type CoachFocus = "offense" | "defense";
 type DefensiveCoveragePreset =
@@ -222,7 +221,6 @@ const OFFENSE_ON_LOS_YARDS = LOS_YARDS;
 const OFFENSE_SIZE = 22;
 const DEFENSE_SIZE = 18;
 const DEFAULT_FIELD_TEMPLATE: FieldTemplate = "highschool";
-const DEFAULT_FIELD_COLOR_MODE: FieldColorMode = "team";
 const DEFAULT_FOOTBALL_TEAM_SIZE: FootballTeamSize = "11man";
 const DEFAULT_COACH_FOCUS: CoachFocus = "offense";
 
@@ -1720,7 +1718,6 @@ function CoachBoardWebApp() {
   const [teamCodeInput, setTeamCodeInput] = useState("");
   const [roomCoaches, setRoomCoaches] = useState<RoomCoach[]>([]);
   const [showGamedayRoom, setShowGamedayRoom] = useState(false);
-  const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
@@ -1832,9 +1829,6 @@ const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const [fieldTemplate, setFieldTemplate] = useState<FieldTemplate>(
     DEFAULT_FIELD_TEMPLATE
   );
-  const [fieldColorMode, setFieldColorMode] = useState<FieldColorMode>(
-    DEFAULT_FIELD_COLOR_MODE
-  );
   const fieldRef = useRef<HTMLDivElement | null>(null);
 
   // ===============================
@@ -1932,22 +1926,10 @@ useEffect(() => {
   channel.on("presence", { event: "sync" }, () => {
     const presenceState = channel.presenceState() as Record<string, RoomCoach[]>;
 
-    const coachesByUser = new Map<string, RoomCoach>();
-
-    Object.values(presenceState)
+    const coaches = Object.values(presenceState)
       .flatMap((entries) => entries ?? [])
       .filter((coach) => coach?.userId && coach?.name)
-      .forEach((coach) => {
-        const existing = coachesByUser.get(coach.userId);
-
-        if (!existing || coach.joinedAt.localeCompare(existing.joinedAt) > 0) {
-          coachesByUser.set(coach.userId, coach);
-        }
-      });
-
-    const coaches = Array.from(coachesByUser.values()).sort((a, b) =>
-      a.joinedAt.localeCompare(b.joinedAt)
-    );
+      .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
 
     setRoomCoaches(coaches);
   });
@@ -2052,17 +2034,48 @@ useEffect(() => {
     subscription.unsubscribe();
   };
 }, []);
-
-useEffect(() => {
-  if (!user) return;
-
-  setFirstName(user.user_metadata?.first_name ?? "");
-  setLastName(user.user_metadata?.last_name ?? "");
-}, [user]);
-
   const selectedZone = selectedZoneId
     ? zoneAssignments.find((zone) => zone.id === selectedZoneId) ?? null
     : null;
+
+  async function enterTrueFieldFullscreen() {
+    setFieldFullscreen(true);
+    setShowFullscreenQuickToolbar(false);
+    setShowFullscreenPlayerPanel(false);
+    setShowFullscreenToolsPanel(false);
+
+    try {
+      if (typeof document !== "undefined" && !document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (error) {
+      console.warn("Browser fullscreen was not available:", error);
+    }
+  }
+
+  async function exitTrueFieldFullscreen() {
+    setFieldFullscreen(false);
+    setShowFullscreenQuickToolbar(false);
+    setShowFullscreenPlayerPanel(false);
+    setShowFullscreenToolsPanel(false);
+
+    try {
+      if (typeof document !== "undefined" && document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch (error) {
+      console.warn("Unable to exit browser fullscreen:", error);
+    }
+  }
+
+  async function toggleTrueFieldFullscreen() {
+    if (fieldFullscreen || document.fullscreenElement) {
+      await exitTrueFieldFullscreen();
+      return;
+    }
+
+    await enterTrueFieldFullscreen();
+  }
 
   function updateSelectedZoneRadius(nextRadius: number) {
   if (!selectedZoneId) return;
@@ -3405,10 +3418,27 @@ if (selectedFieldItem.type === "man") {
 
   useEffect(() => {
     if (!fieldFullscreen) {
+      setShowFullscreenQuickToolbar(false);
       setShowFullscreenPlayerPanel(false);
       setShowFullscreenToolsPanel(false);
     }
   }, [fieldFullscreen]);
+
+  useEffect(() => {
+    function handleFullscreenChange() {
+      const isActuallyFullscreen = !!document.fullscreenElement;
+      setFieldFullscreen(isActuallyFullscreen);
+
+      if (!isActuallyFullscreen) {
+        setShowFullscreenQuickToolbar(false);
+        setShowFullscreenPlayerPanel(false);
+        setShowFullscreenToolsPanel(false);
+      }
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   const playerPanelContent = (
     <>
@@ -4578,20 +4608,6 @@ if (selectedFieldItem.type === "man") {
   useEffect(() => {
     window.localStorage.setItem("coachboard_field_template", fieldTemplate);
   }, [fieldTemplate]);
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem(
-      "coachboard_field_color_mode"
-    ) as FieldColorMode | null;
-
-    if (saved === "team" || saved === "blackWhite") {
-      setFieldColorMode(saved);
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem("coachboard_field_color_mode", fieldColorMode);
-  }, [fieldColorMode]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(
@@ -6000,12 +6016,10 @@ realtimeChannelRef.current?.send({
   function resetTeamBranding() {
     setTeamBranding(DEFAULT_TEAM_BRANDING);
     setFieldTemplate(DEFAULT_FIELD_TEMPLATE);
-    setFieldColorMode(DEFAULT_FIELD_COLOR_MODE);
     applyCoachFocus(DEFAULT_COACH_FOCUS);
     applyFootballTeamSize(DEFAULT_FOOTBALL_TEAM_SIZE);
     window.localStorage.removeItem("coachboard_team_branding");
     window.localStorage.removeItem("coachboard_field_template");
-    window.localStorage.removeItem("coachboard_field_color_mode");
     window.localStorage.removeItem("coachboard_football_team_size");
     window.localStorage.removeItem("coachboard_coach_focus");
   }
@@ -6290,31 +6304,6 @@ realtimeChannelRef.current?.send({
   const activeFieldHash =
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
-  const fieldBlackWhiteMode = fieldColorMode === "blackWhite";
-  const fieldSurfaceColor = fieldBlackWhiteMode
-    ? "#f8fafc"
-    : teamBranding.secondaryColor || DEFAULT_TEAM_BRANDING.secondaryColor;
-  const fieldEndzoneColor = fieldBlackWhiteMode
-    ? "#ffffff"
-    : teamBranding.primaryColor || DEFAULT_TEAM_BRANDING.primaryColor;
-  const fieldEndzoneTextColor = fieldBlackWhiteMode
-    ? "#050505"
-    : teamBranding.endzoneTextColor || DEFAULT_TEAM_BRANDING.endzoneTextColor;
-  const fieldBoundaryColor = fieldBlackWhiteMode ? "#050505" : "#ffffff";
-  const fieldGoalLineColor = fieldBlackWhiteMode
-    ? "rgba(0,0,0,.92)"
-    : "rgba(255,255,255,.9)";
-  const fieldYardLineColor = fieldBlackWhiteMode
-    ? "rgba(0,0,0,.80)"
-    : "rgba(255,255,255,.78)";
-  const fieldHashColor = fieldBlackWhiteMode
-    ? "rgba(0,0,0,.88)"
-    : "rgba(255,255,255,.92)";
-  const fieldNumberColor = fieldBlackWhiteMode
-    ? "rgba(0,0,0,.88)"
-    : "rgba(255,255,255,.88)";
-  const defaultOffenseIconColor = fieldBlackWhiteMode ? "#ffffff" : "#f3f4f6";
-  const defaultDefenseIconColor = fieldBlackWhiteMode ? "#050505" : "#dc2626";
 async function handleLogout() {
   await supabase.auth.signOut();
 
@@ -6629,24 +6618,18 @@ if (!user) {
             inset: 0,
             background: "rgba(0,0,0,.72)",
             zIndex: 2147483646,
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
+            display: "grid",
+            placeItems: "center",
             padding: 20,
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
           }}
         >
           <div
             style={{
               ...cardStyle,
               width: "min(460px, 100%)",
-              maxHeight: "calc(100vh - 40px)",
               padding: 18,
               display: "grid",
               gap: 12,
-              overflowY: "auto",
-              WebkitOverflowScrolling: "touch",
             }}
           >
             <div style={panelHeaderStyle}>Gameday Room</div>
@@ -6734,15 +6717,7 @@ if (!user) {
                   Coaches currently in room:
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 6,
-                    maxHeight: 180,
-                    overflowY: "auto",
-                    paddingRight: 4,
-                  }}
-                >
+                <div style={{ display: "grid", gap: 6 }}>
                   {roomCoaches.length === 0 ? (
                     <div style={{ color: "#9ca3af" }}>No one listed yet.</div>
                   ) : (
@@ -6784,156 +6759,6 @@ if (!user) {
 
             <button
               onClick={() => setShowGamedayRoom(false)}
-              style={{
-                ...buttonBase,
-                background: "#111827",
-                color: "white",
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showAccountSettings && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,.72)",
-            zIndex: 2147483646,
-            display: "grid",
-            placeItems: "center",
-            padding: 20,
-          }}
-        >
-          <div
-            style={{
-              ...cardStyle,
-              width: "min(480px, 100%)",
-              padding: 18,
-              display: "grid",
-              gap: 12,
-            }}
-          >
-            <div style={panelHeaderStyle}>Account</div>
-
-            <div style={{ color: "white", fontWeight: 900, fontSize: 22 }}>
-              Account Settings
-            </div>
-
-            <div style={{ color: "#d1d5db", fontSize: 13, fontWeight: 800 }}>
-              This name is what other coaches see in Gameday Rooms.
-            </div>
-
-            <label style={{ color: "#d1d5db", fontWeight: 900, fontSize: 12 }}>
-              First Name
-            </label>
-            <input
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Enter your first name"
-              style={{
-                padding: 12,
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,.15)",
-                color: "black",
-                fontWeight: 800,
-              }}
-            />
-
-            <label style={{ color: "#d1d5db", fontWeight: 900, fontSize: 12 }}>
-              Last Name
-            </label>
-            <input
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Enter your last name"
-              style={{
-                padding: 12,
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,.15)",
-                color: "black",
-                fontWeight: 800,
-              }}
-            />
-
-            <div style={{ color: "#9ca3af", fontSize: 12, fontWeight: 800 }}>
-              Signed in as: {user?.email}
-            </div>
-
-            <div style={{ color: "#facc15", fontSize: 13, fontWeight: 900 }}>
-              Gameday display: {getCoachDisplayName(user)}
-            </div>
-
-            <button
-              onClick={async () => {
-                const cleanedFirstName = firstName.trim();
-                const cleanedLastName = lastName.trim();
-                const fullName = `${cleanedFirstName} ${cleanedLastName}`.trim();
-
-                if (!cleanedFirstName || !cleanedLastName) {
-                  alert("Enter your first and last name.");
-                  return;
-                }
-
-                const { data, error } = await supabase.auth.updateUser({
-                  data: {
-                    first_name: cleanedFirstName,
-                    last_name: cleanedLastName,
-                    full_name: fullName,
-                    name: fullName,
-                  },
-                });
-
-                if (error) {
-                  alert(error.message);
-                  return;
-                }
-
-                if (data.user) {
-                  setUser(data.user);
-                }
-
-                await realtimeChannelRef.current?.track({
-                  userId: data.user?.id ?? user?.id ?? "unknown",
-                  name: `Coach: ${fullName}`,
-                  joinedAt: new Date().toISOString(),
-                });
-
-                alert("Account name updated.");
-              }}
-              style={{
-                ...buttonBase,
-                background: "#16a34a",
-                color: "white",
-              }}
-            >
-              Save Name
-            </button>
-
-            <button
-              onClick={async () => {
-                localStorage.removeItem("coachboard_team_code");
-                setTeamCode("");
-                setTeamCodeInput("");
-                setRoomCoaches([]);
-                setShowAccountSettings(false);
-                await supabase.auth.signOut();
-                setUser(null);
-              }}
-              style={{
-                ...buttonBase,
-                background: "#7f1d1d",
-                color: "white",
-              }}
-            >
-              Sign Out
-            </button>
-
-            <button
-              onClick={() => setShowAccountSettings(false)}
               style={{
                 ...buttonBase,
                 background: "#111827",
@@ -7144,20 +6969,6 @@ if (!user) {
               </div>
             )}
           </div>
-
-          <button
-            style={{
-              ...buttonBase,
-              width: "100%",
-              background: showAccountSettings ? "#dc2626" : "#090b10",
-              color: "white",
-              padding: "8px",
-            }}
-            onClick={() => setShowAccountSettings(true)}
-          >
-            Account
-          </button>
-
           <button
             style={{
               ...buttonBase,
@@ -7290,12 +7101,12 @@ if (!user) {
           <div
             style={{
               ...cardStyle,
-              padding: fieldFullscreen ? 18 : 12,
+              padding: fieldFullscreen ? 0 : 12,
               position: fieldFullscreen ? "fixed" : "relative",
               inset: fieldFullscreen ? 0 : undefined,
               zIndex: fieldFullscreen ? 5000 : undefined,
               background: fieldFullscreen
-                ? "linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)), url('/login-bg.png.png') center / cover no-repeat"
+                ? "#000"
                 : cardStyle.background,
               borderRadius: fieldFullscreen ? 0 : cardStyle.borderRadius,
               border: fieldFullscreen ? "none" : cardStyle.border,
@@ -7305,20 +7116,16 @@ if (!user) {
               style={{
                 ...buttonBase,
                 position: "absolute",
-                top: fieldFullscreen ? 28 : 18,
-                right: fieldFullscreen ? 28 : 18,
+                top: fieldFullscreen ? 12 : 18,
+                right: fieldFullscreen ? 12 : 18,
                 zIndex: 6000,
+                display: fieldFullscreen ? "none" : "block",
                 background: fieldFullscreen ? "rgba(15,23,42,.86)" : "#090b10",
                 color: "white",
                 padding: "8px 10px",
                 backdropFilter: fieldFullscreen ? "blur(8px)" : undefined,
               }}
-              onClick={() => {
-                setShowFullscreenQuickToolbar(true);
-                setShowFullscreenPlayerPanel(false);
-                setShowFullscreenToolsPanel(false);
-                setFieldFullscreen((v) => !v);
-              }}
+              onClick={toggleTrueFieldFullscreen}
             >
               {fieldFullscreen ? "Exit Full Screen" : "Full Screen"}
             </button>
@@ -7331,6 +7138,7 @@ if (!user) {
                     top: 28,
                     left: 28,
                     zIndex: 2147483647,
+                    display: "none",
                     background: showFullscreenQuickToolbar
                       ? "#dc2626"
                       : "rgba(15,23,42,.86)",
@@ -7846,16 +7654,16 @@ if (!user) {
               }}
               style={{
                 position: "relative",
-                width: fieldFullscreen
-                  ? "min(calc(100vw - 36px), calc((100vh - 36px) * (15 / 10)))"
-                  : "100%",
-                height: fieldFullscreen ? "calc(100vh - 36px)" : undefined,
+                width: fieldFullscreen ? "100vw" : "100%",
+                height: fieldFullscreen ? "100vh" : undefined,
                 aspectRatio: fieldFullscreen ? undefined : "10 / 11",
                 maxHeight: fieldFullscreen ? undefined : "78vh",
-                margin: fieldFullscreen ? "0 auto" : undefined,
-                borderRadius: fieldFullscreen ? 24 : 28,
+                margin: fieldFullscreen ? 0 : undefined,
+                borderRadius: fieldFullscreen ? 0 : 28,
                 overflow: "hidden",
-                background: fieldSurfaceColor,
+                background:
+                  teamBranding.secondaryColor ||
+                  DEFAULT_TEAM_BRANDING.secondaryColor,
                 touchAction: "none",
                 userSelect: "none",
                 WebkitUserSelect: "none",
@@ -7990,7 +7798,7 @@ if (!user) {
                   bottom: 0,
                   left: 0,
                   width: "10px",
-                  background: fieldBoundaryColor,
+                  background: "white",
                   zIndex: 100,
                   pointerEvents: "none",
                 }}
@@ -8002,7 +7810,7 @@ if (!user) {
                   bottom: 0,
                   right: 0,
                   width: "10px",
-                  background: fieldBoundaryColor,
+                  background: "white",
                   zIndex: 100,
                   pointerEvents: "none",
                 }}
@@ -8014,7 +7822,7 @@ if (!user) {
                   left: 0,
                   right: 0,
                   height: "10px",
-                  background: fieldBoundaryColor,
+                  background: "white",
                   zIndex: 100,
                   pointerEvents: "none",
                 }}
@@ -8026,7 +7834,7 @@ if (!user) {
                   left: 0,
                   right: 0,
                   height: "10px",
-                  background: fieldBoundaryColor,
+                  background: "white",
                   zIndex: 100,
                   pointerEvents: "none",
                 }}
@@ -8037,17 +7845,15 @@ if (!user) {
                   insetInline: 0,
                   top: 0,
                   height: "16.666%",
-                  background: fieldEndzoneColor,
+                  background: teamBranding.primaryColor,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontWeight: 900,
                   fontSize: endzoneFontPx,
                   letterSpacing: endzoneLetterSpacing,
-                  color: fieldEndzoneTextColor,
-                  textShadow: fieldBlackWhiteMode
-                    ? "none"
-                    : "0 2px 8px rgba(0,0,0,.35)",
+                  color: teamBranding.endzoneTextColor,
+                  textShadow: "0 2px 8px rgba(0,0,0,.35)",
                   zIndex: 1,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -8064,7 +7870,7 @@ if (!user) {
                   left: "0%",
                   right: "0%",
                   height: 2,
-                  background: fieldGoalLineColor,
+                  background: "rgba(255,255,255,.9)",
                   top: "16.666%",
                   zIndex: 998,
                   pointerEvents: "none",
@@ -8079,7 +7885,7 @@ if (!user) {
                     left: "0%",
                     right: "0%",
                     height: 2,
-                    background: fieldYardLineColor,
+                    background: "rgba(255,255,255,.78)",
                     top: `${16.666 + i * (83.333 / 10)}%`,
                     zIndex: 3,
                   }}
@@ -8097,7 +7903,7 @@ if (!user) {
                         left: "10px",
                         width: isFive ? 18 : 10,
                         height: 1,
-                        background: fieldGoalLineColor,
+                        background: "rgba(255,255,255,.9)",
                         top: `${y}%`,
                         zIndex: 4,
                       }}
@@ -8108,7 +7914,7 @@ if (!user) {
                         right: "10px",
                         width: isFive ? 18 : 10,
                         height: 1,
-                        background: fieldGoalLineColor,
+                        background: "rgba(255,255,255,.9)",
                         top: `${y}%`,
                         zIndex: 4,
                       }}
@@ -8119,7 +7925,7 @@ if (!user) {
                         left: `${activeFieldHash.left}%`,
                         width: isFive ? 16 : 11,
                         height: 1,
-                        background: fieldHashColor,
+                        background: "rgba(255,255,255,.92)",
                         top: `${y}%`,
                         transform: "translateX(-50%)",
                         zIndex: 4,
@@ -8131,7 +7937,7 @@ if (!user) {
                         left: `${activeFieldHash.right}%`,
                         width: isFive ? 16 : 11,
                         height: 1,
-                        background: fieldHashColor,
+                        background: "rgba(255,255,255,.92)",
                         top: `${y}%`,
                         transform: "translateX(-50%)",
                         zIndex: 4,
@@ -8151,7 +7957,7 @@ if (!user) {
                       transform: "translate(-50%,-50%) rotate(90deg)",
                       fontWeight: 900,
                       fontSize: fieldFullscreen ? 34 : 24,
-                      color: fieldNumberColor,
+                      color: "rgba(255,255,255,.88)",
                       zIndex: 5,
                     }}
                   >
@@ -8165,7 +7971,7 @@ if (!user) {
                       transform: "translate(50%,-50%) rotate(-90deg)",
                       fontWeight: 900,
                       fontSize: fieldFullscreen ? 34 : 24,
-                      color: fieldNumberColor,
+                      color: "rgba(255,255,255,.88)",
                       zIndex: 5,
                     }}
                   >
@@ -8748,8 +8554,8 @@ clipPath:
   defensiveReadPlayerIds.includes(player.id)
     ? "polygon(50% 0%, 0% 100%, 100% 100%)"
     : "none",
-                    background: player.color ?? defaultDefenseIconColor,
-                    color: readableTextColor(player.color ?? defaultDefenseIconColor),
+                    background: player.color ?? "#dc2626",
+                    color: readableTextColor(player.color ?? "#dc2626"),
                     fontWeight: 900,
                     fontSize: playerFontPx,
                     left: `${player.x}%`,
@@ -8861,8 +8667,8 @@ realtimeChannelRef.current?.send({
                     width: playerPx,
                     height: playerPx,
                     borderRadius: "50%",
-                    background: player.color ?? defaultOffenseIconColor,
-                    color: readableTextColor(player.color ?? defaultOffenseIconColor),
+                    background: player.color ?? "#f3f4f6",
+                    color: readableTextColor(player.color ?? "#f3f4f6"),
                     fontWeight: 900,
                     fontSize: playerFontPx,
                     left: `${player.x}%`,
@@ -9424,7 +9230,7 @@ realtimeChannelRef.current?.send({
             >
               <div style={{ fontSize: 18, fontWeight: 800 }}>Team Setup</div>
               <div style={{ color: "#9ca3af", fontSize: 13 }}>
-                Customize team identity, field color mode, field template, and team size. View
+                Customize team identity, field template, and team size. View
                 switching is now under Coach Tools.
               </div>
               <div
@@ -9548,33 +9354,6 @@ realtimeChannelRef.current?.send({
                     fontSize: 13,
                   }}
                 >
-                  Field Color Mode
-                  <select
-                    value={fieldColorMode}
-                    onChange={(e) =>
-                      setFieldColorMode(e.target.value as FieldColorMode)
-                    }
-                    style={{
-                      background: "#090b10",
-                      border: "1px solid rgba(255,255,255,.12)",
-                      borderRadius: 12,
-                      color: "white",
-                      padding: "10px 12px",
-                      height: 42,
-                    }}
-                  >
-                    <option value="team">Team Colors</option>
-                    <option value="blackWhite">Black & White</option>
-                  </select>
-                </label>
-                <label
-                  style={{
-                    display: "grid",
-                    gap: 6,
-                    color: "#d1d5db",
-                    fontSize: 13,
-                  }}
-                >
                   End Zone Text Color
                   <input
                     type="color"
@@ -9668,13 +9447,11 @@ realtimeChannelRef.current?.send({
                     lineHeight: 1.45,
                   }}
                 >
-                  Current field mode:{" "}
+                  Current field:{" "}
                   <strong style={{ color: "white" }}>
-                    {fieldBlackWhiteMode ? "Black & White" : "Team Colors"}
+                    {activeFieldHash.label}
                   </strong>{" "}
-                  — {fieldBlackWhiteMode
-                    ? "White field with black lines, numbers, end zone text, and black/white default icons. Player color choices still override the defaults."
-                    : activeFieldHash.description}
+                  — {activeFieldHash.description}
                 </div>
                 <div
                   style={{
