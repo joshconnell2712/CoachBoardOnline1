@@ -7050,8 +7050,11 @@ if (!user) {
               inset: fieldFullscreen ? 0 : undefined,
               zIndex: fieldFullscreen ? 5000 : undefined,
               background: fieldFullscreen
-                ? "radial-gradient(circle at center, rgba(20,20,24,1) 0%, rgba(3,7,18,1) 72%)"
+                ? "linear-gradient(rgba(0,0,0,.48), rgba(0,0,0,.48)), url('/login-bg.png.png')"
                 : cardStyle.background,
+              backgroundSize: fieldFullscreen ? "cover" : undefined,
+              backgroundPosition: fieldFullscreen ? "center" : undefined,
+              backgroundRepeat: fieldFullscreen ? "no-repeat" : undefined,
               borderRadius: fieldFullscreen ? 0 : cardStyle.borderRadius,
               border: fieldFullscreen ? "none" : cardStyle.border,
             }}
