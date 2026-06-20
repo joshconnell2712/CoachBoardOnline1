@@ -1718,6 +1718,7 @@ function CoachBoardWebApp() {
   const [teamCodeInput, setTeamCodeInput] = useState("");
   const [roomCoaches, setRoomCoaches] = useState<RoomCoach[]>([]);
   const [showGamedayRoom, setShowGamedayRoom] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
@@ -2034,6 +2035,14 @@ useEffect(() => {
     subscription.unsubscribe();
   };
 }, []);
+
+useEffect(() => {
+  if (!user) return;
+
+  setFirstName(user.user_metadata?.first_name ?? "");
+  setLastName(user.user_metadata?.last_name ?? "");
+}, [user]);
+
   const selectedZone = selectedZoneId
     ? zoneAssignments.find((zone) => zone.id === selectedZoneId) ?? null
     : null;
@@ -6715,6 +6724,156 @@ if (!user) {
         </div>
       )}
 
+      {showAccountSettings && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.72)",
+            zIndex: 2147483646,
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              ...cardStyle,
+              width: "min(480px, 100%)",
+              padding: 18,
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={panelHeaderStyle}>Account</div>
+
+            <div style={{ color: "white", fontWeight: 900, fontSize: 22 }}>
+              Account Settings
+            </div>
+
+            <div style={{ color: "#d1d5db", fontSize: 13, fontWeight: 800 }}>
+              This name is what other coaches see in Gameday Rooms.
+            </div>
+
+            <label style={{ color: "#d1d5db", fontWeight: 900, fontSize: 12 }}>
+              First Name
+            </label>
+            <input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Enter your first name"
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,.15)",
+                color: "black",
+                fontWeight: 800,
+              }}
+            />
+
+            <label style={{ color: "#d1d5db", fontWeight: 900, fontSize: 12 }}>
+              Last Name
+            </label>
+            <input
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Enter your last name"
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,.15)",
+                color: "black",
+                fontWeight: 800,
+              }}
+            />
+
+            <div style={{ color: "#9ca3af", fontSize: 12, fontWeight: 800 }}>
+              Signed in as: {user?.email}
+            </div>
+
+            <div style={{ color: "#facc15", fontSize: 13, fontWeight: 900 }}>
+              Gameday display: {getCoachDisplayName(user)}
+            </div>
+
+            <button
+              onClick={async () => {
+                const cleanedFirstName = firstName.trim();
+                const cleanedLastName = lastName.trim();
+                const fullName = `${cleanedFirstName} ${cleanedLastName}`.trim();
+
+                if (!cleanedFirstName || !cleanedLastName) {
+                  alert("Enter your first and last name.");
+                  return;
+                }
+
+                const { data, error } = await supabase.auth.updateUser({
+                  data: {
+                    first_name: cleanedFirstName,
+                    last_name: cleanedLastName,
+                    full_name: fullName,
+                    name: fullName,
+                  },
+                });
+
+                if (error) {
+                  alert(error.message);
+                  return;
+                }
+
+                if (data.user) {
+                  setUser(data.user);
+                }
+
+                await realtimeChannelRef.current?.track({
+                  userId: data.user?.id ?? user?.id ?? "unknown",
+                  name: `Coach: ${fullName}`,
+                  joinedAt: new Date().toISOString(),
+                });
+
+                alert("Account name updated.");
+              }}
+              style={{
+                ...buttonBase,
+                background: "#16a34a",
+                color: "white",
+              }}
+            >
+              Save Name
+            </button>
+
+            <button
+              onClick={async () => {
+                localStorage.removeItem("coachboard_team_code");
+                setTeamCode("");
+                setTeamCodeInput("");
+                setRoomCoaches([]);
+                setShowAccountSettings(false);
+                await supabase.auth.signOut();
+                setUser(null);
+              }}
+              style={{
+                ...buttonBase,
+                background: "#7f1d1d",
+                color: "white",
+              }}
+            >
+              Sign Out
+            </button>
+
+            <button
+              onClick={() => setShowAccountSettings(false)}
+              style={{
+                ...buttonBase,
+                background: "#111827",
+                color: "white",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       <div
         style={{
           maxWidth: 1600,
@@ -6913,6 +7072,20 @@ if (!user) {
               </div>
             )}
           </div>
+
+          <button
+            style={{
+              ...buttonBase,
+              width: "100%",
+              background: showAccountSettings ? "#dc2626" : "#090b10",
+              color: "white",
+              padding: "8px",
+            }}
+            onClick={() => setShowAccountSettings(true)}
+          >
+            Account
+          </button>
+
           <button
             style={{
               ...buttonBase,
@@ -7050,11 +7223,8 @@ if (!user) {
               inset: fieldFullscreen ? 0 : undefined,
               zIndex: fieldFullscreen ? 5000 : undefined,
               background: fieldFullscreen
-                ? "linear-gradient(rgba(0,0,0,.48), rgba(0,0,0,.48)), url('/login-bg.png.png')"
+                ? "linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)), url('/login-bg.png.png') center / cover no-repeat"
                 : cardStyle.background,
-              backgroundSize: fieldFullscreen ? "cover" : undefined,
-              backgroundPosition: fieldFullscreen ? "center" : undefined,
-              backgroundRepeat: fieldFullscreen ? "no-repeat" : undefined,
               borderRadius: fieldFullscreen ? 0 : cardStyle.borderRadius,
               border: fieldFullscreen ? "none" : cardStyle.border,
             }}
