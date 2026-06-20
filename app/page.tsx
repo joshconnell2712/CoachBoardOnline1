@@ -2040,7 +2040,7 @@ useEffect(() => {
 
   async function enterTrueFieldFullscreen() {
     setFieldFullscreen(true);
-    setShowFullscreenQuickToolbar(false);
+    setShowFullscreenQuickToolbar(true);
     setShowFullscreenPlayerPanel(false);
     setShowFullscreenToolsPanel(false);
 
@@ -2076,6 +2076,25 @@ useEffect(() => {
 
     await enterTrueFieldFullscreen();
   }
+
+
+  useEffect(() => {
+    if (!fieldFullscreen) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyMargin = document.body.style.margin;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.margin = "0";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.margin = previousBodyMargin;
+    };
+  }, [fieldFullscreen]);
 
   function updateSelectedZoneRadius(nextRadius: number) {
   if (!selectedZoneId) return;
@@ -7108,6 +7127,7 @@ if (!user) {
               background: fieldFullscreen
                 ? "#000"
                 : cardStyle.background,
+              overflow: fieldFullscreen ? "hidden" : undefined,
               borderRadius: fieldFullscreen ? 0 : cardStyle.borderRadius,
               border: fieldFullscreen ? "none" : cardStyle.border,
             }}
@@ -7138,7 +7158,7 @@ if (!user) {
                     top: 28,
                     left: 28,
                     zIndex: 2147483647,
-                    display: "none",
+                    display: "block",
                     background: showFullscreenQuickToolbar
                       ? "#dc2626"
                       : "rgba(15,23,42,.86)",
@@ -7181,6 +7201,19 @@ if (!user) {
                     onPointerMove={(e) => e.stopPropagation()}
                     onPointerUp={(e) => e.stopPropagation()}
                   >
+                    <button
+                      style={{
+                        ...buttonBase,
+                        background: "#374151",
+                        color: "white",
+                        padding: "8px 6px",
+                        fontSize: 11,
+                      }}
+                      onClick={exitTrueFieldFullscreen}
+                      title="Exit fullscreen"
+                    >
+                      Exit
+                    </button>
                     <button
                       style={{
                         ...buttonBase,
@@ -7654,8 +7687,8 @@ if (!user) {
               }}
               style={{
                 position: "relative",
-                width: fieldFullscreen ? "100vw" : "100%",
-                height: fieldFullscreen ? "100vh" : undefined,
+                width: fieldFullscreen ? "100dvw" : "100%",
+                height: fieldFullscreen ? "100dvh" : undefined,
                 aspectRatio: fieldFullscreen ? undefined : "10 / 11",
                 maxHeight: fieldFullscreen ? undefined : "78vh",
                 margin: fieldFullscreen ? 0 : undefined,
