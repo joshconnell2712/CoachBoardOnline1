@@ -1125,92 +1125,156 @@ function getRoutePoints(
   route: RouteModel,
   qbPoint?: FieldPoint,
 ) {
-  // Routes start from the player's actual saved field location.
-  // Fullscreen may resize icons, but it must never move spacing/alignments.
+  // Professional route engine:
+  // Routes are drawn as clean football route primitives instead of freehand curves.
+  // Every route keeps the player's exact alignment as its starting point and uses
+  // crisp straight SVG segments with hard breaks.
   const routeStartYards = player.yardsFromGoal;
   const start = { x: player.x, y: fieldYFromYards(routeStartYards) };
-  const breakYards = Math.max(0, routeStartYards - route.breakDepth);
-  const finishYards = Math.max(0, routeStartYards - route.finishDepth);
+
+  const stemDepth = Math.max(0, route.breakDepth);
+  const totalDepth = Math.max(stemDepth, route.finishDepth);
+
+  const breakYards = Math.max(0, routeStartYards - stemDepth);
+  const finishYards = Math.max(0, routeStartYards - totalDepth);
+
   const breakPoint = { x: player.x, y: fieldYFromYards(breakYards) };
+  const verticalFinish = {
+    x: player.x,
+    y: fieldYFromYards(finishYards),
+  };
+
   const towardMiddle = player.x > 50 ? -1 : 1;
   const towardOutside = player.x > 50 ? 1 : -1;
-  let finishX = player.x;
-  let finishY = fieldYFromYards(finishYards);
+
+  const clampX = (x: number) => Math.max(4, Math.min(96, x));
+  const pointAtDepth = (x: number, yards: number): FieldPoint => ({
+    x: clampX(x),
+    y: fieldYFromYards(Math.max(0, yards)),
+  });
 
   switch (route.routeType) {
     case "Go":
-      finishX = player.x;
-      break;
-    case "Slant":
-      finishX = player.x + towardMiddle * 10;
-      break;
+      return {
+        polyline: [start, verticalFinish],
+        breakPoint: verticalFinish,
+      };
+
+    case "Slant": {
+      const slantDepth = Math.max(6, totalDepth);
+      return {
+        polyline: [
+          start,
+          pointAtDepth(player.x + towardMiddle * 16, routeStartYards - slantDepth),
+        ],
+        breakPoint: start,
+      };
+    }
+
     case "Out":
-      finishX = player.x + towardOutside * 10;
-      finishY = breakPoint.y;
-      break;
+      return {
+        polyline: [
+          start,
+          breakPoint,
+          { x: clampX(breakPoint.x + towardOutside * 16), y: breakPoint.y },
+        ],
+        breakPoint,
+      };
+
     case "In":
-      finishX = player.x + towardMiddle * 10;
-      finishY = breakPoint.y;
-      break;
+      return {
+        polyline: [
+          start,
+          breakPoint,
+          { x: clampX(breakPoint.x + towardMiddle * 16), y: breakPoint.y },
+        ],
+        breakPoint,
+      };
+
     case "Post":
-      finishX = player.x + towardMiddle * 10;
-      break;
+      return {
+        polyline: [
+          start,
+          breakPoint,
+          pointAtDepth(breakPoint.x + towardMiddle * 14, routeStartYards - totalDepth),
+        ],
+        breakPoint,
+      };
+
     case "Corner":
-      finishX = player.x + towardOutside * 10;
-      break;
+      return {
+        polyline: [
+          start,
+          breakPoint,
+          pointAtDepth(breakPoint.x + towardOutside * 14, routeStartYards - totalDepth),
+        ],
+        breakPoint,
+      };
+
     case "Curl": {
       const target = qbPoint ?? { x: 54, y: fieldYFromYards(LOS_YARDS + 4) };
-      const dx = target.x - breakPoint.x;
-      const dy = target.y - breakPoint.y;
+      const dx = target.x - verticalFinish.x;
+      const dy = target.y - verticalFinish.y;
       const dist = Math.max(0.001, Math.hypot(dx, dy));
-      finishX = breakPoint.x + (dx / dist) * 4;
-      finishY = breakPoint.y + (dy / dist) * 4;
-      break;
-    }
-    case "Comeback":
-      finishX = player.x + towardOutside * -6;
-      break;
-  }
+      const settlePoint = {
+        x: clampX(verticalFinish.x + (dx / dist) * 4.5),
+        y: verticalFinish.y + (dy / dist) * 4.5,
+      };
 
-  finishX = Math.max(5, Math.min(95, finishX));
-  if (route.routeType === "Go")
-    return { polyline: [start, { x: finishX, y: finishY }], breakPoint };
-  return {
-    polyline: [start, breakPoint, { x: finishX, y: finishY }],
-    breakPoint,
-  };
+      return {
+        polyline: [start, verticalFinish, settlePoint],
+        breakPoint: verticalFinish,
+      };
+    }
+
+    case "Comeback": {
+      const comebackPoint = {
+        x: clampX(verticalFinish.x + towardOutside * 7),
+        y: fieldYFromYards(Math.min(routeStartYards, finishYards + 4)),
+      };
+
+      return {
+        polyline: [start, verticalFinish, comebackPoint],
+        breakPoint: verticalFinish,
+      };
+    }
+  }
 }
 
-function routeArrow(polyline: FieldPoint[], size = 2.4) {
+function routeArrow(polyline: FieldPoint[], size = 1.25) {
   const last = polyline[polyline.length - 1];
   const prev = polyline[polyline.length - 2] ?? last;
   const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+  const arrowAngle = Math.PI / 8;
+
   return {
     last,
     a: {
-      x: last.x - size * Math.cos(angle - Math.PI / 6),
-      y: last.y - size * Math.sin(angle - Math.PI / 6),
+      x: last.x - size * Math.cos(angle - arrowAngle),
+      y: last.y - size * Math.sin(angle - arrowAngle),
     },
     b: {
-      x: last.x - size * Math.cos(angle + Math.PI / 6),
-      y: last.y - size * Math.sin(angle + Math.PI / 6),
+      x: last.x - size * Math.cos(angle + arrowAngle),
+      y: last.y - size * Math.sin(angle + arrowAngle),
     },
   };
 }
 
-function drawLineArrow(points: FieldPoint[], size = 1.6) {
+function drawLineArrow(points: FieldPoint[], size = 1.15) {
   const last = points[points.length - 1];
   const prev = points[points.length - 2] ?? last;
   const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+  const arrowAngle = Math.PI / 8;
+
   return {
     last,
     a: {
-      x: last.x - size * Math.cos(angle - Math.PI / 6),
-      y: last.y - size * Math.sin(angle - Math.PI / 6),
+      x: last.x - size * Math.cos(angle - arrowAngle),
+      y: last.y - size * Math.sin(angle - arrowAngle),
     },
     b: {
-      x: last.x - size * Math.cos(angle + Math.PI / 6),
-      y: last.y - size * Math.sin(angle + Math.PI / 6),
+      x: last.x - size * Math.cos(angle + arrowAngle),
+      y: last.y - size * Math.sin(angle + arrowAngle),
     },
   };
 }
@@ -1975,8 +2039,8 @@ function CoachBoardWebApp() {
   // Unified line sizing system.
   // Routes, solid draw, dotted draw, block lines, arrows, and T-caps now share
   // the same visual stroke size so no tool looks thicker than another.
-  const lineStroke = Math.max(0.35, playerPx * 0.018);
-  const lineOutlineStroke = lineStroke + Math.max(0.14, visualPlayerPx * 0.008);
+  const lineStroke = Math.max(0.28, playerPx * 0.012);
+  const lineOutlineStroke = lineStroke + Math.max(0.12, visualPlayerPx * 0.006);
 
   const routeStroke = lineStroke;
   const routeOutlineStroke = lineOutlineStroke;
@@ -1987,14 +2051,14 @@ function CoachBoardWebApp() {
   const blockCapStroke = lineStroke;
   const blockCapOutlineStroke = lineOutlineStroke;
 
-  const arrowSize = Math.max(0.9, playerPx * 0.075);
-  const blockCapSize = visualPlayerPx * 0.045;
+  const arrowSize = Math.max(0.55, playerPx * 0.045);
+  const blockCapSize = visualPlayerPx * 0.04;
 
   // Tight, clean dotted pattern. The round caps in the SVG make this look like
   // true dots instead of long thick dashes.
-  const dashPattern = `${Math.max(0.18, lineStroke * 0.65)} ${Math.max(
+  const dashPattern = `${Math.max(0.01, lineStroke * 0.05)} ${Math.max(
     1.15,
-    lineStroke * 2.35,
+    lineStroke * 4.2,
   )}`;
 
   const endzoneFontPx = fieldFullscreen
