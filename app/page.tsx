@@ -111,6 +111,31 @@ type PlayFolder = {
 
 type FolderPermission = "viewer" | "editor" | "owner";
 
+
+type SupabasePlayFolderRow = {
+  id: string;
+  name: string;
+  parent_folder_id: string | null;
+  owner_id: string | null;
+  owner_name: string | null;
+  team_code: string | null;
+  share_scope: "private" | "team" | "shared" | null;
+  shared_with_emails: string[] | null;
+  created_at: string | null;
+};
+
+type SupabaseLibraryPlayRow = {
+  id: string;
+  name: string;
+  folder_id: string | null;
+  owner_id: string | null;
+  owner_name: string | null;
+  team_code: string | null;
+  share_scope: "private" | "team" | "shared" | null;
+  shared_with_emails: string[] | null;
+  play_data: SavedPlay | null;
+};
+
 type Playbook = {
   id: string;
   name: string;
@@ -6182,8 +6207,9 @@ function CoachBoardWebApp() {
         .select("*");
       if (playError) throw playError;
 
-      const nextFolders: PlayFolder[] = (folderData ?? [])
-        .filter((row: any) => {
+      const folderRows = (folderData ?? []) as SupabasePlayFolderRow[];
+      const nextFolders: PlayFolder[] = folderRows
+        .filter((row) => {
           const emails = (row.shared_with_emails ?? []).map((email: string) =>
             email.toLowerCase(),
           );
@@ -6193,7 +6219,7 @@ function CoachBoardWebApp() {
             (row.share_scope === "team" && row.team_code === teamCode)
           );
         })
-        .map((row: any) => ({
+        .map((row) => ({
           id: row.id,
           name: row.name,
           parentFolderId: row.parent_folder_id ?? undefined,
@@ -6206,8 +6232,9 @@ function CoachBoardWebApp() {
         }));
 
       const visibleFolderIds = new Set(nextFolders.map((folder) => folder.id));
-      const nextPlays: SavedPlay[] = (playData ?? [])
-        .filter((row: any) => {
+      const playRows = (playData ?? []) as SupabaseLibraryPlayRow[];
+      const nextPlays: SavedPlay[] = playRows
+        .filter((row) => {
           const emails = (row.shared_with_emails ?? []).map((email: string) =>
             email.toLowerCase(),
           );
@@ -6218,7 +6245,7 @@ function CoachBoardWebApp() {
             (row.share_scope === "team" && row.team_code === teamCode)
           );
         })
-        .map((row: any) => ({
+        .map((row) => ({
           ...(row.play_data as SavedPlay),
           id: row.id,
           name: row.name,
