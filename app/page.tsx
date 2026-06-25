@@ -6241,7 +6241,7 @@ function CoachBoardWebApp() {
           return (
             row.owner_id === user.id ||
             emails.includes(userEmail) ||
-            visibleFolderIds.has(row.folder_id) ||
+            (row.folder_id ? visibleFolderIds.has(row.folder_id) : false) ||
             (row.share_scope === "team" && row.team_code === teamCode)
           );
         })
