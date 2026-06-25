@@ -84,12 +84,32 @@ type SavedPlay = {
   id: string;
   name: string;
   formationId?: string;
+  folderId?: string;
+  ownerId?: string;
+  ownerName?: string;
+  teamCode?: string;
+  shareScope?: "private" | "team" | "shared";
+  sharedWithEmails?: string[];
   offensePlayers: Player[];
   defensePlayers: Player[];
   routes: RouteModel[];
   drawnLines: DrawLine[];
   preloadOnOpen?: boolean;
 };
+
+type PlayFolder = {
+  id: string;
+  name: string;
+  parentFolderId?: string;
+  ownerId?: string;
+  ownerName?: string;
+  teamCode?: string;
+  shareScope: "private" | "team" | "shared";
+  sharedWithEmails: string[];
+  createdAt: string;
+};
+
+type FolderPermission = "viewer" | "editor" | "owner";
 
 type Playbook = {
   id: string;
@@ -926,7 +946,7 @@ function yardsFromPercentY(percentY: number) {
   const playablePct = (PLAYABLE_YARDS / FIELD_VISIBLE_YARDS) * 100;
   const playableY = Math.max(
     endZonePct,
-    Math.min(endZonePct + playablePct, percentY)
+    Math.min(endZonePct + playablePct, percentY),
   );
   return ((playableY - endZonePct) / playablePct) * PLAYABLE_YARDS;
 }
@@ -967,7 +987,7 @@ function autoSpaceOffensiveLine(players: Player[]) {
     ...p,
     x: Math.max(
       4,
-      Math.min(96, currentCenter + (index - middleIndex) * LINE_SPACING_GAP)
+      Math.min(96, currentCenter + (index - middleIndex) * LINE_SPACING_GAP),
     ),
     yardsFromGoal: OFFENSE_ON_LOS_YARDS,
     onLOS: true,
@@ -999,7 +1019,7 @@ function getTechniqueX(tech: Technique, currentX: number) {
 }
 
 function makeDefaultOffensePresets(
-  teamSize: FootballTeamSize = DEFAULT_FOOTBALL_TEAM_SIZE
+  teamSize: FootballTeamSize = DEFAULT_FOOTBALL_TEAM_SIZE,
 ): CustomOffensePreset[] {
   if (teamSize !== "11man") return [];
 
@@ -1008,7 +1028,7 @@ function makeDefaultOffensePresets(
     id: string,
     name: string,
     changes: Partial<Record<string, [number, number, boolean?]>>,
-    isMain = true
+    isMain = true,
   ): CustomOffensePreset => ({
     id,
     name,
@@ -1074,7 +1094,7 @@ function makeDefaultOffensePresets(
 function getRoutePoints(
   player: Player,
   route: RouteModel,
-  qbPoint?: FieldPoint
+  qbPoint?: FieldPoint,
 ) {
   // Routes start from the player's actual saved field location.
   // Fullscreen may resize icons, but it must never move spacing/alignments.
@@ -1186,7 +1206,7 @@ function blockTCap(points: FieldPoint[], capSize = 1.1) {
 function distancePointToLine(
   point: FieldPoint,
   start: FieldPoint,
-  end: FieldPoint
+  end: FieldPoint,
 ) {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
@@ -1199,8 +1219,8 @@ function distancePointToLine(
     0,
     Math.min(
       1,
-      ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
-    )
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared,
+    ),
   );
   const projection = { x: start.x + t * dx, y: start.y + t * dy };
   return Math.hypot(point.x - projection.x, point.y - projection.y);
@@ -1215,7 +1235,7 @@ function turnAngleDegrees(a: FieldPoint, b: FieldPoint, c: FieldPoint) {
   const len2 = Math.max(0.001, Math.hypot(v2x, v2y));
   const cosine = Math.max(
     -1,
-    Math.min(1, (v1x * v2x + v1y * v2y) / (len1 * len2))
+    Math.min(1, (v1x * v2x + v1y * v2y) / (len1 * len2)),
   );
   const insideAngle = Math.acos(cosine) * (180 / Math.PI);
 
@@ -1244,7 +1264,7 @@ function findSharpBreakPoint(points: FieldPoint[]) {
   const end = points[points.length - 1];
   const totalLength = Math.max(
     0.001,
-    Math.hypot(end.x - start.x, end.y - start.y)
+    Math.hypot(end.x - start.x, end.y - start.y),
   );
   let best: { point: FieldPoint; error: number; turn: number } | null = null;
 
@@ -1279,12 +1299,12 @@ function cleanDrawnPoints(points: FieldPoint[]) {
   const end = points[points.length - 1];
   const lineLength = Math.max(
     0.001,
-    Math.hypot(end.x - start.x, end.y - start.y)
+    Math.hypot(end.x - start.x, end.y - start.y),
   );
   const averageDeviation =
     points.reduce(
       (sum, point) => sum + distancePointToLine(point, start, end),
-      0
+      0,
     ) / points.length;
 
   // 1) Mostly straight = snap into a perfect straight line.
@@ -1375,14 +1395,14 @@ function packageLine(
   id: string,
   style: DrawLineStyle,
   mode: DrawLineMode,
-  points: FieldPoint[]
+  points: FieldPoint[],
 ): DrawLine {
   return { id: `${DEFENSIVE_PACKAGE_LINE_PREFIX}${id}`, style, mode, points };
 }
 
 function removeDefensivePackageLines(lines: DrawLine[]) {
   return lines.filter(
-    (line) => !line.id.startsWith(DEFENSIVE_PACKAGE_LINE_PREFIX)
+    (line) => !line.id.startsWith(DEFENSIVE_PACKAGE_LINE_PREFIX),
   );
 }
 
@@ -1394,13 +1414,13 @@ function zoneBubble(
   yardsFromGoal: number,
   width: number,
   height: number,
-  ownerId?: string
+  ownerId?: string,
 ): ZoneCoverageBubble {
   return { id, owner, ownerId, label, x, yardsFromGoal, width, height };
 }
 
 function buildCoverageBubbles(
-  coverage: DefensiveCoveragePreset
+  coverage: DefensiveCoveragePreset,
 ): ZoneCoverageBubble[] {
   const deep = LOS_YARDS - 15;
   const curl = LOS_YARDS - 8;
@@ -1456,7 +1476,7 @@ function buildCoverageBubbles(
 function coverageAssignmentsForDisplay(coverage: DefensiveCoveragePreset) {
   const bubbles = buildCoverageBubbles(coverage);
   const assignments = bubbles.map(
-    (bubble) => `${bubble.owner}: ${bubble.label}`
+    (bubble) => `${bubble.owner}: ${bubble.label}`,
   );
   if (coverage === "Cover 0")
     return ["No deep help — all eligible receivers are man matched."];
@@ -1541,14 +1561,14 @@ function buildPressureLines(pressure: DefensivePressurePreset): DrawLine[] {
 
 function buildDefensivePackageLines(
   coverage: DefensiveCoveragePreset,
-  pressure: DefensivePressurePreset
+  pressure: DefensivePressurePreset,
 ): DrawLine[] {
   return [...buildCoverageLines(coverage), ...buildPressureLines(pressure)];
 }
 
 const cardStyle: React.CSSProperties = {
   background: "rgba(2, 8, 23, 0.78)",
-backdropFilter: "blur(18px)",
+  backdropFilter: "blur(18px)",
   border: "1px solid rgba(255,255,255,.10)",
   borderRadius: 22,
   boxShadow:
@@ -1688,7 +1708,10 @@ function generateTeamCode(length = 6) {
 }
 
 function cleanTeamCode(value: string) {
-  return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 8);
 }
 
 function getProfileFullName(user: User | null) {
@@ -1719,22 +1742,22 @@ function CoachBoardWebApp() {
   const [roomCoaches, setRoomCoaches] = useState<RoomCoach[]>([]);
   const [showGamedayRoom, setShowGamedayRoom] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-const [email, setEmail] = useState("");
-const [password, setPassword] = useState("");
-const [firstName, setFirstName] = useState("");
-const [lastName, setLastName] = useState("");
-const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
   const ROOM_ID = teamCode ? `coachboard-gameday-${teamCode}` : "";
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
-    DEFAULT_FOOTBALL_TEAM_SIZE
+    DEFAULT_FOOTBALL_TEAM_SIZE,
   );
   const [coachFocus, setCoachFocus] = useState<CoachFocus>(DEFAULT_COACH_FOCUS);
   const [offensePlayers, setOffensePlayers] = useState<Player[]>(() =>
-    getDefaultOffensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE)
+    getDefaultOffensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE),
   );
   const [defensePlayers, setDefensePlayers] = useState<Player[]>(() =>
-    getDefaultDefensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE)
+    getDefaultDefensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE),
   );
   const [selectedDefenseFront, setSelectedDefenseFront] =
     useState<DefensePreset>("4-3 Over");
@@ -1745,7 +1768,7 @@ const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [showCoverageOverlay, setShowCoverageOverlay] = useState(false);
   const [showPressureOverlay, setShowPressureOverlay] = useState(false);
   const [manAssignments, setManAssignments] = useState<Record<string, string>>(
-    {}
+    {},
   );
   const [zoneAssignments, setZoneAssignments] = useState<
     CustomZoneAssignment[]
@@ -1773,7 +1796,9 @@ const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [breakDepth, setBreakDepth] = useState(10);
   const [finishDepth, setFinishDepth] = useState(18);
   const [routeColor, setRouteColor] = useState("#facc15");
-  const [defensiveReadPlayerIds, setDefensiveReadPlayerIds] = useState<string[]>([]);
+  const [defensiveReadPlayerIds, setDefensiveReadPlayerIds] = useState<
+    string[]
+  >([]);
   const [tool, setTool] = useState("Select");
   const [drawingStyle, setDrawingStyle] = useState<DrawLineStyle>("solid");
   const [drawingMode, setDrawingMode] = useState<DrawLineMode>("curve");
@@ -1781,7 +1806,7 @@ const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingSide, setDraggingSide] = useState<Side | null>(null);
-const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const [customPresetName, setCustomPresetName] = useState("");
   const [customOffensePresets, setCustomOffensePresets] = useState<
     CustomOffensePreset[]
@@ -1790,12 +1815,20 @@ const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const [showManageOffenseSets, setShowManageOffenseSets] = useState(false);
   const [showCreatePlay, setShowCreatePlay] = useState(false);
   const [showManagePlays, setShowManagePlays] = useState(false);
+  const [showPlayLibrary, setShowPlayLibrary] = useState(false);
   const [showPlaybooks, setShowPlaybooks] = useState(false);
   const [showCreateConcept, setShowCreateConcept] = useState(false);
   const [showManageConcepts, setShowManageConcepts] = useState(false);
   const [selectedPresetDropdownId, setSelectedPresetDropdownId] = useState("");
   const [savedPlayName, setSavedPlayName] = useState("");
   const [savedPlays, setSavedPlays] = useState<SavedPlay[]>([]);
+  const [playFolders, setPlayFolders] = useState<PlayFolder[]>([]);
+  const [selectedLibraryFolderId, setSelectedLibraryFolderId] =
+    useState("root");
+  const [newFolderName, setNewFolderName] = useState("");
+  const [libraryShareEmail, setLibraryShareEmail] = useState("");
+  const [librarySharePermission, setLibrarySharePermission] =
+    useState<FolderPermission>("viewer");
   const [selectedPlayId, setSelectedPlayId] = useState("");
   const [selectedPlayFormationId, setSelectedPlayFormationId] = useState("");
   const [playbookName, setPlaybookName] = useState("");
@@ -1811,7 +1844,7 @@ const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const [currentGamePlanIndex, setCurrentGamePlanIndex] = useState(0);
   const [activePanelTab, setActivePanelTab] = useState<PanelTab>("player");
   const [draggedTopPresetId, setDraggedTopPresetId] = useState<string | null>(
-    null
+    null,
   );
   const [fieldFullscreen, setFieldFullscreen] = useState(false);
   const [showFullscreenPlayerPanel, setShowFullscreenPlayerPanel] =
@@ -1824,10 +1857,10 @@ const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const [fieldPixelWidth, setFieldPixelWidth] = useState(0);
   const [showTeamSetup, setShowTeamSetup] = useState(false);
   const [teamBranding, setTeamBranding] = useState<TeamBranding>(
-    DEFAULT_TEAM_BRANDING
+    DEFAULT_TEAM_BRANDING,
   );
   const [fieldTemplate, setFieldTemplate] = useState<FieldTemplate>(
-    DEFAULT_FIELD_TEMPLATE
+    DEFAULT_FIELD_TEMPLATE,
   );
   const [fieldBlackWhiteMode, setFieldBlackWhiteMode] = useState(false);
   const fieldRef = useRef<HTMLDivElement | null>(null);
@@ -1856,7 +1889,7 @@ const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   // Unified line sizing system.
   // Routes, solid draw, dotted draw, block lines, arrows, and T-caps now share
   // the same visual stroke size so no tool looks thicker than another.
-const lineStroke = Math.max(0.35, playerPx * 0.018);
+  const lineStroke = Math.max(0.35, playerPx * 0.018);
   const lineOutlineStroke = lineStroke + Math.max(0.14, visualPlayerPx * 0.008);
 
   const routeStroke = lineStroke;
@@ -1875,7 +1908,7 @@ const lineStroke = Math.max(0.35, playerPx * 0.018);
   // true dots instead of long thick dashes.
   const dashPattern = `${Math.max(0.18, lineStroke * 0.65)} ${Math.max(
     1.15,
-    lineStroke * 2.35
+    lineStroke * 2.35,
   )}`;
 
   const endzoneFontPx = fieldFullscreen
@@ -1886,14 +1919,14 @@ const lineStroke = Math.max(0.35, playerPx * 0.018);
 
   const selectedPlayer =
     selectedSide === "offense"
-      ? offensePlayers.find((p) => p.id === selectedPlayerId) ??
-        offensePlayers[0]
-      : defensePlayers.find((p) => p.id === selectedPlayerId) ??
-        defensePlayers[0];
+      ? (offensePlayers.find((p) => p.id === selectedPlayerId) ??
+        offensePlayers[0])
+      : (defensePlayers.find((p) => p.id === selectedPlayerId) ??
+        defensePlayers[0]);
 
   const activeRoute = useMemo(
     () => routes.find((r) => r.playerId === selectedPlayer.id),
-    [routes, selectedPlayer]
+    [routes, selectedPlayer],
   );
 
   useEffect(() => {
@@ -1909,134 +1942,211 @@ const lineStroke = Math.max(0.35, playerPx * 0.018);
 
   // This must be declared before playerPanelContent because that JSX uses it immediately during render.
   const sortedOffensePresets = [...customOffensePresets].sort(
-    (a, b) => Number(!!a.isSystem) - Number(!!b.isSystem)
+    (a, b) => Number(!!a.isSystem) - Number(!!b.isSystem),
   );
-useEffect(() => {
-  if (!ROOM_ID || !user) return;
 
-  const channel = supabase.channel(ROOM_ID, {
-    config: {
-      presence: {
-        key: user.id,
-      },
-    },
-  });
+  const visiblePlayFolders = useMemo(() => {
+    const userEmail = user?.email?.toLowerCase() ?? "";
 
-  realtimeChannelRef.current = channel;
+    return playFolders.filter((folder) => {
+      if (!folder.ownerId || folder.ownerId === user?.id) return true;
+      if (
+        folder.shareScope === "team" &&
+        folder.teamCode &&
+        folder.teamCode === teamCode
+      )
+        return true;
+      if (
+        folder.sharedWithEmails
+          .map((email) => email.toLowerCase())
+          .includes(userEmail)
+      )
+        return true;
+      return false;
+    });
+  }, [playFolders, teamCode, user?.email, user?.id]);
 
-  channel.on("presence", { event: "sync" }, () => {
-    const presenceState = channel.presenceState() as Record<string, RoomCoach[]>;
+  const currentLibraryFolder = visiblePlayFolders.find(
+    (folder) => folder.id === selectedLibraryFolderId,
+  );
 
-    const coaches = Object.values(presenceState)
-      .flatMap((entries) => entries ?? [])
-      .filter((coach) => coach?.userId && coach?.name)
-      .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
+  const visibleSavedPlays = useMemo(() => {
+    const userEmail = user?.email?.toLowerCase() ?? "";
 
-    setRoomCoaches(coaches);
-  });
+    return savedPlays.filter((play) => {
+      const playFolder = playFolders.find(
+        (folder) => folder.id === play.folderId,
+      );
+      const folderIsVisible =
+        !play.folderId ||
+        play.folderId === "root" ||
+        visiblePlayFolders.some((folder) => folder.id === play.folderId);
 
-  channel.on("broadcast", { event: "board-event" }, ({ payload }) => {
-    if (payload.type === "SET_DRAWN_LINES") {
-      setDrawnLines(payload.drawnLines);
-    }
+      if (!folderIsVisible) return false;
+      if (!play.ownerId || play.ownerId === user?.id) return true;
+      if (
+        play.shareScope === "team" &&
+        play.teamCode &&
+        play.teamCode === teamCode
+      )
+        return true;
+      if (
+        (play.sharedWithEmails ?? [])
+          .map((email) => email.toLowerCase())
+          .includes(userEmail)
+      )
+        return true;
+      if (playFolder?.shareScope === "team" && playFolder.teamCode === teamCode)
+        return true;
+      if (
+        playFolder?.sharedWithEmails
+          .map((email) => email.toLowerCase())
+          .includes(userEmail)
+      )
+        return true;
+      return false;
+    });
+  }, [
+    playFolders,
+    savedPlays,
+    teamCode,
+    user?.email,
+    user?.id,
+    visiblePlayFolders,
+  ]);
 
-    if (payload.type === "SET_MAN_ASSIGNMENTS") {
-      setManAssignments(payload.manAssignments);
-    }
-
-    if (payload.type === "SET_COACH_FOCUS") {
-      setCoachFocus(payload.coachFocus);
-    }
-
-    if (payload.type === "SET_READ_KEYS") {
-      setDefensiveReadPlayerIds(payload.defensiveReadPlayerIds);
-    }
-
-    if (payload.type === "SET_SELECTED_SIDE") {
-      setSelectedSide(payload.selectedSide);
-    }
-
-    if (payload.type === "SET_BOARD_STATE") {
-      setDrawnLines(payload.drawnLines);
-      setRoutes(payload.routes);
-      setZoneAssignments(payload.zoneAssignments);
-      setManAssignments(payload.manAssignments);
-    }
-
-    if (payload.type === "SET_ROUTES") {
-      setRoutes(payload.routes);
-    }
-
-    if (payload.type === "SET_OFFENSE_PLAYERS") {
-      setOffensePlayers(payload.offensePlayers);
-    }
-
-    if (payload.type === "SET_DEFENSE_PLAYERS") {
-      setDefensePlayers(payload.defensePlayers);
-    }
-
-    if (payload.type === "SET_ZONES") {
-      setZoneAssignments(payload.zoneAssignments);
-    }
-
-    if (payload.type === "SET_TEAM_SETUP") {
-      setFootballTeamSize(payload.footballTeamSize);
-      setOffensePlayers(payload.offensePlayers);
-      setDefensePlayers(payload.defensePlayers);
-      setSelectedPlayerId(payload.selectedPlayerId);
-      setSelectedSide(payload.selectedSide);
-      setActivePanelTab(payload.activePanelTab);
-      setRoutes(payload.routes);
-      setDrawnLines(payload.drawnLines);
-    }
-  });
-
-  channel.subscribe(async (status) => {
-    console.log("REALTIME STATUS:", status);
-
-    if (status === "SUBSCRIBED") {
-      await channel.track({
-        userId: user.id,
-        name: getCoachDisplayName(user),
-        joinedAt: new Date().toISOString(),
-      });
-    }
-  });
-
-  return () => {
-    realtimeChannelRef.current = null;
-    setRoomCoaches([]);
-    supabase.removeChannel(channel);
-  };
-}, [ROOM_ID, user]);
-
-useEffect(() => {
-  const savedCode = localStorage.getItem("coachboard_team_code");
-
-  if (savedCode) {
-    setTeamCode(savedCode);
-    setTeamCodeInput(savedCode);
-  }
-}, []);
+  const playsInSelectedFolder = visibleSavedPlays.filter(
+    (play) => (play.folderId ?? "root") === selectedLibraryFolderId,
+  );
   useEffect(() => {
-  supabase.auth.getUser().then(({ data }) => {
-    if (data.user) {
-      setUser(data.user);
+    if (!ROOM_ID || !user) return;
+
+    const channel = supabase.channel(ROOM_ID, {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+
+    realtimeChannelRef.current = channel;
+
+    channel.on("presence", { event: "sync" }, () => {
+      const presenceState = channel.presenceState() as Record<
+        string,
+        RoomCoach[]
+      >;
+
+      const coaches = Object.values(presenceState)
+        .flatMap((entries) => entries ?? [])
+        .filter((coach) => coach?.userId && coach?.name)
+        .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
+
+      setRoomCoaches(coaches);
+    });
+
+    channel.on("broadcast", { event: "board-event" }, ({ payload }) => {
+      if (payload.type === "SET_DRAWN_LINES") {
+        setDrawnLines(payload.drawnLines);
+      }
+
+      if (payload.type === "SET_MAN_ASSIGNMENTS") {
+        setManAssignments(payload.manAssignments);
+      }
+
+      if (payload.type === "SET_COACH_FOCUS") {
+        setCoachFocus(payload.coachFocus);
+      }
+
+      if (payload.type === "SET_READ_KEYS") {
+        setDefensiveReadPlayerIds(payload.defensiveReadPlayerIds);
+      }
+
+      if (payload.type === "SET_SELECTED_SIDE") {
+        setSelectedSide(payload.selectedSide);
+      }
+
+      if (payload.type === "SET_BOARD_STATE") {
+        setDrawnLines(payload.drawnLines);
+        setRoutes(payload.routes);
+        setZoneAssignments(payload.zoneAssignments);
+        setManAssignments(payload.manAssignments);
+      }
+
+      if (payload.type === "SET_ROUTES") {
+        setRoutes(payload.routes);
+      }
+
+      if (payload.type === "SET_OFFENSE_PLAYERS") {
+        setOffensePlayers(payload.offensePlayers);
+      }
+
+      if (payload.type === "SET_DEFENSE_PLAYERS") {
+        setDefensePlayers(payload.defensePlayers);
+      }
+
+      if (payload.type === "SET_ZONES") {
+        setZoneAssignments(payload.zoneAssignments);
+      }
+
+      if (payload.type === "SET_TEAM_SETUP") {
+        setFootballTeamSize(payload.footballTeamSize);
+        setOffensePlayers(payload.offensePlayers);
+        setDefensePlayers(payload.defensePlayers);
+        setSelectedPlayerId(payload.selectedPlayerId);
+        setSelectedSide(payload.selectedSide);
+        setActivePanelTab(payload.activePanelTab);
+        setRoutes(payload.routes);
+        setDrawnLines(payload.drawnLines);
+      }
+    });
+
+    channel.subscribe(async (status) => {
+      console.log("REALTIME STATUS:", status);
+
+      if (status === "SUBSCRIBED") {
+        await channel.track({
+          userId: user.id,
+          name: getCoachDisplayName(user),
+          joinedAt: new Date().toISOString(),
+        });
+      }
+    });
+
+    return () => {
+      realtimeChannelRef.current = null;
+      setRoomCoaches([]);
+      supabase.removeChannel(channel);
+    };
+  }, [ROOM_ID, user]);
+
+  useEffect(() => {
+    const savedCode = localStorage.getItem("coachboard_team_code");
+
+    if (savedCode) {
+      setTeamCode(savedCode);
+      setTeamCodeInput(savedCode);
     }
-  });
+  }, []);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUser(data.user);
+      }
+    });
 
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    setUser(session?.user ?? null);
-  });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
 
-  return () => {
-    subscription.unsubscribe();
-  };
-}, []);
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
   const selectedZone = selectedZoneId
-    ? zoneAssignments.find((zone) => zone.id === selectedZoneId) ?? null
+    ? (zoneAssignments.find((zone) => zone.id === selectedZoneId) ?? null)
     : null;
 
   async function enterTrueFieldFullscreen() {
@@ -2079,27 +2189,25 @@ useEffect(() => {
   }
 
   function updateSelectedZoneRadius(nextRadius: number) {
-  if (!selectedZoneId) return;
+    if (!selectedZoneId) return;
 
-  const clampedRadius = Math.max(2.5, Math.min(18, nextRadius));
+    const clampedRadius = Math.max(2.5, Math.min(18, nextRadius));
 
-  const nextZones = zoneAssignments.map((zone) =>
-    zone.id === selectedZoneId
-      ? { ...zone, radius: clampedRadius }
-      : zone
-  );
+    const nextZones = zoneAssignments.map((zone) =>
+      zone.id === selectedZoneId ? { ...zone, radius: clampedRadius } : zone,
+    );
 
-  setZoneAssignments(nextZones);
+    setZoneAssignments(nextZones);
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_ZONES",
-      zoneAssignments: nextZones,
-    },
-  });
-}
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ZONES",
+        zoneAssignments: nextZones,
+      },
+    });
+  }
 
   const activeToolLabel = (() => {
     if (tool === "Draw")
@@ -2141,40 +2249,40 @@ useEffect(() => {
   }
 
   function undoLastAction() {
-  setUndoStack((current) => {
-    const snapshot = current[current.length - 1];
-    if (!snapshot) return current;
+    setUndoStack((current) => {
+      const snapshot = current[current.length - 1];
+      if (!snapshot) return current;
 
-    const nextLines = cloneDrawnLinesForHistory(snapshot.drawnLines);
-    const nextRoutes = cloneRoutesForHistory(snapshot.routes);
-    const nextZones = cloneZonesForHistory(snapshot.zoneAssignments);
+      const nextLines = cloneDrawnLinesForHistory(snapshot.drawnLines);
+      const nextRoutes = cloneRoutesForHistory(snapshot.routes);
+      const nextZones = cloneZonesForHistory(snapshot.zoneAssignments);
 
-    setDrawnLines(nextLines);
-    setRoutes(nextRoutes);
-    setZoneAssignments(nextZones);
-    setManAssignments({ ...snapshot.manAssignments });
+      setDrawnLines(nextLines);
+      setRoutes(nextRoutes);
+      setZoneAssignments(nextZones);
+      setManAssignments({ ...snapshot.manAssignments });
 
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_BOARD_STATE",
-        drawnLines: nextLines,
-        routes: nextRoutes,
-        zoneAssignments: nextZones,
-        manAssignments: { ...snapshot.manAssignments },
-      },
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_BOARD_STATE",
+          drawnLines: nextLines,
+          routes: nextRoutes,
+          zoneAssignments: nextZones,
+          manAssignments: { ...snapshot.manAssignments },
+        },
+      });
+
+      setSelectedFieldItem(null);
+      setSelectedZoneId(null);
+      setActiveLineId(null);
+      setZoneDraftId(null);
+      setZoneDrag(null);
+
+      return current.slice(0, -1);
     });
-
-    setSelectedFieldItem(null);
-    setSelectedZoneId(null);
-    setActiveLineId(null);
-    setZoneDraftId(null);
-    setZoneDrag(null);
-
-    return current.slice(0, -1);
-  });
-}
+  }
   function selectFieldItem(item: SelectedFieldItem) {
     setSelectedFieldItem(item);
     if (item?.type === "zone") setSelectedZoneId(item.id);
@@ -2186,54 +2294,53 @@ useEffect(() => {
     if (!selectedFieldItem) return;
     pushUndoSnapshot();
 
-   if (selectedFieldItem.type === "drawnLine") {
-  const nextLines = drawnLines.filter(
-    (line) => line.id !== selectedFieldItem.id
-  );
+    if (selectedFieldItem.type === "drawnLine") {
+      const nextLines = drawnLines.filter(
+        (line) => line.id !== selectedFieldItem.id,
+      );
 
-  setDrawnLines(nextLines);
+      setDrawnLines(nextLines);
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_DRAWN_LINES",
-      drawnLines: nextLines,
-    },
-  });
-}
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_DRAWN_LINES",
+          drawnLines: nextLines,
+        },
+      });
+    }
 
     if (selectedFieldItem.type === "route") {
       setRoutes((current) =>
-        current.filter((route) => route.playerId !== selectedFieldItem.id)
+        current.filter((route) => route.playerId !== selectedFieldItem.id),
       );
     }
 
     if (selectedFieldItem.type === "zone") {
       setZoneAssignments((current) =>
-        current.filter((zone) => zone.id !== selectedFieldItem.id)
+        current.filter((zone) => zone.id !== selectedFieldItem.id),
       );
       setSelectedZoneId(null);
     }
-if (selectedFieldItem.type === "man") {
-  const nextAssignments = { ...manAssignments };
+    if (selectedFieldItem.type === "man") {
+      const nextAssignments = { ...manAssignments };
 
-  delete nextAssignments[selectedFieldItem.id];
+      delete nextAssignments[selectedFieldItem.id];
 
-  setManAssignments(nextAssignments);
+      setManAssignments(nextAssignments);
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_MAN_ASSIGNMENTS",
-      manAssignments: nextAssignments,
-    },
-  });
-    setSelectedFieldItem(null);
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_MAN_ASSIGNMENTS",
+          manAssignments: nextAssignments,
+        },
+      });
+      setSelectedFieldItem(null);
+    }
   }
-
-}
   function clearActiveTool() {
     setTool("Select");
     setActiveLineId(null);
@@ -2249,7 +2356,7 @@ if (selectedFieldItem.type === "man") {
 
   function toggleDrawTool(style: DrawLineStyle) {
     setTool((current) =>
-      current === "Draw" && drawingStyle === style ? "Select" : "Draw"
+      current === "Draw" && drawingStyle === style ? "Select" : "Draw",
     );
     setDrawingStyle(style);
     setActiveLineId(null);
@@ -2293,7 +2400,7 @@ if (selectedFieldItem.type === "man") {
         (player) =>
           player.side === "offense" &&
           !OL_IDS.includes(player.id) &&
-          player.id !== "qb"
+          player.id !== "qb",
       )
       .slice()
       .sort((a, b) => a.x - b.x);
@@ -2312,8 +2419,8 @@ if (selectedFieldItem.type === "man") {
       left.length > right.length
         ? "left"
         : right.length > left.length
-        ? "right"
-        : "balanced";
+          ? "right"
+          : "balanced";
     const isTripsLeft = left.length >= 3;
     const isTripsRight = right.length >= 3;
 
@@ -2332,24 +2439,24 @@ if (selectedFieldItem.type === "man") {
       weakFlatX: clampCoverageX(
         strength === "right" ? leftWide : rightWide,
         12,
-        88
+        88,
       ),
       strongFlatX: clampCoverageX(
         strength === "left" ? leftWide : rightWide,
         12,
-        88
+        88,
       ),
       leftFlat: clampCoverageX(leftWide, 12, 30),
       rightFlat: clampCoverageX(rightWide, 70, 88),
       leftCurl: clampCoverageX(
         left.length >= 2 ? (leftInside + 50) / 2 : 38,
         32,
-        46
+        46,
       ),
       rightCurl: clampCoverageX(
         right.length >= 2 ? (rightInside + 50) / 2 : 62,
         54,
-        68
+        68,
       ),
       leftSeam: clampCoverageX(left.length >= 2 ? leftInside : 40, 36, 47),
       rightSeam: clampCoverageX(right.length >= 2 ? rightInside : 60, 53, 64),
@@ -2365,7 +2472,7 @@ if (selectedFieldItem.type === "man") {
     const isDownLineman =
       player.onLOS ||
       ["DE", "DT", "NT", "N", "NOSE"].some(
-        (tag) => label === tag || label.includes(tag)
+        (tag) => label === tag || label.includes(tag),
       );
     return player.side === "defense" && !isDownLineman;
   }
@@ -2387,29 +2494,29 @@ if (selectedFieldItem.type === "man") {
     targetX: number,
     usedIds: Set<string>,
     side?: "left" | "right" | "middle",
-    targetYards = LOS_YARDS - 8
+    targetYards = LOS_YARDS - 8,
   ) {
     const available = defensePlayers.filter(
-      (player) => isCoverageEligibleDefender(player) && !usedIds.has(player.id)
+      (player) => isCoverageEligibleDefender(player) && !usedIds.has(player.id),
     );
     const sideFiltered =
       side === "left"
         ? available.filter((player) => player.x <= 54)
         : side === "right"
-        ? available.filter((player) => player.x >= 46)
-        : side === "middle"
-        ? available.filter((player) => player.x >= 30 && player.x <= 72)
-        : available;
+          ? available.filter((player) => player.x >= 46)
+          : side === "middle"
+            ? available.filter((player) => player.x >= 30 && player.x <= 72)
+            : available;
 
     const matching = sideFiltered.filter((player) =>
-      labelMatches(player, labels)
+      labelMatches(player, labels),
     );
     const pool =
       matching.length > 0
         ? matching
         : sideFiltered.length > 0
-        ? sideFiltered
-        : available;
+          ? sideFiltered
+          : available;
     const selected = pool.slice().sort((a, b) => {
       const aRoleBonus = labelMatches(a, labels) ? -9 : 0;
       const bRoleBonus = labelMatches(b, labels) ? -9 : 0;
@@ -2434,7 +2541,7 @@ if (selectedFieldItem.type === "man") {
       side === "left" ? 18 : 82,
       usedIds,
       side,
-      LOS_YARDS - 12
+      LOS_YARDS - 12,
     );
   }
 
@@ -2444,35 +2551,35 @@ if (selectedFieldItem.type === "man") {
       targetX,
       usedIds,
       "middle",
-      LOS_YARDS - 13
+      LOS_YARDS - 13,
     );
   }
 
   function findStrongSafety(
     usedIds: Set<string>,
     targetX = 60,
-    side?: "left" | "right"
+    side?: "left" | "right",
   ) {
     return pickDefenderForCoverage(
       ["SS", "ROV", "ROVER", "S"],
       targetX,
       usedIds,
       side ?? (targetX < 50 ? "left" : "right"),
-      LOS_YARDS - 11
+      LOS_YARDS - 11,
     );
   }
 
   function findNickelOrApex(
     side: "left" | "right",
     usedIds: Set<string>,
-    targetX: number
+    targetX: number,
   ) {
     return pickDefenderForCoverage(
       ["NICK", "NB", "STAR", "APEX", "OLB", "SAM", "WILL", "S", "W", "M"],
       targetX,
       usedIds,
       side,
-      LOS_YARDS - 6
+      LOS_YARDS - 6,
     );
   }
 
@@ -2480,14 +2587,14 @@ if (selectedFieldItem.type === "man") {
     labels: string[],
     targetX: number,
     usedIds: Set<string>,
-    side?: "left" | "right" | "middle"
+    side?: "left" | "right" | "middle",
   ) {
     return pickDefenderForCoverage(
       labels,
       targetX,
       usedIds,
       side,
-      LOS_YARDS - 5.5
+      LOS_YARDS - 5.5,
     );
   }
 
@@ -2504,22 +2611,22 @@ if (selectedFieldItem.type === "man") {
       q1: clampCoverageX(
         targets.leftWide <= 18 ? 18 : (12 + targets.leftWide) / 2,
         14,
-        27
+        27,
       ),
       q2: clampCoverageX(
         targets.left.length >= 2 ? targets.leftInside : 40,
         34,
-        47
+        47,
       ),
       q3: clampCoverageX(
         targets.right.length >= 2 ? targets.rightInside : 60,
         53,
-        66
+        66,
       ),
       q4: clampCoverageX(
         targets.rightWide >= 82 ? 82 : (88 + targets.rightWide) / 2,
         73,
-        86
+        86,
       ),
     };
   }
@@ -2541,12 +2648,12 @@ if (selectedFieldItem.type === "man") {
 
   function threatX(side: "left" | "right", number: number, fallback: number) {
     const threat = offensiveThreatsBySide(side).find(
-      (item) => item.number === number
+      (item) => item.number === number,
     );
     return clampCoverageX(
       threat?.x ?? fallback,
       side === "left" ? 8 : 50,
-      side === "left" ? 50 : 92
+      side === "left" ? 50 : 92,
     );
   }
 
@@ -2558,8 +2665,8 @@ if (selectedFieldItem.type === "man") {
       leftThreats.length >= 3
         ? "left"
         : rightThreats.length >= 3
-        ? "right"
-        : null;
+          ? "right"
+          : null;
     const strength: "left" | "right" =
       base.strength === "balanced"
         ? rightThreats.length >= leftThreats.length
@@ -2600,7 +2707,7 @@ if (selectedFieldItem.type === "man") {
   }
 
   function buildSmartCoverageBubbles(
-    coverage: DefensiveCoveragePreset
+    coverage: DefensiveCoveragePreset,
   ): ZoneCoverageBubble[] {
     if (!showCoverageOverlay) return [];
 
@@ -2636,7 +2743,7 @@ if (selectedFieldItem.type === "man") {
       x: number,
       yardsFromGoal: number,
       width: number,
-      height: number
+      height: number,
     ) =>
       zoneBubble(
         id,
@@ -2646,7 +2753,7 @@ if (selectedFieldItem.type === "man") {
         yardsFromGoal,
         width,
         height,
-        owner?.id
+        owner?.id,
       );
 
     const pm = patternMatchTargets();
@@ -2673,7 +2780,7 @@ if (selectedFieldItem.type === "man") {
             ["SAM", "S", "WILL", "W", "OLB", "SS"],
             targets.leftFlat,
             usedIds,
-            "left"
+            "left",
           );
     const rightApex = () =>
       frontIsSub
@@ -2682,7 +2789,7 @@ if (selectedFieldItem.type === "man") {
             ["WILL", "W", "SAM", "S", "OLB", "SS"],
             targets.rightFlat,
             usedIds,
-            "right"
+            "right",
           );
 
     if (coverage === "Quarters Match") {
@@ -2705,7 +2812,7 @@ if (selectedFieldItem.type === "man") {
             sideQuarterX("left", 1),
             matchDeep,
             20,
-            16
+            16,
           ),
           makeZone(
             "qm-l-safety",
@@ -2714,7 +2821,7 @@ if (selectedFieldItem.type === "man") {
             sideQuarterX("left", 2),
             matchDeep,
             22,
-            16
+            16,
           ),
           makeZone(
             "qm-l-apex",
@@ -2723,7 +2830,7 @@ if (selectedFieldItem.type === "man") {
             pm.left2,
             matchFlat,
             17,
-            9
+            9,
           ),
           makeZone(
             "qm-l-mike",
@@ -2732,7 +2839,7 @@ if (selectedFieldItem.type === "man") {
             clampCoverageX(pm.left3, 40, 52),
             matchHook,
             16,
-            9
+            9,
           ),
           makeZone(
             "qm-r-safety",
@@ -2741,7 +2848,7 @@ if (selectedFieldItem.type === "man") {
             clampCoverageX(pm.left3 + 8, 48, 62),
             matchDeep,
             22,
-            16
+            16,
           ),
           makeZone(
             "qm-r-cb",
@@ -2750,7 +2857,7 @@ if (selectedFieldItem.type === "man") {
             sideQuarterX("right", 1),
             matchDeep,
             20,
-            16
+            16,
           ),
           makeZone(
             "qm-r-apex",
@@ -2759,7 +2866,7 @@ if (selectedFieldItem.type === "man") {
             pm.right2,
             matchHook,
             16,
-            9
+            9,
           ),
         ];
       }
@@ -2773,7 +2880,7 @@ if (selectedFieldItem.type === "man") {
             sideQuarterX("left", 1),
             matchDeep,
             20,
-            16
+            16,
           ),
           makeZone(
             "qm-l-safety",
@@ -2782,7 +2889,7 @@ if (selectedFieldItem.type === "man") {
             clampCoverageX(pm.right3 - 8, 38, 52),
             matchDeep,
             22,
-            16
+            16,
           ),
           makeZone(
             "qm-l-apex",
@@ -2791,7 +2898,7 @@ if (selectedFieldItem.type === "man") {
             pm.left2,
             matchHook,
             16,
-            9
+            9,
           ),
           makeZone(
             "qm-r-safety",
@@ -2800,7 +2907,7 @@ if (selectedFieldItem.type === "man") {
             sideQuarterX("right", 2),
             matchDeep,
             22,
-            16
+            16,
           ),
           makeZone(
             "qm-r-cb",
@@ -2809,7 +2916,7 @@ if (selectedFieldItem.type === "man") {
             sideQuarterX("right", 1),
             matchDeep,
             20,
-            16
+            16,
           ),
           makeZone(
             "qm-r-apex",
@@ -2818,7 +2925,7 @@ if (selectedFieldItem.type === "man") {
             pm.right2,
             matchFlat,
             17,
-            9
+            9,
           ),
           makeZone(
             "qm-mike",
@@ -2827,7 +2934,7 @@ if (selectedFieldItem.type === "man") {
             clampCoverageX(pm.right3, 48, 60),
             matchHook,
             16,
-            9
+            9,
           ),
         ];
       }
@@ -2840,7 +2947,7 @@ if (selectedFieldItem.type === "man") {
           sideQuarterX("left", 1),
           matchDeep,
           20,
-          16
+          16,
         ),
         makeZone(
           "qm-l-safety",
@@ -2849,7 +2956,7 @@ if (selectedFieldItem.type === "man") {
           sideQuarterX("left", 2),
           matchDeep,
           22,
-          16
+          16,
         ),
         makeZone(
           "qm-l-apex",
@@ -2858,7 +2965,7 @@ if (selectedFieldItem.type === "man") {
           pm.left2,
           matchFlat,
           17,
-          9
+          9,
         ),
         makeZone("qm-mike", middleOwner, "MIKE WALL #3", 50, matchHook, 16, 9),
         makeZone(
@@ -2868,7 +2975,7 @@ if (selectedFieldItem.type === "man") {
           pm.right2,
           matchFlat,
           17,
-          9
+          9,
         ),
         makeZone(
           "qm-r-safety",
@@ -2877,7 +2984,7 @@ if (selectedFieldItem.type === "man") {
           sideQuarterX("right", 2),
           matchDeep,
           22,
-          16
+          16,
         ),
         makeZone(
           "qm-r-cb",
@@ -2886,7 +2993,7 @@ if (selectedFieldItem.type === "man") {
           sideQuarterX("right", 1),
           matchDeep,
           20,
-          16
+          16,
         ),
       ];
     }
@@ -2903,7 +3010,7 @@ if (selectedFieldItem.type === "man") {
           clampCoverageX(pm.left1, 12, 26),
           matchFlat,
           18,
-          9
+          9,
         ),
         makeZone(
           "palms-l-safety",
@@ -2912,7 +3019,7 @@ if (selectedFieldItem.type === "man") {
           sideQuarterX("left", 2),
           matchDeep,
           24,
-          16
+          16,
         ),
         makeZone(
           "palms-l-apex",
@@ -2921,7 +3028,7 @@ if (selectedFieldItem.type === "man") {
           pm.left2,
           matchHook,
           17,
-          9
+          9,
         ),
         makeZone("palms-mike", mike(), "MIKE LOW HOLE", 50, matchHook, 15, 9),
         makeZone(
@@ -2931,7 +3038,7 @@ if (selectedFieldItem.type === "man") {
           pm.right2,
           matchHook,
           17,
-          9
+          9,
         ),
         makeZone(
           "palms-r-safety",
@@ -2940,7 +3047,7 @@ if (selectedFieldItem.type === "man") {
           sideQuarterX("right", 2),
           matchDeep,
           24,
-          16
+          16,
         ),
         makeZone(
           "palms-r-cb",
@@ -2949,7 +3056,7 @@ if (selectedFieldItem.type === "man") {
           clampCoverageX(pm.right1, 74, 88),
           matchFlat,
           18,
-          9
+          9,
         ),
       ];
     }
@@ -2958,10 +3065,12 @@ if (selectedFieldItem.type === "man") {
       // Match 3: still 3 deep, but seams and #3 are matched instead of spot-dropped.
       const rotateSide = coverage === "Rip/Liz Match" ? pm.strength : null;
       const seamLeftOwner =
-        rotateSide === "left" ? ss(pm.left2, "left") ?? leftApex() : leftApex();
+        rotateSide === "left"
+          ? (ss(pm.left2, "left") ?? leftApex())
+          : leftApex();
       const seamRightOwner =
         rotateSide === "right"
-          ? ss(pm.right2, "right") ?? rightApex()
+          ? (ss(pm.right2, "right") ?? rightApex())
           : rightApex();
       const weakHookOwner =
         pm.weakSide === "left"
@@ -2969,13 +3078,13 @@ if (selectedFieldItem.type === "man") {
               ["WILL", "W", "OLB", "LB"],
               pm.left2,
               usedIds,
-              "left"
+              "left",
             )
           : findLinebacker(
               ["SAM", "S", "OLB", "LB"],
               pm.right2,
               usedIds,
-              "right"
+              "right",
             );
       return [
         makeZone(
@@ -2985,7 +3094,7 @@ if (selectedFieldItem.type === "man") {
           deepTargets.c3Left,
           deep,
           29,
-          18
+          18,
         ),
         makeZone(
           "c3m-post",
@@ -2994,7 +3103,7 @@ if (selectedFieldItem.type === "man") {
           deepTargets.c3Middle,
           deep,
           34,
-          18
+          18,
         ),
         makeZone(
           "c3m-r-third",
@@ -3003,7 +3112,7 @@ if (selectedFieldItem.type === "man") {
           deepTargets.c3Right,
           deep,
           29,
-          18
+          18,
         ),
         makeZone(
           "c3m-l-seam",
@@ -3012,7 +3121,7 @@ if (selectedFieldItem.type === "man") {
           pm.left2,
           matchSeam,
           17,
-          10
+          10,
         ),
         makeZone(
           "c3m-mike",
@@ -3021,11 +3130,11 @@ if (selectedFieldItem.type === "man") {
           pm.tripsSide === "left"
             ? clampCoverageX(pm.left3, 40, 54)
             : pm.tripsSide === "right"
-            ? clampCoverageX(pm.right3, 46, 60)
-            : 50,
+              ? clampCoverageX(pm.right3, 46, 60)
+              : 50,
           matchHook,
           16,
-          9
+          9,
         ),
         makeZone(
           "c3m-r-seam",
@@ -3034,7 +3143,7 @@ if (selectedFieldItem.type === "man") {
           pm.right2,
           matchSeam,
           17,
-          10
+          10,
         ),
         makeZone(
           "c3m-l-flat",
@@ -3043,7 +3152,7 @@ if (selectedFieldItem.type === "man") {
           pm.left1,
           matchFlat,
           17,
-          9
+          9,
         ),
         makeZone(
           "c3m-r-flat",
@@ -3052,7 +3161,7 @@ if (selectedFieldItem.type === "man") {
           pm.right1,
           matchFlat,
           17,
-          9
+          9,
         ),
       ];
     }
@@ -3069,7 +3178,7 @@ if (selectedFieldItem.type === "man") {
           targets.isTripsLeft ? 34 : 30,
           halfDeep,
           targets.isTripsLeft ? 44 : 38,
-          18
+          18,
         ),
         makeZone(
           "cov2-right-half",
@@ -3078,7 +3187,7 @@ if (selectedFieldItem.type === "man") {
           targets.isTripsRight ? 66 : 70,
           halfDeep,
           targets.isTripsRight ? 44 : 38,
-          18
+          18,
         ),
         makeZone(
           "cov2-left-flat",
@@ -3087,7 +3196,7 @@ if (selectedFieldItem.type === "man") {
           targets.leftFlat,
           flat,
           17,
-          9.5
+          9.5,
         ),
         makeZone(
           "cov2-right-flat",
@@ -3096,7 +3205,7 @@ if (selectedFieldItem.type === "man") {
           targets.rightFlat,
           flat,
           17,
-          9.5
+          9.5,
         ),
         makeZone(
           "cov2-left-hook",
@@ -3105,7 +3214,7 @@ if (selectedFieldItem.type === "man") {
           targets.leftCurl,
           curl,
           17,
-          10
+          10,
         ),
         makeZone("cov2-mid-hook", mike(), "MID HOOK", 50, hook, 15, 9),
         makeZone(
@@ -3115,7 +3224,7 @@ if (selectedFieldItem.type === "man") {
           targets.rightCurl,
           curl,
           17,
-          10
+          10,
         ),
       ];
     }
@@ -3132,21 +3241,21 @@ if (selectedFieldItem.type === "man") {
         weakSide === "left" ? targets.leftCurl : targets.rightCurl;
       const strongCurlOwner =
         strongSide === "left"
-          ? ss(strongCurlX, "left") ?? leftApex()
-          : ss(strongCurlX, "right") ?? rightApex();
+          ? (ss(strongCurlX, "left") ?? leftApex())
+          : (ss(strongCurlX, "right") ?? rightApex());
       const weakCurlOwner =
         weakSide === "left"
           ? findLinebacker(
               ["WILL", "W", "OLB", "LB"],
               weakCurlX,
               usedIds,
-              "left"
+              "left",
             )
           : findLinebacker(
               ["SAM", "S", "OLB", "LB"],
               weakCurlX,
               usedIds,
-              "right"
+              "right",
             );
 
       const zones = [
@@ -3157,7 +3266,7 @@ if (selectedFieldItem.type === "man") {
           deepTargets.c3Left,
           deep,
           29,
-          18
+          18,
         ),
         makeZone(
           "cov3-middle-third",
@@ -3166,7 +3275,7 @@ if (selectedFieldItem.type === "man") {
           deepTargets.c3Middle,
           deep,
           34,
-          18
+          18,
         ),
         makeZone(
           "cov3-right-third",
@@ -3175,7 +3284,7 @@ if (selectedFieldItem.type === "man") {
           deepTargets.c3Right,
           deep,
           29,
-          18
+          18,
         ),
         makeZone(
           "cov3-left-flat",
@@ -3184,7 +3293,7 @@ if (selectedFieldItem.type === "man") {
           targets.leftFlat,
           flat,
           16.5,
-          9.5
+          9.5,
         ),
         makeZone(
           "cov3-left-curl",
@@ -3193,7 +3302,7 @@ if (selectedFieldItem.type === "man") {
           targets.leftCurl,
           curl,
           17,
-          10
+          10,
         ),
         makeZone("cov3-mid-hook", middleOwner, "MID HOOK", 50, hook, 15, 9),
         makeZone(
@@ -3203,7 +3312,7 @@ if (selectedFieldItem.type === "man") {
           targets.rightCurl,
           curl,
           17,
-          10
+          10,
         ),
         makeZone(
           "cov3-right-flat",
@@ -3212,7 +3321,7 @@ if (selectedFieldItem.type === "man") {
           targets.rightFlat,
           flat,
           16.5,
-          9.5
+          9.5,
         ),
       ];
 
@@ -3224,13 +3333,13 @@ if (selectedFieldItem.type === "man") {
                 ["OLB", "ILB", "LB"],
                 targets.leftSeam,
                 usedIds,
-                "left"
+                "left",
               )
             : pickDefenderForCoverage(
                 ["OLB", "ILB", "LB"],
                 targets.rightSeam,
                 usedIds,
-                "right"
+                "right",
               );
         zones.push(
           makeZone(
@@ -3240,8 +3349,8 @@ if (selectedFieldItem.type === "man") {
             strongSide === "left" ? targets.leftSeam : targets.rightSeam,
             LOS_YARDS - 9.5,
             15,
-            10
-          )
+            10,
+          ),
         );
       }
 
@@ -3265,7 +3374,7 @@ if (selectedFieldItem.type === "man") {
           deepTargets.q1,
           quarterDeep,
           21,
-          17
+          17,
         ),
         makeZone(
           "cov4-q2",
@@ -3274,7 +3383,7 @@ if (selectedFieldItem.type === "man") {
           deepTargets.q2,
           quarterDeep,
           22,
-          17
+          17,
         ),
         makeZone(
           "cov4-q3",
@@ -3283,7 +3392,7 @@ if (selectedFieldItem.type === "man") {
           deepTargets.q3,
           quarterDeep,
           22,
-          17
+          17,
         ),
         makeZone(
           "cov4-q4",
@@ -3292,7 +3401,7 @@ if (selectedFieldItem.type === "man") {
           deepTargets.q4,
           quarterDeep,
           21,
-          17
+          17,
         ),
         makeZone(
           "cov4-flat-l",
@@ -3301,7 +3410,7 @@ if (selectedFieldItem.type === "man") {
           targets.leftFlat,
           flat,
           17,
-          9.5
+          9.5,
         ),
         makeZone(
           "cov4-hook-l",
@@ -3311,13 +3420,13 @@ if (selectedFieldItem.type === "man") {
                 ["ILB", "LB", "OLB", "S", "W"],
                 targets.leftCurl,
                 usedIds,
-                "left"
+                "left",
               ),
           "HOOK/CURL",
           targets.leftCurl,
           curl,
           16,
-          9.5
+          9.5,
         ),
         makeZone("cov4-mid-hook", middleOwner, "MID HOOK", 50, hook, 15, 9),
         makeZone(
@@ -3328,13 +3437,13 @@ if (selectedFieldItem.type === "man") {
                 ["ILB", "LB", "OLB", "M", "S"],
                 targets.rightCurl,
                 usedIds,
-                "right"
+                "right",
               ),
           "HOOK/CURL",
           targets.rightCurl,
           curl,
           16,
-          9.5
+          9.5,
         ),
         makeZone(
           "cov4-flat-r",
@@ -3343,7 +3452,7 @@ if (selectedFieldItem.type === "man") {
           targets.rightFlat,
           flat,
           17,
-          9.5
+          9.5,
         ),
       ];
     }
@@ -3357,7 +3466,7 @@ if (selectedFieldItem.type === "man") {
           50,
           LOS_YARDS - 16,
           34,
-          17
+          17,
         ),
       ];
     }
@@ -3383,7 +3492,7 @@ if (selectedFieldItem.type === "man") {
     return clampPlayableYards(
       isDefensiveFocusView
         ? activeLosYards - (canonicalYards - LOS_YARDS)
-        : canonicalYards + losYardOffset
+        : canonicalYards + losYardOffset,
     );
   }
 
@@ -3391,7 +3500,7 @@ if (selectedFieldItem.type === "man") {
     return clampPlayableYards(
       isDefensiveFocusView
         ? LOS_YARDS + (activeLosYards - displayYards)
-        : displayYards - losYardOffset
+        : displayYards - losYardOffset,
     );
   }
 
@@ -3438,7 +3547,8 @@ if (selectedFieldItem.type === "man") {
     }
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
   useEffect(() => {
@@ -3567,33 +3677,35 @@ if (selectedFieldItem.type === "man") {
             <button
               style={{
                 ...buttonBase,
-                background:
-                  defensiveReadPlayerIds.includes(selectedPlayer.id)
-                    ? "linear-gradient(180deg, #a855f7 0%, #6d28d9 100%)"
-                    : "#111827",
+                background: defensiveReadPlayerIds.includes(selectedPlayer.id)
+                  ? "linear-gradient(180deg, #a855f7 0%, #6d28d9 100%)"
+                  : "#111827",
                 color: "white",
               }}
-             onClick={() => {
-  const nextReadPlayerIds = defensiveReadPlayerIds.includes(selectedPlayer.id)
-  ? defensiveReadPlayerIds.filter((id) => id !== selectedPlayer.id)
-  : [...defensiveReadPlayerIds, selectedPlayer.id];
+              onClick={() => {
+                const nextReadPlayerIds = defensiveReadPlayerIds.includes(
+                  selectedPlayer.id,
+                )
+                  ? defensiveReadPlayerIds.filter(
+                      (id) => id !== selectedPlayer.id,
+                    )
+                  : [...defensiveReadPlayerIds, selectedPlayer.id];
 
-  setDefensiveReadPlayerIds(nextReadPlayerIds);
+                setDefensiveReadPlayerIds(nextReadPlayerIds);
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_READ_KEY",
-      defensiveReadPlayerIds: nextReadPlayerIds,
-    },
-  });
-}}
-              
+                realtimeChannelRef.current?.send({
+                  type: "broadcast",
+                  event: "board-event",
+                  payload: {
+                    type: "SET_READ_KEY",
+                    defensiveReadPlayerIds: nextReadPlayerIds,
+                  },
+                });
+              }}
             >
               {defensiveReadPlayerIds.includes(selectedPlayer.id)
-  ? "Read Key Selected"
-  : "Mark as Read Key"}
+                ? "Read Key Selected"
+                : "Mark as Read Key"}
             </button>
           )}
           <div>
@@ -4407,7 +4519,7 @@ if (selectedFieldItem.type === "man") {
               }}
             >
               <option value="">No saved play / formations only</option>
-              {savedPlays.map((play) => (
+              {visibleSavedPlays.map((play) => (
                 <option key={play.id} value={play.id}>
                   {play.preloadOnOpen ? "★ " : ""}
                   {play.name}
@@ -4438,7 +4550,7 @@ if (selectedFieldItem.type === "man") {
 
   useEffect(() => {
     const saved = window.localStorage.getItem(
-      "coachboard_custom_offense_presets"
+      "coachboard_custom_offense_presets",
     );
     if (!saved) {
       setCustomOffensePresets(makeDefaultOffensePresets(footballTeamSize));
@@ -4466,7 +4578,7 @@ if (selectedFieldItem.type === "man") {
     const userOnly = customOffensePresets.filter((preset) => !preset.isSystem);
     window.localStorage.setItem(
       "coachboard_custom_offense_presets",
-      JSON.stringify(userOnly)
+      JSON.stringify(userOnly),
     );
   }, [customOffensePresets]);
 
@@ -4488,7 +4600,7 @@ if (selectedFieldItem.type === "man") {
           preload.drawnLines.map((line) => ({
             ...line,
             points: line.points.map((point) => ({ ...point })),
-          }))
+          })),
         );
         setSelectedPlayId(preload.id);
         setSelectedPlayFormationId(preload.formationId ?? "");
@@ -4501,9 +4613,28 @@ if (selectedFieldItem.type === "man") {
   useEffect(() => {
     window.localStorage.setItem(
       "coachboard_saved_plays",
-      JSON.stringify(savedPlays)
+      JSON.stringify(savedPlays),
     );
   }, [savedPlays]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("coachboard_play_folders");
+    if (!saved) return;
+
+    try {
+      const parsed = JSON.parse(saved) as PlayFolder[];
+      if (Array.isArray(parsed)) setPlayFolders(parsed);
+    } catch {
+      setPlayFolders([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      "coachboard_play_folders",
+      JSON.stringify(playFolders),
+    );
+  }, [playFolders]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coachboard_playbooks");
@@ -4520,7 +4651,7 @@ if (selectedFieldItem.type === "man") {
   useEffect(() => {
     window.localStorage.setItem(
       "coachboard_playbooks",
-      JSON.stringify(playbooks)
+      JSON.stringify(playbooks),
     );
   }, [playbooks]);
 
@@ -4539,7 +4670,7 @@ if (selectedFieldItem.type === "man") {
   useEffect(() => {
     window.localStorage.setItem(
       "coachboard_play_concepts",
-      JSON.stringify(playConcepts)
+      JSON.stringify(playConcepts),
     );
   }, [playConcepts]);
 
@@ -4558,7 +4689,7 @@ if (selectedFieldItem.type === "man") {
   useEffect(() => {
     window.localStorage.setItem(
       "coachboard_game_plans",
-      JSON.stringify(gamePlans)
+      JSON.stringify(gamePlans),
     );
   }, [gamePlans]);
 
@@ -4576,7 +4707,7 @@ if (selectedFieldItem.type === "man") {
   useEffect(() => {
     window.localStorage.setItem(
       "coachboard_defensive_packages",
-      JSON.stringify(savedDefensivePackages)
+      JSON.stringify(savedDefensivePackages),
     );
   }, [savedDefensivePackages]);
 
@@ -4609,13 +4740,13 @@ if (selectedFieldItem.type === "man") {
   useEffect(() => {
     window.localStorage.setItem(
       "coachboard_team_branding",
-      JSON.stringify(teamBranding)
+      JSON.stringify(teamBranding),
     );
   }, [teamBranding]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(
-      "coachboard_field_template"
+      "coachboard_field_template",
     ) as FieldTemplate | null;
 
     if (saved && FIELD_HASH_PRESETS[saved]) {
@@ -4637,13 +4768,13 @@ if (selectedFieldItem.type === "man") {
   useEffect(() => {
     window.localStorage.setItem(
       "coachboard_black_white_mode",
-      String(fieldBlackWhiteMode)
+      String(fieldBlackWhiteMode),
     );
   }, [fieldBlackWhiteMode]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(
-      "coachboard_coach_focus"
+      "coachboard_coach_focus",
     ) as CoachFocus | null;
 
     if (saved && COACH_FOCUS_OPTIONS[saved]) {
@@ -4657,7 +4788,7 @@ if (selectedFieldItem.type === "man") {
 
   useEffect(() => {
     const saved = window.localStorage.getItem(
-      "coachboard_football_team_size"
+      "coachboard_football_team_size",
     ) as FootballTeamSize | null;
 
     if (saved && FOOTBALL_TEAM_SIZE_OPTIONS[saved]) {
@@ -4676,7 +4807,7 @@ if (selectedFieldItem.type === "man") {
   useEffect(() => {
     window.localStorage.setItem(
       "coachboard_football_team_size",
-      footballTeamSize
+      footballTeamSize,
     );
   }, [footballTeamSize]);
 
@@ -4684,14 +4815,14 @@ if (selectedFieldItem.type === "man") {
     setCoachFocus(nextFocus);
 
     realtimeChannelRef.current?.send({
-  type: "broadcast",
-  event: "board-event",
-  payload: {
-    type: "SET_COACH_FOCUS",
-    coachFocus: nextFocus,
-  },
-});
-    
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_COACH_FOCUS",
+        coachFocus: nextFocus,
+      },
+    });
+
     if (nextFocus === "defense") {
       const firstDefender =
         defensePlayers[0]?.id ??
@@ -4714,42 +4845,42 @@ if (selectedFieldItem.type === "man") {
   }
 
   function applyFootballTeamSize(nextSize: FootballTeamSize) {
-  const nextOffense = getDefaultOffensePlayers(nextSize);
-  const nextDefense = getDefaultDefensePlayers(nextSize);
-  const nextSelectedPlayerId =
-    coachFocus === "defense"
-      ? nextDefense[0]?.id ?? "d1"
-      : nextOffense[0]?.id ?? "x";
-  const nextSelectedSide = coachFocus === "defense" ? "defense" : "offense";
-  const nextActivePanelTab = coachFocus === "defense" ? "defense" : "player";
+    const nextOffense = getDefaultOffensePlayers(nextSize);
+    const nextDefense = getDefaultDefensePlayers(nextSize);
+    const nextSelectedPlayerId =
+      coachFocus === "defense"
+        ? (nextDefense[0]?.id ?? "d1")
+        : (nextOffense[0]?.id ?? "x");
+    const nextSelectedSide = coachFocus === "defense" ? "defense" : "offense";
+    const nextActivePanelTab = coachFocus === "defense" ? "defense" : "player";
 
-  setFootballTeamSize(nextSize);
-  setOffensePlayers(nextOffense);
-  setDefensePlayers(nextDefense);
-  setSelectedPlayerId(nextSelectedPlayerId);
-  setSelectedSide(nextSelectedSide);
-  setActivePanelTab(nextActivePanelTab);
-  setSelectedPlayId("");
-  setSelectedPlayFormationId("");
-  setRoutes([]);
-  setDrawnLines([]);
+    setFootballTeamSize(nextSize);
+    setOffensePlayers(nextOffense);
+    setDefensePlayers(nextDefense);
+    setSelectedPlayerId(nextSelectedPlayerId);
+    setSelectedSide(nextSelectedSide);
+    setActivePanelTab(nextActivePanelTab);
+    setSelectedPlayId("");
+    setSelectedPlayFormationId("");
+    setRoutes([]);
+    setDrawnLines([]);
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_TEAM_SETUP",
-      footballTeamSize: nextSize,
-      offensePlayers: nextOffense,
-      defensePlayers: nextDefense,
-      selectedPlayerId: nextSelectedPlayerId,
-      selectedSide: nextSelectedSide,
-      activePanelTab: nextActivePanelTab,
-      routes: [],
-      drawnLines: [],
-    },
-  });
-}
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_TEAM_SETUP",
+        footballTeamSize: nextSize,
+        offensePlayers: nextOffense,
+        defensePlayers: nextDefense,
+        selectedPlayerId: nextSelectedPlayerId,
+        selectedSide: nextSelectedSide,
+        activePanelTab: nextActivePanelTab,
+        routes: [],
+        drawnLines: [],
+      },
+    });
+  }
 
   const losTop = `${fieldYFromYards(activeLosYards)}%`;
 
@@ -4772,13 +4903,13 @@ if (selectedFieldItem.type === "man") {
 
   function fieldPointFromClient(
     clientX: number,
-    clientY: number
+    clientY: number,
   ): FieldPoint | null {
     if (!fieldRef.current) return null;
     const rect = fieldRef.current.getBoundingClientRect();
     const screenY = Math.max(
       0,
-      Math.min(100, ((clientY - rect.top) / rect.height) * 100)
+      Math.min(100, ((clientY - rect.top) / rect.height) * 100),
     );
     const screenYards = yardsFromPercentY(screenY);
     const canonicalYards = canonicalYardsFromDisplay(screenYards);
@@ -4790,7 +4921,7 @@ if (selectedFieldItem.type === "man") {
 
   function screenPointFromClient(
     clientX: number,
-    clientY: number
+    clientY: number,
   ): FieldPoint | null {
     if (!fieldRef.current) return null;
     const rect = fieldRef.current.getBoundingClientRect();
@@ -4835,7 +4966,7 @@ if (selectedFieldItem.type === "man") {
 
   function closestPlayerTo(
     point: FieldPoint,
-    max = 5.5
+    max = 5.5,
   ): { point: FieldPoint; distance: number; player: Player } | null {
     let closest: {
       point: FieldPoint;
@@ -4847,7 +4978,7 @@ if (selectedFieldItem.type === "man") {
       const playerPoint = visiblePlayerPoint(player);
       const distance = Math.hypot(
         playerPoint.x - point.x,
-        playerPoint.y - point.y
+        playerPoint.y - point.y,
       );
 
       if (distance <= max && (!closest || distance < closest.distance)) {
@@ -4898,8 +5029,8 @@ if (selectedFieldItem.type === "man") {
     const selectedDefender =
       selectedSide === "defense"
         ? defensePlayers.find((player) => player.id === selectedPlayerId)
-        : defensePlayers.find((player) => player.id === manAssignDefenderId) ??
-          defensePlayers[0];
+        : (defensePlayers.find((player) => player.id === manAssignDefenderId) ??
+          defensePlayers[0]);
 
     if (!selectedDefender) return;
 
@@ -4908,26 +5039,26 @@ if (selectedFieldItem.type === "man") {
     const zoneId = crypto.randomUUID();
     setSelectedFieldItem({ type: "zone", id: zoneId });
     const nextZones = [
-  ...zoneAssignments,
-  {
-    id: zoneId,
-    defenderId: selectedDefender.id,
-    x: point.x,
-    y: point.y,
-    radius: 1.2,
-  },
-];
+      ...zoneAssignments,
+      {
+        id: zoneId,
+        defenderId: selectedDefender.id,
+        x: point.x,
+        y: point.y,
+        radius: 1.2,
+      },
+    ];
 
-setZoneAssignments(nextZones);
+    setZoneAssignments(nextZones);
 
-realtimeChannelRef.current?.send({
-  type: "broadcast",
-  event: "board-event",
-  payload: {
-    type: "SET_ZONES",
-    zoneAssignments: nextZones,
-  },
-});
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ZONES",
+        zoneAssignments: nextZones,
+      },
+    });
     setSelectedZoneId(zoneId);
     setZoneDraftId(zoneId);
   }
@@ -4938,26 +5069,26 @@ realtimeChannelRef.current?.send({
     if (!point) return;
 
     const nextZones = zoneAssignments.map((zone) => {
-  if (zone.id !== zoneDraftId) return zone;
+      if (zone.id !== zoneDraftId) return zone;
 
-  const nextRadius = Math.hypot(point.x - zone.x, point.y - zone.y);
+      const nextRadius = Math.hypot(point.x - zone.x, point.y - zone.y);
 
-  return {
-    ...zone,
-    radius: Math.max(2.5, Math.min(22, nextRadius)),
-  };
-});
+      return {
+        ...zone,
+        radius: Math.max(2.5, Math.min(22, nextRadius)),
+      };
+    });
 
-setZoneAssignments(nextZones);
+    setZoneAssignments(nextZones);
 
-realtimeChannelRef.current?.send({
-  type: "broadcast",
-  event: "board-event",
-  payload: {
-    type: "SET_ZONES",
-    zoneAssignments: nextZones,
-  },
-});
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ZONES",
+        zoneAssignments: nextZones,
+      },
+    });
   }
 
   function finalizeZoneDraft() {
@@ -4968,7 +5099,7 @@ realtimeChannelRef.current?.send({
   function startZoneDrag(
     zone: CustomZoneAssignment,
     clientX: number,
-    clientY: number
+    clientY: number,
   ) {
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
@@ -4997,7 +5128,7 @@ realtimeChannelRef.current?.send({
           x: Math.max(0, Math.min(100, point.x + zoneDrag.offsetX)),
           y: Math.max(0, Math.min(100, point.y + zoneDrag.offsetY)),
         };
-      })
+      }),
     );
   }
 
@@ -5025,43 +5156,43 @@ realtimeChannelRef.current?.send({
           return line;
 
         return { ...line, points: [...line.points, point] };
-      })
+      }),
     );
   }
 
-function finalizeDrawing() {
-  if (!activeLineId) return;
+  function finalizeDrawing() {
+    if (!activeLineId) return;
 
-  const lineToFinish = drawnLines.find((line) => line.id === activeLineId);
-  if (!lineToFinish) return;
+    const lineToFinish = drawnLines.find((line) => line.id === activeLineId);
+    if (!lineToFinish) return;
 
-  const cleanup =
-    lineToFinish.mode === "curve" ? cleanCurvedDrawnPoints : cleanDrawnPoints;
+    const cleanup =
+      lineToFinish.mode === "curve" ? cleanCurvedDrawnPoints : cleanDrawnPoints;
 
-  const finishedLine: DrawLine = {
-    ...lineToFinish,
-    points: cleanup(lineToFinish.points),
-  };
+    const finishedLine: DrawLine = {
+      ...lineToFinish,
+      points: cleanup(lineToFinish.points),
+    };
 
-  const nextLines = drawnLines.map((line) =>
-    line.id === activeLineId ? finishedLine : line
-  );
+    const nextLines = drawnLines.map((line) =>
+      line.id === activeLineId ? finishedLine : line,
+    );
 
-  setDrawnLines(nextLines);
+    setDrawnLines(nextLines);
 
-  if (realtimeChannelRef.current) {
-    realtimeChannelRef.current.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_DRAWN_LINES",
-        drawnLines: nextLines,
-      },
-    });
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_DRAWN_LINES",
+          drawnLines: nextLines,
+        },
+      });
+    }
+
+    setActiveLineId(null);
   }
-
-  setActiveLineId(null);
-}
 
   function enforceLegalOffenseFormation(players: Player[]) {
     let updated = players.map((p) => ({ ...p }));
@@ -5070,7 +5201,7 @@ function finalizeDrawing() {
     updated = updated.map((p) =>
       offenseMustBeOnLOS(p)
         ? { ...p, yardsFromGoal: OFFENSE_ON_LOS_YARDS, onLOS: true }
-        : p
+        : p,
     );
 
     // 2) Nobody on offense can cross onto the defensive side of the LOS.
@@ -5080,7 +5211,7 @@ function finalizeDrawing() {
         ...p,
         yardsFromGoal: Math.max(
           p.yardsFromGoal,
-          OFFENSE_ON_LOS_YARDS + BACKFIELD_MIN_DEPTH
+          OFFENSE_ON_LOS_YARDS + BACKFIELD_MIN_DEPTH,
         ),
       };
     });
@@ -5095,7 +5226,7 @@ function finalizeDrawing() {
         .sort(
           (a, b) =>
             Math.abs(a.yardsFromGoal - OFFENSE_ON_LOS_YARDS) -
-            Math.abs(b.yardsFromGoal - OFFENSE_ON_LOS_YARDS)
+            Math.abs(b.yardsFromGoal - OFFENSE_ON_LOS_YARDS),
         )
         .slice(0, needToMoveOnLOS)
         .map((p) => p.id);
@@ -5103,7 +5234,7 @@ function finalizeDrawing() {
       updated = updated.map((p) =>
         candidates.includes(p.id)
           ? { ...p, yardsFromGoal: OFFENSE_ON_LOS_YARDS, onLOS: true }
-          : p
+          : p,
       );
     }
 
@@ -5116,69 +5247,69 @@ function finalizeDrawing() {
     const rect = fieldRef.current.getBoundingClientRect();
     const x = Math.max(
       4,
-      Math.min(96, ((clientX - rect.left) / rect.width) * 100)
+      Math.min(96, ((clientX - rect.left) / rect.width) * 100),
     );
     const screenPercentY = Math.max(
       0,
-      Math.min(100, ((clientY - rect.top) / rect.height) * 100)
+      Math.min(100, ((clientY - rect.top) / rect.height) * 100),
     );
     const rawYards = canonicalYardsFromDisplay(
-      yardsFromPercentY(screenPercentY)
+      yardsFromPercentY(screenPercentY),
     );
 
     if (draggingSide === "offense") {
       setOffensePlayers((players) => {
-  const moved = players.map((p) => {
-    if (p.id !== draggingId) return p;
+        const moved = players.map((p) => {
+          if (p.id !== draggingId) return p;
 
-    const canAlignOnLOS = offenseCanBeOnLOS(p);
-    const nextOnLOS =
-      canAlignOnLOS && Math.abs(rawYards - LOS_YARDS) < 2.6;
+          const canAlignOnLOS = offenseCanBeOnLOS(p);
+          const nextOnLOS =
+            canAlignOnLOS && Math.abs(rawYards - LOS_YARDS) < 2.6;
 
-    const nextYards = nextOnLOS ? OFFENSE_ON_LOS_YARDS : rawYards;
+          const nextYards = nextOnLOS ? OFFENSE_ON_LOS_YARDS : rawYards;
 
-    return { ...p, x, yardsFromGoal: nextYards, onLOS: nextOnLOS };
-  });
+          return { ...p, x, yardsFromGoal: nextYards, onLOS: nextOnLOS };
+        });
 
-  const nextPlayers = enforceLegalOffenseFormation(moved);
+        const nextPlayers = enforceLegalOffenseFormation(moved);
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_OFFENSE_PLAYERS",
-      offensePlayers: nextPlayers,
-    },
-  });
+        realtimeChannelRef.current?.send({
+          type: "broadcast",
+          event: "board-event",
+          payload: {
+            type: "SET_OFFENSE_PLAYERS",
+            offensePlayers: nextPlayers,
+          },
+        });
 
-  return nextPlayers;
-});
+        return nextPlayers;
+      });
     }
 
     if (draggingSide === "defense") {
-setDefensePlayers((players) => {
-      const nextPlayers = players.map((p) =>
-    p.id === draggingId
-      ? {
-          ...p,
-          x,
-          yardsFromGoal: rawYards,
-          onLOS: Math.abs(rawYards - LOS_YARDS) < 2.2,
-        }
-      : p
-  );
+      setDefensePlayers((players) => {
+        const nextPlayers = players.map((p) =>
+          p.id === draggingId
+            ? {
+                ...p,
+                x,
+                yardsFromGoal: rawYards,
+                onLOS: Math.abs(rawYards - LOS_YARDS) < 2.2,
+              }
+            : p,
+        );
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_DEFENSE_PLAYERS",
-      defensePlayers: nextPlayers,
-    },
-  });
+        realtimeChannelRef.current?.send({
+          type: "broadcast",
+          event: "board-event",
+          payload: {
+            type: "SET_DEFENSE_PLAYERS",
+            defensePlayers: nextPlayers,
+          },
+        });
 
-  return nextPlayers;
-});
+        return nextPlayers;
+      });
     }
   }
 
@@ -5186,27 +5317,27 @@ setDefensePlayers((players) => {
     if (selectedSide !== "offense") return;
     pushUndoSnapshot();
     setSelectedFieldItem({ type: "route", id: selectedPlayer.id });
-   const nextRoutes = [
-  ...routes.filter((r) => r.playerId !== selectedPlayer.id),
-  {
-    playerId: selectedPlayer.id,
-    routeType,
-    breakDepth,
-    finishDepth,
-    color: selectedPlayer.color ?? "#facc15",
-  },
-];
+    const nextRoutes = [
+      ...routes.filter((r) => r.playerId !== selectedPlayer.id),
+      {
+        playerId: selectedPlayer.id,
+        routeType,
+        breakDepth,
+        finishDepth,
+        color: selectedPlayer.color ?? "#facc15",
+      },
+    ];
 
-setRoutes(nextRoutes);
+    setRoutes(nextRoutes);
 
-realtimeChannelRef.current?.send({
-  type: "broadcast",
-  event: "board-event",
-  payload: {
-    type: "SET_ROUTES",
-    routes: nextRoutes,
-  },
-});
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ROUTES",
+        routes: nextRoutes,
+      },
+    });
   }
 
   function updateSelectedPlayerLabel(value: string) {
@@ -5214,39 +5345,66 @@ realtimeChannelRef.current?.send({
     if (selectedSide === "offense")
       setOffensePlayers((players) =>
         players.map((p) =>
-          p.id === selectedPlayerId ? { ...p, position: label } : p
-        )
+          p.id === selectedPlayerId ? { ...p, position: label } : p,
+        ),
       );
     else
       setDefensePlayers((players) =>
         players.map((p) =>
-          p.id === selectedPlayerId ? { ...p, position: label } : p
-        )
+          p.id === selectedPlayerId ? { ...p, position: label } : p,
+        ),
       );
   }
 
   function updateSelectedPlayerColor(color: string) {
-  if (selectedSide === "offense") {
-    const nextPlayers = offensePlayers.map((p) =>
-      p.id === selectedPlayerId ? { ...p, color } : p
-    );
+    if (selectedSide === "offense") {
+      const nextPlayers = offensePlayers.map((p) =>
+        p.id === selectedPlayerId ? { ...p, color } : p,
+      );
 
-    setOffensePlayers(nextPlayers);
+      setOffensePlayers(nextPlayers);
 
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_OFFENSE_PLAYERS",
-        offensePlayers: nextPlayers,
-      },
-    });
-  } else {
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_OFFENSE_PLAYERS",
+          offensePlayers: nextPlayers,
+        },
+      });
+    } else {
+      const nextPlayers = defensePlayers.map((p) =>
+        p.id === selectedPlayerId ? { ...p, color } : p,
+      );
+
+      applyDefensePlayers(nextPlayers);
+
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_DEFENSE_PLAYERS",
+          defensePlayers: nextPlayers,
+        },
+      });
+    }
+  }
+
+  function applyTechnique(tech: Technique) {
+    if (selectedSide !== "defense") return;
+
     const nextPlayers = defensePlayers.map((p) =>
-      p.id === selectedPlayerId ? { ...p, color } : p
+      p.id === selectedPlayerId
+        ? {
+            ...p,
+            x: getTechniqueX(tech, p.x),
+            yardsFromGoal: LOS_YARDS - 1,
+            onLOS: true,
+          }
+        : p,
     );
 
-    applyDefensePlayers(nextPlayers);
+    setDefensePlayers(nextPlayers);
 
     realtimeChannelRef.current?.send({
       type: "broadcast",
@@ -5257,40 +5415,13 @@ realtimeChannelRef.current?.send({
       },
     });
   }
-}
-
-  function applyTechnique(tech: Technique) {
-  if (selectedSide !== "defense") return;
-
-  const nextPlayers = defensePlayers.map((p) =>
-    p.id === selectedPlayerId
-      ? {
-          ...p,
-          x: getTechniqueX(tech, p.x),
-          yardsFromGoal: LOS_YARDS - 1,
-          onLOS: true,
-        }
-      : p
-  );
-
-  setDefensePlayers(nextPlayers);
-
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_DEFENSE_PLAYERS",
-      defensePlayers: nextPlayers,
-    },
-  });
-}
 
   function makeD(
     id: string,
     position: string,
     x: number,
     y: number,
-    onLOS = false
+    onLOS = false,
   ): Player {
     return {
       id,
@@ -5303,18 +5434,18 @@ realtimeChannelRef.current?.send({
   }
 
   function applyDefensePlayers(nextPlayers: Player[]) {
-  setDefensePlayers(nextPlayers);
+    setDefensePlayers(nextPlayers);
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_DEFENSE_PLAYERS",
-      defensePlayers: nextPlayers,
-    },
-  });
-}
-  
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_DEFENSE_PLAYERS",
+        defensePlayers: nextPlayers,
+      },
+    });
+  }
+
   function loadDefensePreset(preset: DefensePreset) {
     if (footballTeamSize !== "11man") return;
     setSelectedDefenseFront(preset);
@@ -5465,45 +5596,45 @@ realtimeChannelRef.current?.send({
   }
 
   function attachManCoverage() {
-  if (!manAssignDefenderId || !manAssignOffenseId) return;
+    if (!manAssignDefenderId || !manAssignOffenseId) return;
 
-  pushUndoSnapshot();
+    pushUndoSnapshot();
 
-  const nextAssignments = {
-    ...manAssignments,
-    [manAssignDefenderId]: manAssignOffenseId,
-  };
+    const nextAssignments = {
+      ...manAssignments,
+      [manAssignDefenderId]: manAssignOffenseId,
+    };
 
-  setManAssignments(nextAssignments);
-   console.log("SENDING MAN ASSIGNMENT:", nextAssignments); 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_MAN_ASSIGNMENTS",
-      manAssignments: nextAssignments,
-    },
-  });
-}
+    setManAssignments(nextAssignments);
+    console.log("SENDING MAN ASSIGNMENT:", nextAssignments);
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_MAN_ASSIGNMENTS",
+        manAssignments: nextAssignments,
+      },
+    });
+  }
 
   function clearManCoverage(defenderId: string) {
-  pushUndoSnapshot();
+    pushUndoSnapshot();
 
-  const nextAssignments = { ...manAssignments };
+    const nextAssignments = { ...manAssignments };
 
-  delete nextAssignments[defenderId];
+    delete nextAssignments[defenderId];
 
-  setManAssignments(nextAssignments);
+    setManAssignments(nextAssignments);
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_MAN_ASSIGNMENTS",
-      manAssignments: nextAssignments,
-    },
-  });
-}
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_MAN_ASSIGNMENTS",
+        manAssignments: nextAssignments,
+      },
+    });
+  }
 
   function applyDefensiveCoverage(coverage: DefensiveCoveragePreset) {
     const isSameVisibleCoverage =
@@ -5579,63 +5710,63 @@ realtimeChannelRef.current?.send({
   }
 
   function loadDefensivePackage(id: string) {
-  const pkg = savedDefensivePackages.find((item) => item.id === id);
-  if (!pkg) return;
+    const pkg = savedDefensivePackages.find((item) => item.id === id);
+    if (!pkg) return;
 
-  const nextManAssignments = pkg.manAssignments ?? {};
-  const nextZones = (pkg.zoneAssignments ?? []).map((zone) => ({ ...zone }));
-  const nextDefensePlayers = pkg.defensePlayers.map((p) => ({ ...p }));
-  const nextDrawnLines = pkg.drawnLines.map((line) => ({
-    ...line,
-    points: line.points.map((point) => ({ ...point })),
-  }));
+    const nextManAssignments = pkg.manAssignments ?? {};
+    const nextZones = (pkg.zoneAssignments ?? []).map((zone) => ({ ...zone }));
+    const nextDefensePlayers = pkg.defensePlayers.map((p) => ({ ...p }));
+    const nextDrawnLines = pkg.drawnLines.map((line) => ({
+      ...line,
+      points: line.points.map((point) => ({ ...point })),
+    }));
 
-  setSelectedDefenseFront(pkg.front);
-  setShowCoverageOverlay(false);
-  setShowPressureOverlay(false);
-  setManAssignments(nextManAssignments);
-  setZoneAssignments(nextZones);
-  applyDefensePlayers(nextDefensePlayers);
-  setDrawnLines(nextDrawnLines);
-  setSelectedSide("defense");
-  setActivePanelTab("defense");
+    setSelectedDefenseFront(pkg.front);
+    setShowCoverageOverlay(false);
+    setShowPressureOverlay(false);
+    setManAssignments(nextManAssignments);
+    setZoneAssignments(nextZones);
+    applyDefensePlayers(nextDefensePlayers);
+    setDrawnLines(nextDrawnLines);
+    setSelectedSide("defense");
+    setActivePanelTab("defense");
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_DEFENSE_PLAYERS",
-      defensePlayers: nextDefensePlayers,
-    },
-  });
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_DEFENSE_PLAYERS",
+        defensePlayers: nextDefensePlayers,
+      },
+    });
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_MAN_ASSIGNMENTS",
-      manAssignments: nextManAssignments,
-    },
-  });
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_MAN_ASSIGNMENTS",
+        manAssignments: nextManAssignments,
+      },
+    });
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_ZONES",
-      zoneAssignments: nextZones,
-    },
-  });
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ZONES",
+        zoneAssignments: nextZones,
+      },
+    });
 
-  realtimeChannelRef.current?.send({
-    type: "broadcast",
-    event: "board-event",
-    payload: {
-      type: "SET_DRAWN_LINES",
-      drawnLines: nextDrawnLines,
-    },
-  });
-}
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_DRAWN_LINES",
+        drawnLines: nextDrawnLines,
+      },
+    });
+  }
 
   function overwriteDefensivePackage(id: string) {
     setSavedDefensivePackages((current) =>
@@ -5654,14 +5785,14 @@ realtimeChannelRef.current?.send({
               manAssignments: { ...manAssignments },
               zoneAssignments: zoneAssignments.map((zone) => ({ ...zone })),
             }
-          : pkg
-      )
+          : pkg,
+      ),
     );
   }
 
   function deleteDefensivePackage(id: string) {
     setSavedDefensivePackages((current) =>
-      current.filter((pkg) => pkg.id !== id)
+      current.filter((pkg) => pkg.id !== id),
     );
   }
 
@@ -5701,6 +5832,13 @@ realtimeChannelRef.current?.send({
       id: crypto.randomUUID(),
       name,
       formationId: selectedPlayFormationId,
+      folderId: selectedLibraryFolderId,
+      ownerId: user?.id,
+      ownerName: getCoachDisplayName(user),
+      teamCode:
+        currentLibraryFolder?.shareScope === "team" ? teamCode : undefined,
+      shareScope: currentLibraryFolder?.shareScope ?? "private",
+      sharedWithEmails: currentLibraryFolder?.sharedWithEmails ?? [],
       offensePlayers: normalizeOffenseOnLOS(offensePlayers),
       defensePlayers: defensePlayers.map((p) => ({ ...p })),
       routes: routes.map((r) => ({ ...r })),
@@ -5731,7 +5869,7 @@ realtimeChannelRef.current?.send({
       play.drawnLines.map((line) => ({
         ...line,
         points: line.points.map((point) => ({ ...point })),
-      }))
+      })),
     );
     setSelectedPlayId(id);
     setSelectedPlayFormationId(play.formationId ?? "");
@@ -5751,14 +5889,14 @@ realtimeChannelRef.current?.send({
                 points: line.points.map((point) => ({ ...point })),
               })),
             }
-          : play
-      )
+          : play,
+      ),
     );
   }
 
   function renamePlay(id: string, name: string) {
     setSavedPlays((current) =>
-      current.map((play) => (play.id === id ? { ...play, name } : play))
+      current.map((play) => (play.id === id ? { ...play, name } : play)),
     );
   }
 
@@ -5772,8 +5910,343 @@ realtimeChannelRef.current?.send({
       current.map((play) => ({
         ...play,
         preloadOnOpen: play.id === id ? !play.preloadOnOpen : false,
-      }))
+      })),
     );
+  }
+
+  function createPlayFolder(scope: "private" | "team" | "shared" = "private") {
+    const name = newFolderName.trim();
+    if (!name) return;
+
+    const folder: PlayFolder = {
+      id: crypto.randomUUID(),
+      name,
+      parentFolderId:
+        selectedLibraryFolderId && selectedLibraryFolderId !== "root"
+          ? selectedLibraryFolderId
+          : undefined,
+      ownerId: user?.id,
+      ownerName: getCoachDisplayName(user),
+      teamCode: scope === "team" ? teamCode : undefined,
+      shareScope: scope,
+      sharedWithEmails: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    setPlayFolders((current) => [...current, folder]);
+    setSelectedLibraryFolderId(folder.id);
+    setNewFolderName("");
+  }
+
+  function renamePlayFolder(id: string, name: string) {
+    setPlayFolders((current) =>
+      current.map((folder) =>
+        folder.id === id ? { ...folder, name } : folder,
+      ),
+    );
+  }
+
+  function deletePlayFolder(id: string) {
+    if (id === "root") return;
+    const hasPlays = savedPlays.some((play) => play.folderId === id);
+    const hasChildren = playFolders.some(
+      (folder) => folder.parentFolderId === id,
+    );
+
+    if (
+      (hasPlays || hasChildren) &&
+      !confirm(
+        "This folder has plays or subfolders. Move everything to My Plays and delete it?",
+      )
+    ) {
+      return;
+    }
+
+    setSavedPlays((current) =>
+      current.map((play) =>
+        play.folderId === id ? { ...play, folderId: "root" } : play,
+      ),
+    );
+    setPlayFolders((current) =>
+      current
+        .map((folder) =>
+          folder.parentFolderId === id
+            ? { ...folder, parentFolderId: undefined }
+            : folder,
+        )
+        .filter((folder) => folder.id !== id),
+    );
+    setSelectedLibraryFolderId("root");
+  }
+
+  function movePlayToFolder(playId: string, folderId: string) {
+    const folder = playFolders.find((item) => item.id === folderId);
+
+    setSavedPlays((current) =>
+      current.map((play) =>
+        play.id === playId
+          ? {
+              ...play,
+              folderId,
+              shareScope: folder?.shareScope ?? play.shareScope ?? "private",
+              teamCode:
+                folder?.shareScope === "team" ? teamCode : play.teamCode,
+              sharedWithEmails:
+                folder?.sharedWithEmails ?? play.sharedWithEmails ?? [],
+            }
+          : play,
+      ),
+    );
+  }
+
+  function shareFolderWithEmail(folderId: string) {
+    const emailToShare = libraryShareEmail.trim().toLowerCase();
+    if (!emailToShare) return;
+
+    setPlayFolders((current) =>
+      current.map((folder) =>
+        folder.id === folderId
+          ? {
+              ...folder,
+              shareScope: "shared",
+              sharedWithEmails: Array.from(
+                new Set([...folder.sharedWithEmails, emailToShare]),
+              ),
+            }
+          : folder,
+      ),
+    );
+
+    setSavedPlays((current) =>
+      current.map((play) =>
+        play.folderId === folderId
+          ? {
+              ...play,
+              shareScope: "shared",
+              sharedWithEmails: Array.from(
+                new Set([...(play.sharedWithEmails ?? []), emailToShare]),
+              ),
+            }
+          : play,
+      ),
+    );
+
+    setLibraryShareEmail("");
+  }
+
+  function makeFolderTeamShared(folderId: string) {
+    if (!teamCode) {
+      alert(
+        "Join or create a Gameday Room first so CoachBoard knows which team room to share this folder with.",
+      );
+      return;
+    }
+
+    setPlayFolders((current) =>
+      current.map((folder) =>
+        folder.id === folderId
+          ? { ...folder, shareScope: "team", teamCode }
+          : folder,
+      ),
+    );
+
+    setSavedPlays((current) =>
+      current.map((play) =>
+        play.folderId === folderId
+          ? { ...play, shareScope: "team", teamCode }
+          : play,
+      ),
+    );
+  }
+
+  function makeFolderPrivate(folderId: string) {
+    setPlayFolders((current) =>
+      current.map((folder) =>
+        folder.id === folderId
+          ? {
+              ...folder,
+              shareScope: "private",
+              sharedWithEmails: [],
+              teamCode: undefined,
+            }
+          : folder,
+      ),
+    );
+
+    setSavedPlays((current) =>
+      current.map((play) =>
+        play.folderId === folderId
+          ? {
+              ...play,
+              shareScope: "private",
+              sharedWithEmails: [],
+              teamCode: undefined,
+            }
+          : play,
+      ),
+    );
+  }
+
+  function sharePlayWithEmail(playId: string) {
+    const emailToShare = libraryShareEmail.trim().toLowerCase();
+    if (!emailToShare) return;
+
+    setSavedPlays((current) =>
+      current.map((play) =>
+        play.id === playId
+          ? {
+              ...play,
+              shareScope: "shared",
+              sharedWithEmails: Array.from(
+                new Set([...(play.sharedWithEmails ?? []), emailToShare]),
+              ),
+            }
+          : play,
+      ),
+    );
+
+    setLibraryShareEmail("");
+  }
+
+  async function syncPlayLibraryToSupabase() {
+    if (!user) {
+      alert("Sign in before syncing your play library.");
+      return;
+    }
+
+    try {
+      const folderRows = playFolders.map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        parent_folder_id: folder.parentFolderId ?? null,
+        owner_id: folder.ownerId ?? user.id,
+        owner_name: folder.ownerName ?? getCoachDisplayName(user),
+        team_code: folder.teamCode ?? null,
+        share_scope: folder.shareScope,
+        shared_with_emails: folder.sharedWithEmails,
+        created_at: folder.createdAt,
+      }));
+
+      const playRows = savedPlays.map((play) => ({
+        id: play.id,
+        name: play.name,
+        folder_id: play.folderId ?? "root",
+        owner_id: play.ownerId ?? user.id,
+        owner_name: play.ownerName ?? getCoachDisplayName(user),
+        team_code: play.teamCode ?? null,
+        share_scope: play.shareScope ?? "private",
+        shared_with_emails: play.sharedWithEmails ?? [],
+        play_data: play,
+        updated_at: new Date().toISOString(),
+      }));
+
+      if (folderRows.length) {
+        const { error } = await supabase
+          .from("coachboard_play_folders")
+          .upsert(folderRows);
+        if (error) throw error;
+      }
+
+      if (playRows.length) {
+        const { error } = await supabase
+          .from("coachboard_library_plays")
+          .upsert(playRows);
+        if (error) throw error;
+      }
+
+      alert("Play library synced.");
+    } catch (error) {
+      console.error(error);
+      alert(
+        "Could not sync yet. Make sure the CoachBoard play library Supabase tables have been created.",
+      );
+    }
+  }
+
+  async function loadPlayLibraryFromSupabase() {
+    if (!user) {
+      alert("Sign in before loading shared plays.");
+      return;
+    }
+
+    try {
+      const userEmail = user.email?.toLowerCase() ?? "";
+
+      const { data: folderData, error: folderError } = await supabase
+        .from("coachboard_play_folders")
+        .select("*");
+      if (folderError) throw folderError;
+
+      const { data: playData, error: playError } = await supabase
+        .from("coachboard_library_plays")
+        .select("*");
+      if (playError) throw playError;
+
+      const nextFolders: PlayFolder[] = (folderData ?? [])
+        .filter((row: any) => {
+          const emails = (row.shared_with_emails ?? []).map((email: string) =>
+            email.toLowerCase(),
+          );
+          return (
+            row.owner_id === user.id ||
+            emails.includes(userEmail) ||
+            (row.share_scope === "team" && row.team_code === teamCode)
+          );
+        })
+        .map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          parentFolderId: row.parent_folder_id ?? undefined,
+          ownerId: row.owner_id ?? undefined,
+          ownerName: row.owner_name ?? undefined,
+          teamCode: row.team_code ?? undefined,
+          shareScope: row.share_scope ?? "private",
+          sharedWithEmails: row.shared_with_emails ?? [],
+          createdAt: row.created_at ?? new Date().toISOString(),
+        }));
+
+      const visibleFolderIds = new Set(nextFolders.map((folder) => folder.id));
+      const nextPlays: SavedPlay[] = (playData ?? [])
+        .filter((row: any) => {
+          const emails = (row.shared_with_emails ?? []).map((email: string) =>
+            email.toLowerCase(),
+          );
+          return (
+            row.owner_id === user.id ||
+            emails.includes(userEmail) ||
+            visibleFolderIds.has(row.folder_id) ||
+            (row.share_scope === "team" && row.team_code === teamCode)
+          );
+        })
+        .map((row: any) => ({
+          ...(row.play_data as SavedPlay),
+          id: row.id,
+          name: row.name,
+          folderId: row.folder_id ?? "root",
+          ownerId: row.owner_id ?? undefined,
+          ownerName: row.owner_name ?? undefined,
+          teamCode: row.team_code ?? undefined,
+          shareScope: row.share_scope ?? "private",
+          sharedWithEmails: row.shared_with_emails ?? [],
+        }));
+
+      setPlayFolders((current) => {
+        const byId = new Map(current.map((folder) => [folder.id, folder]));
+        nextFolders.forEach((folder) => byId.set(folder.id, folder));
+        return Array.from(byId.values());
+      });
+
+      setSavedPlays((current) => {
+        const byId = new Map(current.map((play) => [play.id, play]));
+        nextPlays.forEach((play) => byId.set(play.id, play));
+        return Array.from(byId.values());
+      });
+    } catch (error) {
+      console.error(error);
+      alert(
+        "Could not load shared plays yet. Make sure the CoachBoard play library Supabase tables have been created.",
+      );
+    }
   }
 
   function clearLoadedPlay() {
@@ -5784,46 +6257,46 @@ realtimeChannelRef.current?.send({
   }
 
   function loadCustomOffensePreset(id: string) {
-  const preset = customOffensePresets.find((p) => p.id === id);
+    const preset = customOffensePresets.find((p) => p.id === id);
 
-  if (preset) {
-    const nextPlayers = normalizeOffenseOnLOS(preset.players);
+    if (preset) {
+      const nextPlayers = normalizeOffenseOnLOS(preset.players);
 
-    setOffensePlayers(nextPlayers);
-    setSelectedPlayFormationId(id);
-    setSelectedPresetDropdownId(id);
-    setSelectedPlayId("");
-    setRoutes([]);
-    setDrawnLines([]);
+      setOffensePlayers(nextPlayers);
+      setSelectedPlayFormationId(id);
+      setSelectedPresetDropdownId(id);
+      setSelectedPlayId("");
+      setRoutes([]);
+      setDrawnLines([]);
 
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_OFFENSE_PLAYERS",
-        offensePlayers: nextPlayers,
-      },
-    });
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_OFFENSE_PLAYERS",
+          offensePlayers: nextPlayers,
+        },
+      });
 
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_ROUTES",
-        routes: [],
-      },
-    });
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_ROUTES",
+          routes: [],
+        },
+      });
 
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_DRAWN_LINES",
-        drawnLines: [],
-      },
-    });
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_DRAWN_LINES",
+          drawnLines: [],
+        },
+      });
+    }
   }
-}
 
   function overwriteCustomOffensePreset(id: string) {
     setCustomOffensePresets((current) =>
@@ -5831,13 +6304,13 @@ realtimeChannelRef.current?.send({
         if (preset.id !== id) return preset;
         if (preset.isSystem) return preset;
         return { ...preset, players: normalizeOffenseOnLOS(offensePlayers) };
-      })
+      }),
     );
   }
 
   function deleteCustomOffensePreset(id: string) {
     setCustomOffensePresets((current) =>
-      current.filter((preset) => preset.id !== id || preset.isSystem)
+      current.filter((preset) => preset.id !== id || preset.isSystem),
     );
   }
 
@@ -5847,7 +6320,7 @@ realtimeChannelRef.current?.send({
         if (preset.id !== id) return preset;
         if (preset.isSystem) return preset;
         return { ...preset, name };
-      })
+      }),
     );
   }
 
@@ -5906,7 +6379,7 @@ realtimeChannelRef.current?.send({
       const playerPoint = visiblePlayerPoint(player);
       const distance = Math.hypot(
         playerPoint.x - point.x,
-        playerPoint.y - point.y
+        playerPoint.y - point.y,
       );
 
       if (distance < closestDistance) {
@@ -5964,7 +6437,7 @@ realtimeChannelRef.current?.send({
 
     if (assignments.length === 0) {
       alert(
-        "Add at least one route, run path, or block line before saving a concept."
+        "Add at least one route, run path, or block line before saving a concept.",
       );
       return;
     }
@@ -5985,7 +6458,7 @@ realtimeChannelRef.current?.send({
       .map((assignment) => {
         const player = offensePlayers.find(
           (p) =>
-            p.position.toUpperCase() === assignment.playerLabel.toUpperCase()
+            p.position.toUpperCase() === assignment.playerLabel.toUpperCase(),
         );
         if (
           !player ||
@@ -6008,7 +6481,7 @@ realtimeChannelRef.current?.send({
       .map((assignment) => {
         const player = offensePlayers.find(
           (p) =>
-            p.position.toUpperCase() === assignment.playerLabel.toUpperCase()
+            p.position.toUpperCase() === assignment.playerLabel.toUpperCase(),
         );
         if (!player || !assignment.relativePoints || !assignment.lineStyle)
           return null;
@@ -6033,14 +6506,14 @@ realtimeChannelRef.current?.send({
   function renameConcept(id: string, name: string) {
     setPlayConcepts((current) =>
       current.map((concept) =>
-        concept.id === id ? { ...concept, name } : concept
-      )
+        concept.id === id ? { ...concept, name } : concept,
+      ),
     );
   }
 
   function deleteConcept(id: string) {
     setPlayConcepts((current) =>
-      current.filter((concept) => concept.id !== id)
+      current.filter((concept) => concept.id !== id),
     );
     if (selectedConceptId === id) setSelectedConceptId("");
   }
@@ -6074,7 +6547,7 @@ realtimeChannelRef.current?.send({
 
   function renameGamePlan(id: string, name: string) {
     setGamePlans((current) =>
-      current.map((plan) => (plan.id === id ? { ...plan, name } : plan))
+      current.map((plan) => (plan.id === id ? { ...plan, name } : plan)),
     );
   }
 
@@ -6097,14 +6570,14 @@ realtimeChannelRef.current?.send({
             ? plan.playIds.filter((id) => id !== playId)
             : [...plan.playIds, playId],
         };
-      })
+      }),
     );
   }
 
   function moveGamePlanPlay(
     planId: string,
     playId: string,
-    direction: "up" | "down"
+    direction: "up" | "down",
   ) {
     setGamePlans((current) =>
       current.map((plan) => {
@@ -6119,7 +6592,7 @@ realtimeChannelRef.current?.send({
           nextPlayIds[index],
         ];
         return { ...plan, playIds: nextPlayIds };
-      })
+      }),
     );
   }
 
@@ -6137,7 +6610,7 @@ realtimeChannelRef.current?.send({
     if (!plan || plan.playIds.length === 0) return;
     const nextIndex = Math.min(
       currentGamePlanIndex + 1,
-      plan.playIds.length - 1
+      plan.playIds.length - 1,
     );
     loadGamePlanPlay(nextIndex);
   }
@@ -6167,7 +6640,7 @@ realtimeChannelRef.current?.send({
 
   function renamePlaybook(id: string, name: string) {
     setPlaybooks((current) =>
-      current.map((book) => (book.id === id ? { ...book, name } : book))
+      current.map((book) => (book.id === id ? { ...book, name } : book)),
     );
   }
 
@@ -6188,14 +6661,14 @@ realtimeChannelRef.current?.send({
             : [...book.formationIds, formationId],
           formationConcepts: book.formationConcepts ?? {},
         };
-      })
+      }),
     );
   }
 
   function toggleConceptInFormation(
     playbookId: string,
     formationId: string,
-    conceptId: string
+    conceptId: string,
   ) {
     setPlaybooks((current) =>
       current.map((book) => {
@@ -6213,13 +6686,13 @@ realtimeChannelRef.current?.send({
               : [...currentConcepts, conceptId],
           },
         };
-      })
+      }),
     );
   }
 
   function buildConceptForFormation(formationId: string, conceptId: string) {
     const formation = customOffensePresets.find(
-      (preset) => preset.id === formationId
+      (preset) => preset.id === formationId,
     );
     const concept = playConcepts.find((item) => item.id === conceptId);
     if (!formation || !concept) return null;
@@ -6229,7 +6702,7 @@ realtimeChannelRef.current?.send({
       .map((assignment) => {
         const player = formation.players.find(
           (p) =>
-            p.position.toUpperCase() === assignment.playerLabel.toUpperCase()
+            p.position.toUpperCase() === assignment.playerLabel.toUpperCase(),
         );
         if (
           !player ||
@@ -6252,7 +6725,7 @@ realtimeChannelRef.current?.send({
       .map((assignment) => {
         const player = formation.players.find(
           (p) =>
-            p.position.toUpperCase() === assignment.playerLabel.toUpperCase()
+            p.position.toUpperCase() === assignment.playerLabel.toUpperCase(),
         );
         if (!player || !assignment.relativePoints || !assignment.lineStyle)
           return null;
@@ -6287,7 +6760,7 @@ realtimeChannelRef.current?.send({
     setSavedPlays((current) => {
       const alreadyExists = current.some(
         (existing) =>
-          existing.formationId === formationId && existing.name === play.name
+          existing.formationId === formationId && existing.name === play.name,
       );
       return alreadyExists ? current : [...current, play];
     });
@@ -6299,7 +6772,7 @@ realtimeChannelRef.current?.send({
       play.drawnLines.map((line) => ({
         ...line,
         points: line.points.map((point) => ({ ...point })),
-      }))
+      })),
     );
   }
 
@@ -6318,20 +6791,20 @@ realtimeChannelRef.current?.send({
 
     setSavedPlays((current) => {
       const existingKeys = new Set(
-        current.map((play) => `${play.formationId}|${play.name}`)
+        current.map((play) => `${play.formationId}|${play.name}`),
       );
       const uniqueNew = playsToAdd.filter(
-        (play) => !existingKeys.has(`${play.formationId}|${play.name}`)
+        (play) => !existingKeys.has(`${play.formationId}|${play.name}`),
       );
       return [...current, ...uniqueNew];
     });
   }
 
   const selectedPlaybook = playbooks.find(
-    (book) => book.id === selectedPlaybookId
+    (book) => book.id === selectedPlaybookId,
   );
   const activeFormation = customOffensePresets.find(
-    (formation) => formation.id === selectedPlayFormationId
+    (formation) => formation.id === selectedPlayFormationId,
   );
   const activeFieldHash =
     FIELD_HASH_PRESETS[fieldTemplate] ??
@@ -6358,290 +6831,281 @@ realtimeChannelRef.current?.send({
     : "rgba(255,255,255,.88)";
   const defaultDefenseIconColor = fieldBlackWhiteMode ? "#000000" : "#dc2626";
   const defaultOffenseIconColor = fieldBlackWhiteMode ? "#ffffff" : "#f3f4f6";
-async function handleLogout() {
-  await supabase.auth.signOut();
+  async function handleLogout() {
+    await supabase.auth.signOut();
 
-  localStorage.removeItem("coachboard_team_code");
-  localStorage.removeItem("coachboard_coach_name");
+    localStorage.removeItem("coachboard_team_code");
+    localStorage.removeItem("coachboard_coach_name");
 
-  setTeamCode("");
-  setTeamCodeInput("");
-  setRoomCoaches([]);
-  setUser(null);
-  setEmail("");
-  setPassword("");
-  setAuthMode("login");
+    setTeamCode("");
+    setTeamCodeInput("");
+    setRoomCoaches([]);
+    setUser(null);
+    setEmail("");
+    setPassword("");
+    setAuthMode("login");
 
-  window.location.reload();
-}
-if (!user) {
-  return (
-    <div
-      className="coachboard-login-page"
-      style={{
-        position: "relative",
-        minHeight: "100svh",
-        overflowX: "hidden",
-        backgroundColor: "#050505",
-      }}
-    >
+    window.location.reload();
+  }
+  if (!user) {
+    return (
       <div
-        className="coachboard-login-bg"
-        style={{
-          position: "fixed",
-          inset: 0,
-          width: "100%",
-          height: "100svh",
-          minHeight: "100svh",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          zIndex: 0,
-          pointerEvents: "none",
-        }}
-      />
-
-      <div
-        className="coachboard-login-shell"
+        className="coachboard-login-page"
         style={{
           position: "relative",
-          zIndex: 1,
           minHeight: "100svh",
+          overflowX: "hidden",
+          backgroundColor: "#050505",
         }}
       >
-        <section className="coachboard-brand-side">
-          <img
-            src="/coachboard-logo.png"
-            alt="CoachBoard"
-            className="coachboard-logo"
-          />
+        <div
+          className="coachboard-login-bg"
+          style={{
+            position: "fixed",
+            inset: 0,
+            width: "100%",
+            height: "100svh",
+            minHeight: "100svh",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            zIndex: 0,
+            pointerEvents: "none",
+          }}
+        />
 
-          <h1>
-            The Ultimate Coaching
-            <br />
-            <span>Whiteboard</span> Platform
-            <br />
-            for Winners.
-          </h1>
+        <div
+          className="coachboard-login-shell"
+          style={{
+            position: "relative",
+            zIndex: 1,
+            minHeight: "100svh",
+          }}
+        >
+          <section className="coachboard-brand-side">
+            <img
+              src="/coachboard-logo.png"
+              alt="CoachBoard"
+              className="coachboard-logo"
+            />
 
-          <div className="coachboard-features">
-            <div className="coachboard-feature">
-              <div className="feature-icon">
-  <img
-    src="/clipboard.svg"
-    alt="Draw"
-    width="28"
-    height="28"
-  />
-</div>
-              <div>
-                <h3>Draw it.</h3>
-                <p>Create plays and strategies with our easy-to-use tools.</p>
+            <h1>
+              The Ultimate Coaching
+              <br />
+              <span>Whiteboard</span> Platform
+              <br />
+              for Winners.
+            </h1>
+
+            <div className="coachboard-features">
+              <div className="coachboard-feature">
+                <div className="feature-icon">
+                  <img src="/clipboard.svg" alt="Draw" width="28" height="28" />
+                </div>
+                <div>
+                  <h3>Draw it.</h3>
+                  <p>Create plays and strategies with our easy-to-use tools.</p>
+                </div>
+              </div>
+
+              <div className="coachboard-feature">
+                <div className="feature-icon">
+                  <img src="/share.svg" alt="Share" width="28" height="28" />
+                </div>
+                <div>
+                  <h3>Share it.</h3>
+                  <p>Share your boards instantly with your team.</p>
+                </div>
+              </div>
+
+              <div className="coachboard-feature">
+                <div className="feature-icon">
+                  <img src="/trophy.svg" alt="Win" width="28" height="28" />
+                </div>
+                <div>
+                  <h3>Win it.</h3>
+                  <p>Execute your game plan and achieve victory.</p>
+                </div>
               </div>
             </div>
+          </section>
 
-            <div className="coachboard-feature">
-              <div className="feature-icon">
-  <img
-    src="/share.svg"
-    alt="Share"
-    width="28"
-    height="28"
-  />
-</div>
-              <div>
-                <h3>Share it.</h3>
-                <p>Share your boards instantly with your team.</p>
-              </div>
+          <section className="coachboard-login-card">
+            <h2>
+              {authMode === "login" ? "Welcome" : "Create"}{" "}
+              <span>{authMode === "login" ? "Back" : "Account"}</span>
+            </h2>
+
+            <p className="coachboard-subtitle">
+              {authMode === "login"
+                ? "Log in to your CoachBoard account"
+                : "Enter your name so coaches know who is in the Gameday Room"}
+            </p>
+
+            <div className="coachboard-divider">
+              <div />
+              <span>★</span>
+              <div />
             </div>
 
-            <div className="coachboard-feature">
-              <div className="feature-icon">
-  <img
-    src="/trophy.svg"
-    alt="Win"
-    width="28"
-    height="28"
-  />
-</div>
-              <div>
-                <h3>Win it.</h3>
-                <p>Execute your game plan and achieve victory.</p>
-              </div>
-            </div>
-          </div>
-        </section>
+            {authMode === "signup" && (
+              <>
+                <label>First Name</label>
+                <input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Enter your first name"
+                />
 
-        <section className="coachboard-login-card">
-          <h2>
-            {authMode === "login" ? "Welcome" : "Create"} <span>{authMode === "login" ? "Back" : "Account"}</span>
-          </h2>
+                <label>Last Name</label>
+                <input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Enter your last name"
+                />
+              </>
+            )}
 
-          <p className="coachboard-subtitle">
-            {authMode === "login"
-              ? "Log in to your CoachBoard account"
-              : "Enter your name so coaches know who is in the Gameday Room"}
-          </p>
+            <label>Email</label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
+            />
 
-          <div className="coachboard-divider">
-            <div />
-            <span>★</span>
-            <div />
-          </div>
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+            />
 
-          {authMode === "signup" && (
-            <>
-              <label>First Name</label>
-              <input
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Enter your first name"
-              />
+            <div className="coachboard-login-options">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!email) {
+                    alert("Enter your email first.");
+                    return;
+                  }
 
-              <label>Last Name</label>
-              <input
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Enter your last name"
-              />
-            </>
-          )}
-
-          <label>Email</label>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email"
-          />
-
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-          />
-
-          <div className="coachboard-login-options">
-  <button
-    type="button"
-    onClick={async () => {
-      if (!email) {
-        alert("Enter your email first.");
-        return;
-      }
-
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: "https://coach-board-online1.vercel.app",
-      });
-
-      if (error) {
-        alert(error.message);
-        return;
-      }
-
-      alert("Password reset email sent.");
-    }}
-    style={{
-      background: "none",
-      border: "none",
-      color: "#ef4444",
-      cursor: "pointer",
-      fontWeight: 700,
-      padding: 0,
-    }}
-  >
-    Forgot password?
-  </button>
-</div>
-
-          <button
-            className="coachboard-login-button"
-            onClick={async () => {
-              if (authMode === "signup") {
-                const cleanedFirstName = firstName.trim();
-                const cleanedLastName = lastName.trim();
-                const fullName = `${cleanedFirstName} ${cleanedLastName}`.trim();
-
-                if (!cleanedFirstName || !cleanedLastName) {
-                  alert("Enter your first and last name.");
-                  return;
-                }
-
-                const { error } = await supabase.auth.signUp({
-                  email,
-                  password,
-                  options: {
-                    emailRedirectTo:
-                      "https://coach-board-online1.vercel.app",
-                    data: {
-                      first_name: cleanedFirstName,
-                      last_name: cleanedLastName,
-                      full_name: fullName,
-                      name: fullName,
+                  const { error } = await supabase.auth.resetPasswordForEmail(
+                    email,
+                    {
+                      redirectTo: "https://coach-board-online1.vercel.app",
                     },
-                  },
-                });
+                  );
 
-                if (error) {
-                  alert(error.message);
-                  return;
-                }
+                  if (error) {
+                    alert(error.message);
+                    return;
+                  }
 
-                alert("Check your email to confirm your account. Your name will be used in Gameday Rooms after you sign in.");
-              } else {
-                const { data, error } =
-                  await supabase.auth.signInWithPassword({
+                  alert("Password reset email sent.");
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#ef4444",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  padding: 0,
+                }}
+              >
+                Forgot password?
+              </button>
+            </div>
+
+            <button
+              className="coachboard-login-button"
+              onClick={async () => {
+                if (authMode === "signup") {
+                  const cleanedFirstName = firstName.trim();
+                  const cleanedLastName = lastName.trim();
+                  const fullName =
+                    `${cleanedFirstName} ${cleanedLastName}`.trim();
+
+                  if (!cleanedFirstName || !cleanedLastName) {
+                    alert("Enter your first and last name.");
+                    return;
+                  }
+
+                  const { error } = await supabase.auth.signUp({
                     email,
                     password,
+                    options: {
+                      emailRedirectTo: "https://coach-board-online1.vercel.app",
+                      data: {
+                        first_name: cleanedFirstName,
+                        last_name: cleanedLastName,
+                        full_name: fullName,
+                        name: fullName,
+                      },
+                    },
                   });
 
-                if (error) {
-                  alert(error.message);
-                  return;
+                  if (error) {
+                    alert(error.message);
+                    return;
+                  }
+
+                  alert(
+                    "Check your email to confirm your account. Your name will be used in Gameday Rooms after you sign in.",
+                  );
+                } else {
+                  const { data, error } =
+                    await supabase.auth.signInWithPassword({
+                      email,
+                      password,
+                    });
+
+                  if (error) {
+                    alert(error.message);
+                    return;
+                  }
+
+                  setUser(data.user);
                 }
+              }}
+            >
+              {authMode === "login" ? "Log In →" : "Create Account →"}
+            </button>
 
-                setUser(data.user);
+            <div className="coachboard-or">
+              <div />
+              <span>or</span>
+              <div />
+            </div>
+
+            <button
+              className="coachboard-create-button"
+              onClick={() =>
+                setAuthMode(authMode === "login" ? "signup" : "login")
               }
-            }}
-          >
-            {authMode === "login" ? "Log In →" : "Create Account →"}
-          </button>
+            >
+              {authMode === "login"
+                ? "Create your CoachBoard account"
+                : "Already have an account? Login"}
+            </button>
 
-          <div className="coachboard-or">
-            <div />
-            <span>or</span>
-            <div />
-          </div>
-
-          <button
-            className="coachboard-create-button"
-            onClick={() =>
-              setAuthMode(authMode === "login" ? "signup" : "login")
-            }
-          >
-            {authMode === "login"
-              ? "Create your CoachBoard account"
-              : "Already have an account? Login"}
-          </button>
-
-          <p className="coachboard-footer">
-            Built for coaches. Designed for <span>champions.</span>
-          </p>
-        </section>
+            <p className="coachboard-footer">
+              Built for coaches. Designed for <span>champions.</span>
+            </p>
+          </section>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
-   <div
-  className="coachboard-app-background"
-  style={{
-    color: "white",
-    padding: 18,
-    fontFamily: "Arial",
-  }}
+    <div
+      className="coachboard-app-background"
+      style={{
+        color: "white",
+        padding: 18,
+        fontFamily: "Arial",
+      }}
       onPointerMove={(e) => {
         updateDraggedPlayer(e.clientX, e.clientY);
         updateDrawing(e.clientX, e.clientY);
@@ -6693,7 +7157,8 @@ if (!user) {
             </div>
 
             <div style={{ color: "#d1d5db", fontSize: 13, fontWeight: 800 }}>
-              You will appear as {getCoachDisplayName(user)} based on the name saved to your account.
+              You will appear as {getCoachDisplayName(user)} based on the name
+              saved to your account.
             </div>
 
             <input
@@ -6901,6 +7366,7 @@ if (!user) {
               setShowManageOffenseSets(next);
               setShowCreatePlay(false);
               setShowManagePlays(false);
+              setShowPlayLibrary(false);
               setShowCreateConcept(false);
               setShowManageConcepts(false);
               setShowPlaybooks(false);
@@ -6922,6 +7388,7 @@ if (!user) {
               const next = !(showCreatePlay || showManagePlays);
               setShowCreatePlay(next);
               setShowManagePlays(next);
+              setShowPlayLibrary(next);
               setShowCreateOffenseSet(false);
               setShowManageOffenseSets(false);
               setShowCreateConcept(false);
@@ -6970,6 +7437,7 @@ if (!user) {
               setShowManageOffenseSets(false);
               setShowCreatePlay(false);
               setShowManagePlays(false);
+              setShowPlayLibrary(false);
               setShowCreateConcept(false);
               setShowManageConcepts(false);
               setShowGamePlan(false);
@@ -6992,6 +7460,7 @@ if (!user) {
               setShowManageOffenseSets(false);
               setShowCreatePlay(false);
               setShowManagePlays(false);
+              setShowPlayLibrary(false);
               setShowCreateConcept(false);
               setShowManageConcepts(false);
               setShowPlaybooks(false);
@@ -7031,7 +7500,6 @@ if (!user) {
               color: "white",
               padding: "8px",
             }}
-            
             onClick={() => {
               const next = !showTeamSetup;
               setShowTeamSetup(next);
@@ -7039,13 +7507,13 @@ if (!user) {
               setShowManageOffenseSets(false);
               setShowCreatePlay(false);
               setShowManagePlays(false);
+              setShowPlayLibrary(false);
               setShowCreateConcept(false);
               setShowManageConcepts(false);
               setShowPlaybooks(false);
               setShowGamePlan(false);
             }}
           >
-            
             Team Setup
           </button>
           <div
@@ -7063,25 +7531,25 @@ if (!user) {
             <div>Share it.</div>
             <div>Win it.</div>
           </div>
-      <div style={{ marginTop: 14 }}>
-  <button
-  type="button"
-  onClick={handleLogout}
-    style={{
-      width: "100%",
-      padding: "12px 14px",
-      borderRadius: 14,
-      background: "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)",
-      color: "white",
-      border: "1px solid rgba(248,113,113,.55)",
-      fontWeight: 900,
-      cursor: "pointer",
-      marginTop: 12,
-    }}
-  >
-    Logout
-  </button>
-</div>
+          <div style={{ marginTop: 14 }}>
+            <button
+              type="button"
+              onClick={handleLogout}
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 14,
+                background: "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)",
+                color: "white",
+                border: "1px solid rgba(248,113,113,.55)",
+                fontWeight: 900,
+                cursor: "pointer",
+                marginTop: 12,
+              }}
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -7159,9 +7627,7 @@ if (!user) {
               position: fieldFullscreen ? "fixed" : "relative",
               inset: fieldFullscreen ? 0 : undefined,
               zIndex: fieldFullscreen ? 5000 : undefined,
-              background: fieldFullscreen
-                ? "#000"
-                : cardStyle.background,
+              background: fieldFullscreen ? "#000" : cardStyle.background,
               overflow: fieldFullscreen ? "hidden" : undefined,
               borderRadius: fieldFullscreen ? 0 : cardStyle.borderRadius,
               border: fieldFullscreen ? "none" : cardStyle.border,
@@ -7565,6 +8031,7 @@ if (!user) {
                     setShowManageOffenseSets(next);
                     setShowCreatePlay(false);
                     setShowManagePlays(false);
+                    setShowPlayLibrary(false);
                     setShowCreateConcept(false);
                     setShowManageConcepts(false);
                     setShowPlaybooks(false);
@@ -7586,6 +8053,7 @@ if (!user) {
                     const next = !(showCreatePlay || showManagePlays);
                     setShowCreatePlay(next);
                     setShowManagePlays(next);
+                    setShowPlayLibrary(next);
                     setShowCreateOffenseSet(false);
                     setShowManageOffenseSets(false);
                     setShowCreateConcept(false);
@@ -7636,6 +8104,7 @@ if (!user) {
                     setShowManageOffenseSets(false);
                     setShowCreatePlay(false);
                     setShowManagePlays(false);
+                    setShowPlayLibrary(false);
                     setShowCreateConcept(false);
                     setShowManageConcepts(false);
                     setShowGamePlan(false);
@@ -7658,6 +8127,7 @@ if (!user) {
                     setShowManageOffenseSets(false);
                     setShowCreatePlay(false);
                     setShowManagePlays(false);
+                    setShowPlayLibrary(false);
                     setShowCreateConcept(false);
                     setShowManageConcepts(false);
                     setShowPlaybooks(false);
@@ -7681,6 +8151,7 @@ if (!user) {
                     setShowManageOffenseSets(false);
                     setShowCreatePlay(false);
                     setShowManagePlays(false);
+                    setShowPlayLibrary(false);
                     setShowCreateConcept(false);
                     setShowManageConcepts(false);
                     setShowPlaybooks(false);
@@ -7704,7 +8175,7 @@ if (!user) {
                 if (!selectedZoneId) return;
                 e.preventDefault();
                 updateSelectedZoneRadius(
-                  (selectedZone?.radius ?? 5.8) + (e.deltaY > 0 ? -0.75 : 0.75)
+                  (selectedZone?.radius ?? 5.8) + (e.deltaY > 0 ? -0.75 : 0.75),
                 );
               }}
               style={{
@@ -7736,8 +8207,8 @@ if (!user) {
                       fieldFullscreen && showGamePlan && selectedGamePlanId
                         ? 72
                         : fieldFullscreen
-                        ? 18
-                        : 12,
+                          ? 18
+                          : 12,
                     transform: "translateX(-50%)",
                     zIndex: 7000,
                     display: "flex",
@@ -8082,11 +8553,11 @@ if (!user) {
                 {footballTeamSize === "11man" &&
                   coverageBubbles.map((bubble) => {
                     const center = displayPoint(
-                      packagePoint(bubble.x, bubble.yardsFromGoal)
+                      packagePoint(bubble.x, bubble.yardsFromGoal),
                     );
                     const ownerPlayer = bubble.ownerId
                       ? defensePlayers.find(
-                          (player) => player.id === bubble.ownerId
+                          (player) => player.id === bubble.ownerId,
                         )
                       : undefined;
                     const ownerPoint = ownerPlayer
@@ -8104,7 +8575,7 @@ if (!user) {
                             strokeWidth={Math.max(0.18, lineStroke * 0.48)}
                             strokeDasharray={`${Math.max(
                               0.55,
-                              lineStroke * 1.05
+                              lineStroke * 1.05,
                             )} ${Math.max(0.55, lineStroke * 0.95)}`}
                             strokeLinecap="round"
                           />
@@ -8119,7 +8590,7 @@ if (!user) {
                           strokeWidth={Math.max(0.18, lineStroke * 0.45)}
                           strokeDasharray={`${Math.max(
                             0.7,
-                            lineStroke * 1.6
+                            lineStroke * 1.6,
                           )} ${Math.max(0.7, lineStroke * 1.25)}`}
                         />
                         <text
@@ -8155,7 +8626,7 @@ if (!user) {
 
                 {zoneAssignments.map((zone) => {
                   const defender = defensePlayers.find(
-                    (p) => p.id === zone.defenderId
+                    (p) => p.id === zone.defenderId,
                   );
                   if (!defender) return null;
                   const defenderPoint = visiblePlayerPoint(defender);
@@ -8171,12 +8642,13 @@ if (!user) {
                         strokeWidth={Math.max(0.18, lineStroke * 0.5)}
                         strokeDasharray={`${Math.max(
                           0.55,
-                          lineStroke * 1.05
+                          lineStroke * 1.05,
                         )} ${Math.max(0.55, lineStroke * 0.95)}`}
                         strokeLinecap="round"
                       />
-                      const isReadKey = defensiveReadPlayerIds.includes(player.id);
-const isCenter = player.position === &quot;something&quot;;
+                      const isReadKey =
+                      defensiveReadPlayerIds.includes(player.id); const isCenter
+                      = player.position === &quot;something&quot;;
                       <circle
                         cx={zone.x}
                         cy={zone.y}
@@ -8198,7 +8670,7 @@ const isCenter = player.position === &quot;something&quot;;
                         }
                         strokeDasharray={`${Math.max(
                           0.7,
-                          lineStroke * 1.6
+                          lineStroke * 1.6,
                         )} ${Math.max(0.7, lineStroke * 1.25)}`}
                         onPointerDown={(e) => {
                           e.preventDefault();
@@ -8235,62 +8707,62 @@ const isCenter = player.position === &quot;something&quot;;
                 })}
 
                 {Object.entries(manAssignments).map(
-                    ([defenderId, offensiveId]) => {
-                      const defender = defensePlayers.find(
-                        (p) => p.id === defenderId
-                      );
-                      const offensive = offensePlayers.find(
-                        (p) => p.id === offensiveId
-                      );
-                      if (!defender || !offensive) return null;
-                      const a = visiblePlayerPoint(defender);
-                      const b = visiblePlayerPoint(offensive);
-                      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-                      return (
-                        <g key={`man-${defenderId}-${offensiveId}`}>
-                          <line
-                           onPointerDown={(e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  selectFieldItem({ type: "man", id: defenderId });
-}}
-style={{ cursor: "pointer" }}
-                            x1={a.x}
-                            y1={a.y}
-                            x2={b.x}
-                            y2={b.y}
-                            stroke={
-  selectedFieldItem?.type === "man" &&
-  selectedFieldItem.id === defenderId
-    ? "#facc15"
-    : "rgba(239,68,68,.95)"
-}
-                            strokeWidth={Math.max(0.35, lineStroke * 0.95)}
-                            strokeDasharray={`${Math.max(
-                              0.8,
-                              lineStroke * 1.7
-                            )} ${Math.max(0.8, lineStroke * 1.4)}`}
-                            strokeLinecap="round"
-                          />
-                          <line
-  x1={a.x}
-  y1={a.y}
-  x2={b.x}
-  y2={b.y}
-  stroke="transparent"
-  strokeWidth={6}
-  pointerEvents="stroke"
-  onPointerDown={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    selectFieldItem({ type: "man", id: defenderId });
-  }}
-  style={{ cursor: "pointer" }}
-/>
-                        </g>
-                      );
-                    }
-                  )}
+                  ([defenderId, offensiveId]) => {
+                    const defender = defensePlayers.find(
+                      (p) => p.id === defenderId,
+                    );
+                    const offensive = offensePlayers.find(
+                      (p) => p.id === offensiveId,
+                    );
+                    if (!defender || !offensive) return null;
+                    const a = visiblePlayerPoint(defender);
+                    const b = visiblePlayerPoint(offensive);
+                    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+                    return (
+                      <g key={`man-${defenderId}-${offensiveId}`}>
+                        <line
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            selectFieldItem({ type: "man", id: defenderId });
+                          }}
+                          style={{ cursor: "pointer" }}
+                          x1={a.x}
+                          y1={a.y}
+                          x2={b.x}
+                          y2={b.y}
+                          stroke={
+                            selectedFieldItem?.type === "man" &&
+                            selectedFieldItem.id === defenderId
+                              ? "#facc15"
+                              : "rgba(239,68,68,.95)"
+                          }
+                          strokeWidth={Math.max(0.35, lineStroke * 0.95)}
+                          strokeDasharray={`${Math.max(
+                            0.8,
+                            lineStroke * 1.7,
+                          )} ${Math.max(0.8, lineStroke * 1.4)}`}
+                          strokeLinecap="round"
+                        />
+                        <line
+                          x1={a.x}
+                          y1={a.y}
+                          x2={b.x}
+                          y2={b.y}
+                          stroke="transparent"
+                          strokeWidth={6}
+                          pointerEvents="stroke"
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            selectFieldItem({ type: "man", id: defenderId });
+                          }}
+                          style={{ cursor: "pointer" }}
+                        />
+                      </g>
+                    );
+                  },
+                )}
 
                 {drawnLines.map((line) => {
                   const isBlock = line.style === "block";
@@ -8328,7 +8800,7 @@ style={{ cursor: "pointer" }}
                     selectedFieldItem.id === line.id;
                   const linePlayer = line.playerId
                     ? [...offensePlayers, ...defensePlayers].find(
-                        (p) => p.id === line.playerId
+                        (p) => p.id === line.playerId,
                       )
                     : null;
                   const drawingColorForDisplay =
@@ -8361,11 +8833,11 @@ style={{ cursor: "pointer" }}
                           isSelectedDrawing
                             ? Math.max(
                                 isBlock ? blockStroke : routeStroke,
-                                lineStroke * 1.55
+                                lineStroke * 1.55,
                               )
                             : isBlock
-                            ? blockStroke
-                            : routeStroke
+                              ? blockStroke
+                              : routeStroke
                         }
                         strokeLinecap={isDotted ? "round" : "butt"}
                         strokeLinejoin="miter"
@@ -8460,10 +8932,10 @@ style={{ cursor: "pointer" }}
                 })}
                 {routes.map((route) => {
                   const player = offensePlayers.find(
-                    (p) => p.id === route.playerId
+                    (p) => p.id === route.playerId,
                   );
                   const qb = offensePlayers.find(
-                    (p) => p.id === "qb" || p.position === "QB"
+                    (p) => p.id === "qb" || p.position === "QB",
                   );
                   if (!player) return null;
                   const qbPoint = qb
@@ -8596,29 +9068,28 @@ style={{ cursor: "pointer" }}
                     position: "absolute",
                     width: playerPx,
                     height: playerPx,
-                    borderRadius:
-  defensiveReadPlayerIds.includes(player.id)
-    ? 0
-    : player.position === "C"
-    ? "4px"
-    : "50%",
+                    borderRadius: defensiveReadPlayerIds.includes(player.id)
+                      ? 0
+                      : player.position === "C"
+                        ? "4px"
+                        : "50%",
 
-clipPath:
-  defensiveReadPlayerIds.includes(player.id)
-    ? "polygon(50% 0%, 0% 100%, 100% 100%)"
-    : "none",
+                    clipPath: defensiveReadPlayerIds.includes(player.id)
+                      ? "polygon(50% 0%, 0% 100%, 100% 100%)"
+                      : "none",
                     background: player.color ?? defaultDefenseIconColor,
-                    color: readableTextColor(player.color ?? defaultDefenseIconColor),
+                    color: readableTextColor(
+                      player.color ?? defaultDefenseIconColor,
+                    ),
                     fontWeight: 900,
                     fontSize: playerFontPx,
                     left: `${player.x}%`,
                     top: playerTop(player),
                     transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
                     transformOrigin: "center center",
-                    border:
-                      defensiveReadPlayerIds.includes(player.id)
-                        ? `${selectedPlayerBorderPx}px solid #a855f7`
-                        : selectedSide === "defense" &&
+                    border: defensiveReadPlayerIds.includes(player.id)
+                      ? `${selectedPlayerBorderPx}px solid #a855f7`
+                      : selectedSide === "defense" &&
                           selectedPlayerId === player.id
                         ? `${selectedPlayerBorderPx}px solid #facc15`
                         : `${playerBorderPx}px solid black`,
@@ -8626,8 +9097,8 @@ clipPath:
                       tool === "Move"
                         ? "grab"
                         : tool === "Draw"
-                        ? "crosshair"
-                        : "pointer",
+                          ? "crosshair"
+                          : "pointer",
                     zIndex:
                       selectedSide === "defense" &&
                       selectedPlayerId === player.id
@@ -8681,35 +9152,35 @@ clipPath:
                   onClick={() => {
                     if (tool === "Man") {
                       setManAssignOffenseId(player.id);
-                     const nextAssignments = {
-  ...manAssignments,
-  [manAssignDefenderId]: player.id,
-};
+                      const nextAssignments = {
+                        ...manAssignments,
+                        [manAssignDefenderId]: player.id,
+                      };
 
-setManAssignments(nextAssignments);
+                      setManAssignments(nextAssignments);
 
-realtimeChannelRef.current?.send({
-  type: "broadcast",
-  event: "board-event",
-  payload: {
-    type: "SET_MAN_ASSIGNMENTS",
-    manAssignments: nextAssignments,
-  },
-});
+                      realtimeChannelRef.current?.send({
+                        type: "broadcast",
+                        event: "board-event",
+                        payload: {
+                          type: "SET_MAN_ASSIGNMENTS",
+                          manAssignments: nextAssignments,
+                        },
+                      });
                       return;
                     }
                     setSelectedFieldItem(null);
                     setSelectedPlayerId(player.id);
                     setSelectedSide("offense");
                     const existing = routes.find(
-                      (r) => r.playerId === player.id
+                      (r) => r.playerId === player.id,
                     );
                     if (existing) {
                       setRouteType(existing.routeType);
                       setBreakDepth(existing.breakDepth);
                       setFinishDepth(existing.finishDepth);
                       setRouteColor(
-                        existing.color ?? player.color ?? "#facc15"
+                        existing.color ?? player.color ?? "#facc15",
                       );
                     } else {
                       setRouteColor(player.color ?? "#facc15");
@@ -8721,14 +9192,18 @@ realtimeChannelRef.current?.send({
                     height: playerPx,
                     borderRadius: "50%",
                     background: player.color ?? defaultOffenseIconColor,
-                    color: readableTextColor(player.color ?? defaultOffenseIconColor),
+                    color: readableTextColor(
+                      player.color ?? defaultOffenseIconColor,
+                    ),
                     fontWeight: 900,
                     fontSize: playerFontPx,
                     left: `${player.x}%`,
                     top:
-  fieldFullscreen && player.side === "offense" && player.onLOS
-    ? `calc(${playerTop(player)} + ${visualPlayerPx / 4}px)`
-    : playerTop(player),
+                      fieldFullscreen &&
+                      player.side === "offense" &&
+                      player.onLOS
+                        ? `calc(${playerTop(player)} + ${visualPlayerPx / 4}px)`
+                        : playerTop(player),
                     transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
                     transformOrigin: "center center",
                     border:
@@ -8740,8 +9215,8 @@ realtimeChannelRef.current?.send({
                       tool === "Move"
                         ? "grab"
                         : tool === "Draw"
-                        ? "crosshair"
-                        : "pointer",
+                          ? "crosshair"
+                          : "pointer",
                     zIndex:
                       selectedSide === "offense" &&
                       selectedPlayerId === player.id
@@ -8770,6 +9245,40 @@ realtimeChannelRef.current?.send({
                 Move the offensive players, name the set, then save it. This
                 panel stays open so you can create sets back-to-back.
               </div>
+              <label
+                style={{
+                  display: "grid",
+                  gap: 6,
+                  color: "#d1d5db",
+                  fontSize: 13,
+                }}
+              >
+                Save to Folder
+                <select
+                  value={selectedLibraryFolderId}
+                  onChange={(e) => setSelectedLibraryFolderId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    background: "#090b10",
+                    border: "1px solid rgba(255,255,255,.12)",
+                    borderRadius: 12,
+                    color: "white",
+                    padding: "10px 12px",
+                  }}
+                >
+                  <option value="root">My Plays</option>
+                  {visiblePlayFolders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}{" "}
+                      {folder.shareScope === "team"
+                        ? "· Team"
+                        : folder.shareScope === "shared"
+                          ? "· Shared"
+                          : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div
                 style={{
                   display: "grid",
@@ -9064,8 +9573,8 @@ realtimeChannelRef.current?.send({
                                   ...p,
                                   formationId: e.target.value || undefined,
                                 }
-                              : p
-                          )
+                              : p,
+                          ),
                         )
                       }
                       style={{
@@ -9084,6 +9593,39 @@ realtimeChannelRef.current?.send({
                         </option>
                       ))}
                     </select>
+                    <select
+                      value={play.folderId ?? "root"}
+                      onChange={(e) =>
+                        movePlayToFolder(play.id, e.target.value)
+                      }
+                      style={{
+                        width: "100%",
+                        background: "#090b10",
+                        border: "1px solid rgba(255,255,255,.12)",
+                        borderRadius: 8,
+                        color: "white",
+                        padding: "8px 10px",
+                      }}
+                    >
+                      <option value="root">My Plays</option>
+                      {visiblePlayFolders.map((folder) => (
+                        <option key={folder.id} value={folder.id}>
+                          {folder.name}{" "}
+                          {folder.shareScope === "team"
+                            ? "· Team"
+                            : folder.shareScope === "shared"
+                              ? "· Shared"
+                              : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <div style={{ color: "#9ca3af", fontSize: 11 }}>
+                      {play.shareScope === "team"
+                        ? `Team folder: ${play.teamCode ?? teamCode ?? ""}`
+                        : play.shareScope === "shared"
+                          ? `Shared with ${(play.sharedWithEmails ?? []).join(", ") || "coach"}`
+                          : "Private play"}
+                    </div>
                     <div
                       style={{
                         display: "grid",
@@ -9140,6 +9682,361 @@ realtimeChannelRef.current?.send({
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {showPlayLibrary && (
+            <div
+              style={{ ...cardStyle, padding: 16, display: "grid", gap: 12 }}
+            >
+              <div style={{ fontSize: 18, fontWeight: 800 }}>Play Library</div>
+              <div style={{ color: "#9ca3af", fontSize: 13 }}>
+                Organize plays into folders, share a whole folder with coaches,
+                or share one play at a time. Local folders work now; Supabase
+                sync works after the play library tables are created.
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto auto auto",
+                  gap: 8,
+                  alignItems: "center",
+                }}
+              >
+                <input
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="New folder name"
+                  style={{
+                    width: "100%",
+                    background: "#090b10",
+                    border: "1px solid rgba(255,255,255,.12)",
+                    borderRadius: 12,
+                    color: "white",
+                    padding: "10px 12px",
+                  }}
+                />
+                <button
+                  style={{
+                    ...buttonBase,
+                    background: "#dc2626",
+                    color: "white",
+                  }}
+                  onClick={() => createPlayFolder("private")}
+                >
+                  Private Folder
+                </button>
+                <button
+                  style={{
+                    ...buttonBase,
+                    background: "#166534",
+                    color: "white",
+                  }}
+                  onClick={() => createPlayFolder("team")}
+                >
+                  Team Folder
+                </button>
+                <button
+                  style={{
+                    ...buttonBase,
+                    background: "#2a303b",
+                    color: "white",
+                  }}
+                  onClick={loadPlayLibraryFromSupabase}
+                >
+                  Load Shared
+                </button>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "260px 1fr",
+                  gap: 12,
+                  alignItems: "start",
+                }}
+              >
+                <div style={{ display: "grid", gap: 8 }}>
+                  <button
+                    style={{
+                      ...buttonBase,
+                      background:
+                        selectedLibraryFolderId === "root"
+                          ? "#dc2626"
+                          : "#090b10",
+                      color: "white",
+                      textAlign: "left",
+                    }}
+                    onClick={() => setSelectedLibraryFolderId("root")}
+                  >
+                    My Plays
+                  </button>
+                  {visiblePlayFolders.map((folder) => (
+                    <div
+                      key={folder.id}
+                      style={{
+                        background:
+                          selectedLibraryFolderId === folder.id
+                            ? "rgba(220,38,38,.22)"
+                            : "#090b10",
+                        border:
+                          selectedLibraryFolderId === folder.id
+                            ? "1px solid rgba(248,113,113,.7)"
+                            : "1px solid rgba(255,255,255,.08)",
+                        borderRadius: 12,
+                        padding: 8,
+                        display: "grid",
+                        gap: 6,
+                      }}
+                    >
+                      <input
+                        value={folder.name}
+                        onChange={(e) =>
+                          renamePlayFolder(folder.id, e.target.value)
+                        }
+                        onFocus={() => setSelectedLibraryFolderId(folder.id)}
+                        style={{
+                          width: "100%",
+                          background: "transparent",
+                          border: "none",
+                          color: "white",
+                          fontWeight: 900,
+                          outline: "none",
+                        }}
+                      />
+                      <div style={{ color: "#9ca3af", fontSize: 11 }}>
+                        {folder.shareScope === "team"
+                          ? `Team folder · ${folder.teamCode ?? teamCode ?? "No code"}`
+                          : folder.shareScope === "shared"
+                            ? `Shared · ${folder.sharedWithEmails.join(", ")}`
+                            : "Private folder"}
+                      </div>
+                      <button
+                        style={{
+                          ...buttonBase,
+                          padding: "7px 8px",
+                          background: "#111827",
+                          color: "white",
+                        }}
+                        onClick={() => setSelectedLibraryFolderId(folder.id)}
+                      >
+                        Open
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div
+                    style={{
+                      background: "#090b10",
+                      border: "1px solid rgba(255,255,255,.08)",
+                      borderRadius: 12,
+                      padding: 12,
+                      display: "grid",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ color: "white", fontWeight: 900 }}>
+                      {selectedLibraryFolderId === "root"
+                        ? "My Plays"
+                        : (currentLibraryFolder?.name ?? "Folder")}
+                    </div>
+                    {selectedLibraryFolderId !== "root" &&
+                      currentLibraryFolder && (
+                        <>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr auto auto auto",
+                              gap: 8,
+                            }}
+                          >
+                            <input
+                              value={libraryShareEmail}
+                              onChange={(e) =>
+                                setLibraryShareEmail(e.target.value)
+                              }
+                              placeholder="coach@email.com"
+                              style={{
+                                width: "100%",
+                                background: "#020617",
+                                border: "1px solid rgba(255,255,255,.12)",
+                                borderRadius: 12,
+                                color: "white",
+                                padding: "10px 12px",
+                              }}
+                            />
+                            <select
+                              value={librarySharePermission}
+                              onChange={(e) =>
+                                setLibrarySharePermission(
+                                  e.target.value as FolderPermission,
+                                )
+                              }
+                              style={{
+                                background: "#020617",
+                                border: "1px solid rgba(255,255,255,.12)",
+                                borderRadius: 12,
+                                color: "white",
+                                padding: "10px 12px",
+                              }}
+                            >
+                              <option value="viewer">Viewer</option>
+                              <option value="editor">Editor</option>
+                              <option value="owner">Owner</option>
+                            </select>
+                            <button
+                              style={{
+                                ...buttonBase,
+                                background: "#dc2626",
+                                color: "white",
+                              }}
+                              onClick={() =>
+                                shareFolderWithEmail(currentLibraryFolder.id)
+                              }
+                            >
+                              Share Folder
+                            </button>
+                            <button
+                              style={{
+                                ...buttonBase,
+                                background: "#166534",
+                                color: "white",
+                              }}
+                              onClick={() =>
+                                makeFolderTeamShared(currentLibraryFolder.id)
+                              }
+                            >
+                              Team Share
+                            </button>
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <button
+                              style={{
+                                ...buttonBase,
+                                background: "#2a303b",
+                                color: "white",
+                              }}
+                              onClick={() =>
+                                makeFolderPrivate(currentLibraryFolder.id)
+                              }
+                            >
+                              Make Private
+                            </button>
+                            <button
+                              style={{
+                                ...buttonBase,
+                                background: "#7f1111",
+                                color: "white",
+                              }}
+                              onClick={() =>
+                                deletePlayFolder(currentLibraryFolder.id)
+                              }
+                            >
+                              Delete Folder
+                            </button>
+                            <button
+                              style={{
+                                ...buttonBase,
+                                background: "#111827",
+                                color: "white",
+                              }}
+                              onClick={syncPlayLibraryToSupabase}
+                            >
+                              Sync Library
+                            </button>
+                          </div>
+                        </>
+                      )}
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gap: 8,
+                    }}
+                  >
+                    {playsInSelectedFolder.length === 0 ? (
+                      <div style={{ color: "#9ca3af", fontSize: 13 }}>
+                        No plays in this folder yet. Save a play and choose this
+                        folder.
+                      </div>
+                    ) : (
+                      playsInSelectedFolder.map((play) => (
+                        <div
+                          key={play.id}
+                          style={{
+                            background: "#090b10",
+                            border: "1px solid rgba(255,255,255,.08)",
+                            borderRadius: 12,
+                            padding: 10,
+                            display: "grid",
+                            gap: 8,
+                          }}
+                        >
+                          <div style={{ color: "white", fontWeight: 900 }}>
+                            {play.name}
+                          </div>
+                          <div style={{ color: "#9ca3af", fontSize: 11 }}>
+                            {play.ownerName ?? "Coach"} ·{" "}
+                            {play.shareScope ?? "private"}
+                          </div>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr 1fr 1fr",
+                              gap: 6,
+                            }}
+                          >
+                            <button
+                              style={{
+                                ...buttonBase,
+                                padding: "8px",
+                                background: "#dc2626",
+                                color: "white",
+                              }}
+                              onClick={() => loadPlay(play.id)}
+                            >
+                              Load
+                            </button>
+                            <button
+                              style={{
+                                ...buttonBase,
+                                padding: "8px",
+                                background: "#2a303b",
+                                color: "white",
+                              }}
+                              onClick={() => sharePlayWithEmail(play.id)}
+                            >
+                              Share Play
+                            </button>
+                            <button
+                              style={{
+                                ...buttonBase,
+                                padding: "8px",
+                                background: "#7f1111",
+                                color: "white",
+                              }}
+                              onClick={() => deletePlay(play.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -9237,7 +10134,7 @@ realtimeChannelRef.current?.send({
                               a.type === "route"
                                 ? a.routeType
                                 : a.type.toUpperCase()
-                            }`
+                            }`,
                         )
                         .join(" · ")}
                     </div>
@@ -9484,7 +10381,7 @@ realtimeChannelRef.current?.send({
                         <option key={key} value={key}>
                           {option.label}
                         </option>
-                      )
+                      ),
                     )}
                   </select>
                 </label>
@@ -9505,14 +10402,22 @@ realtimeChannelRef.current?.send({
                     <div style={{ color: "white", fontWeight: 900 }}>
                       Black & White Mode
                     </div>
-                    <div style={{ color: "#9ca3af", fontSize: 12, lineHeight: 1.45 }}>
-                      White field, black lines/numbers, and black/white default icons.
-                      Player color choices still override the defaults.
+                    <div
+                      style={{
+                        color: "#9ca3af",
+                        fontSize: 12,
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      White field, black lines/numbers, and black/white default
+                      icons. Player color choices still override the defaults.
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setFieldBlackWhiteMode((current) => !current)}
+                    onClick={() =>
+                      setFieldBlackWhiteMode((current) => !current)
+                    }
                     style={{
                       ...buttonBase,
                       background: fieldBlackWhiteMode ? "#16a34a" : "#090b10",
@@ -9535,11 +10440,12 @@ realtimeChannelRef.current?.send({
                     lineHeight: 1.45,
                   }}
                 >
-                  Current field mode: {" "}
+                  Current field mode:{" "}
                   <strong style={{ color: "white" }}>
                     {fieldBlackWhiteMode ? "Black & White" : "Team Colors"}
                   </strong>{" "}
-                  — {fieldBlackWhiteMode
+                  —{" "}
+                  {fieldBlackWhiteMode
                     ? "White field with black lines, numbers, end zone text, and black/white default icons."
                     : activeFieldHash.description}
                   <br />
@@ -9667,7 +10573,7 @@ realtimeChannelRef.current?.send({
                 >
                   {(() => {
                     const selectedPlan = gamePlans.find(
-                      (plan) => plan.id === selectedGamePlanId
+                      (plan) => plan.id === selectedGamePlanId,
                     );
                     if (!selectedPlan)
                       return (
@@ -9677,7 +10583,7 @@ realtimeChannelRef.current?.send({
                       );
                     const currentPlay = savedPlays.find(
                       (play) =>
-                        play.id === selectedPlan.playIds[currentGamePlanIndex]
+                        play.id === selectedPlan.playIds[currentGamePlanIndex],
                     );
 
                     return (
@@ -9775,7 +10681,7 @@ realtimeChannelRef.current?.send({
                         >
                           {savedPlays.map((play) => {
                             const added = selectedPlan.playIds.includes(
-                              play.id
+                              play.id,
                             );
                             return (
                               <button
@@ -9810,7 +10716,7 @@ realtimeChannelRef.current?.send({
                         <div style={{ display: "grid", gap: 6 }}>
                           {selectedPlan.playIds.map((playId, index) => {
                             const play = savedPlays.find(
-                              (item) => item.id === playId
+                              (item) => item.id === playId,
                             );
                             if (!play) return null;
                             return (
@@ -9854,7 +10760,7 @@ realtimeChannelRef.current?.send({
                                     moveGamePlanPlay(
                                       selectedPlan.id,
                                       playId,
-                                      "up"
+                                      "up",
                                     )
                                   }
                                 >
@@ -9871,7 +10777,7 @@ realtimeChannelRef.current?.send({
                                     moveGamePlanPlay(
                                       selectedPlan.id,
                                       playId,
-                                      "down"
+                                      "down",
                                     )
                                   }
                                 >
@@ -9887,7 +10793,7 @@ realtimeChannelRef.current?.send({
                                   onClick={() =>
                                     togglePlayInGamePlan(
                                       selectedPlan.id,
-                                      playId
+                                      playId,
                                     )
                                   }
                                 >
@@ -10055,33 +10961,37 @@ realtimeChannelRef.current?.send({
                       >
                         {sortedOffensePresets.map((formation) => {
                           const added = selectedPlaybook.formationIds.includes(
-                            formation.id
+                            formation.id,
                           );
-                        useEffect(() => {
-  const channel = supabase.channel("test-room");
+                          useEffect(() => {
+                            const channel = supabase.channel("test-room");
 
-  channel.on("broadcast", { event: "test" }, (payload) => {
-    console.log("SUPABASE MESSAGE:", payload);
-  });
+                            channel.on(
+                              "broadcast",
+                              { event: "test" },
+                              (payload) => {
+                                console.log("SUPABASE MESSAGE:", payload);
+                              },
+                            );
 
-  channel.subscribe((status) => {
-    console.log("SUPABASE STATUS:", status);
+                            channel.subscribe((status) => {
+                              console.log("SUPABASE STATUS:", status);
 
-    if (status === "SUBSCRIBED") {
-      channel.send({
-        type: "broadcast",
-        event: "test",
-        payload: {
-          message: "hello from coachboard",
-        },
-      });
-    }
-  });
+                              if (status === "SUBSCRIBED") {
+                                channel.send({
+                                  type: "broadcast",
+                                  event: "test",
+                                  payload: {
+                                    message: "hello from coachboard",
+                                  },
+                                });
+                              }
+                            });
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
+                            return () => {
+                              supabase.removeChannel(channel);
+                            };
+                          }, []);
                           return (
                             <button
                               key={formation.id}
@@ -10094,7 +11004,7 @@ realtimeChannelRef.current?.send({
                               onClick={() =>
                                 toggleFormationInPlaybook(
                                   selectedPlaybook.id,
-                                  formation.id
+                                  formation.id,
                                 )
                               }
                             >
@@ -10117,10 +11027,10 @@ realtimeChannelRef.current?.send({
                       <div style={{ display: "grid", gap: 6 }}>
                         {selectedPlaybook.formationIds.map((formationId) => {
                           const formation = customOffensePresets.find(
-                            (p) => p.id === formationId
+                            (p) => p.id === formationId,
                           );
                           const formationPlays = savedPlays.filter(
-                            (play) => play.formationId === formationId
+                            (play) => play.formationId === formationId,
                           );
                           if (!formation) return null;
 
@@ -10225,7 +11135,7 @@ realtimeChannelRef.current?.send({
                                         toggleConceptInFormation(
                                           selectedPlaybook.id,
                                           formationId,
-                                          concept.id
+                                          concept.id,
                                         )
                                       }
                                     >
@@ -10253,7 +11163,7 @@ realtimeChannelRef.current?.send({
                                     ] ?? []
                                   ).map((conceptId) => {
                                     const concept = playConcepts.find(
-                                      (c) => c.id === conceptId
+                                      (c) => c.id === conceptId,
                                     );
                                     if (!concept) return null;
                                     return (
@@ -10290,10 +11200,10 @@ realtimeChannelRef.current?.send({
                                   ] ?? []
                                 ).map((conceptId) => {
                                   const concept = playConcepts.find(
-                                    (c) => c.id === conceptId
+                                    (c) => c.id === conceptId,
                                   );
                                   if (!concept) return null;
-                            
+
                                   return (
                                     <button
                                       key={`${concept.id}-generate`}
@@ -10307,7 +11217,7 @@ realtimeChannelRef.current?.send({
                                       onClick={() =>
                                         generatePlayFromConcept(
                                           formationId,
-                                          concept.id
+                                          concept.id,
                                         )
                                       }
                                     >
@@ -10372,6 +11282,6 @@ realtimeChannelRef.current?.send({
       </div>
     </div>
   );
-}  
+}
 
 export default CoachBoardWebApp;
