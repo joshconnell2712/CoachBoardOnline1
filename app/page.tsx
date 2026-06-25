@@ -69,6 +69,10 @@ type DrawLine = {
   points: FieldPoint[];
   // When a drawing starts on/near a player, it stays tied to that player's color.
   playerId?: string;
+  // Display-space anchor point captured when the drawing starts.
+  // The saved points stay unchanged, and rendering shifts the drawing by the
+  // player movement delta so the drawing follows the player.
+  anchorStart?: FieldPoint;
   color?: string;
 };
 
@@ -1636,7 +1640,7 @@ function getDefaultPlayerColor(
   // Manual color picks still override the automatic defaults.
   if (player.color) return player.color;
 
-  // Defense always defaults to white with black border/text.
+  // Defense always defaults to a white square with black outline/text.
   if (player.side === "defense") return "#FFFFFF";
 
   // Offensive skill players keep their position colors in every field mode,
@@ -5071,6 +5075,20 @@ function CoachBoardWebApp() {
     return closest;
   }
 
+  function anchoredDrawingPoints(line: DrawLine, linePlayer: Player | null) {
+    if (!linePlayer || !line.points.length) return line.points;
+
+    const currentAnchor = visiblePlayerPoint(linePlayer);
+    const savedAnchor = line.anchorStart ?? displayPoint(line.points[0]);
+    const deltaX = currentAnchor.x - savedAnchor.x;
+    const deltaY = currentAnchor.y - savedAnchor.y;
+
+    return line.points.map((point) => ({
+      x: point.x + deltaX,
+      y: point.y + deltaY,
+    }));
+  }
+
   function startDrawing(clientX: number, clientY: number) {
     const point = fieldPointFromClient(clientX, clientY);
     if (!point) return;
@@ -5100,6 +5118,7 @@ function CoachBoardWebApp() {
         mode: drawingMode,
         points: [snappedStart],
         playerId: drawingPlayer?.id,
+        anchorStart: snappedStart,
         color: drawingColor,
       },
     ]);
@@ -8867,8 +8886,14 @@ function CoachBoardWebApp() {
                     line.mode === "curve"
                       ? cleanCurvedDrawnPoints
                       : cleanDrawnPoints;
+                  const linePlayer = line.playerId
+                    ? [...offensePlayers, ...defensePlayers].find(
+                        (p) => p.id === line.playerId,
+                      )
+                    : null;
+                  const anchoredPoints = anchoredDrawingPoints(line, linePlayer ?? null);
                   const canonicalPoints =
-                    line.points.length > 2 ? cleanup(line.points) : line.points;
+                    anchoredPoints.length > 2 ? cleanup(anchoredPoints) : anchoredPoints;
                   const renderedPoints = canonicalPoints.map(displayPoint);
                   const cap =
                     isBlock && renderedPoints.length > 1
@@ -8886,11 +8911,6 @@ function CoachBoardWebApp() {
                   const isSelectedDrawing =
                     selectedFieldItem?.type === "drawnLine" &&
                     selectedFieldItem.id === line.id;
-                  const linePlayer = line.playerId
-                    ? [...offensePlayers, ...defensePlayers].find(
-                        (p) => p.id === line.playerId,
-                      )
-                    : null;
                   const drawingColorForDisplay = linePlayer
                     ? getDefaultPlayerColor(
                         linePlayer,
@@ -9162,7 +9182,7 @@ function CoachBoardWebApp() {
                     position: "absolute",
                     width: playerPx,
                     height: playerPx,
-                    borderRadius: "4px",
+                    borderRadius: Math.max(3, playerPx * 0.16),
                     clipPath: "none",
                     background: getDefaultPlayerColor(
                       player,
