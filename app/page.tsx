@@ -69,6 +69,10 @@ type DrawLine = {
   points: FieldPoint[];
   // When a drawing starts on/near a player, it stays tied to that player's color.
   playerId?: string;
+  // Display-space anchor point captured when the drawing starts.
+  // The saved points stay unchanged, and rendering shifts the drawing by the
+  // player movement delta so the drawing follows the player.
+  anchorStart?: FieldPoint;
   color?: string;
 };
 
@@ -1636,7 +1640,7 @@ function getDefaultPlayerColor(
   // Manual color picks still override the automatic defaults.
   if (player.color) return player.color;
 
-  // Defense always defaults to white with black border/text.
+  // Defense always defaults to a white square with black outline/text.
   if (player.side === "defense") return "#FFFFFF";
 
   // Offensive skill players keep their position colors in every field mode,
@@ -5071,6 +5075,20 @@ function CoachBoardWebApp() {
     return closest;
   }
 
+  function anchoredDrawingPoints(line: DrawLine, linePlayer: Player | null) {
+    if (!linePlayer || !line.points.length) return line.points;
+
+    const currentAnchor = visiblePlayerPoint(linePlayer);
+    const savedAnchor = line.anchorStart ?? displayPoint(line.points[0]);
+    const deltaX = currentAnchor.x - savedAnchor.x;
+    const deltaY = currentAnchor.y - savedAnchor.y;
+
+    return line.points.map((point) => ({
+      x: point.x + deltaX,
+      y: point.y + deltaY,
+    }));
+  }
+
   function startDrawing(clientX: number, clientY: number) {
     const point = fieldPointFromClient(clientX, clientY);
     if (!point) return;
@@ -5100,6 +5118,7 @@ function CoachBoardWebApp() {
         mode: drawingMode,
         points: [snappedStart],
         playerId: drawingPlayer?.id,
+        anchorStart: snappedStart,
         color: drawingColor,
       },
     ]);
@@ -8867,8 +8886,14 @@ function CoachBoardWebApp() {
                     line.mode === "curve"
                       ? cleanCurvedDrawnPoints
                       : cleanDrawnPoints;
+                  const linePlayer = line.playerId
+                    ? [...offensePlayers, ...defensePlayers].find(
+                        (p) => p.id === line.playerId,
+                      )
+                    : null;
+                  const anchoredPoints = anchoredDrawingPoints(line, linePlayer ?? null);
                   const canonicalPoints =
-                    line.points.length > 2 ? cleanup(line.points) : line.points;
+                    anchoredPoints.length > 2 ? cleanup(anchoredPoints) : anchoredPoints;
                   const renderedPoints = canonicalPoints.map(displayPoint);
                   const cap =
                     isBlock && renderedPoints.length > 1
@@ -8886,11 +8911,6 @@ function CoachBoardWebApp() {
                   const isSelectedDrawing =
                     selectedFieldItem?.type === "drawnLine" &&
                     selectedFieldItem.id === line.id;
-                  const linePlayer = line.playerId
-                    ? [...offensePlayers, ...defensePlayers].find(
-                        (p) => p.id === line.playerId,
-                      )
-                    : null;
                   const drawingColorForDisplay = linePlayer
                     ? getDefaultPlayerColor(
                         linePlayer,
@@ -9139,110 +9159,86 @@ function CoachBoardWebApp() {
                 })}
               </svg>
 
-              {defensePlayers.map((player) => (
-                <button
-                  key={player.id}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                    if (tool === "Move") {
-                      setDraggingId(player.id);
-                      setDraggingSide("defense");
-                    }
-                    if (tool === "Draw") startDrawing(e.clientX, e.clientY);
-                  }}
-                  onClick={() => {
-                    setSelectedFieldItem(null);
-                    setSelectedPlayerId(player.id);
-                    setSelectedSide("defense");
-                    setManAssignDefenderId(player.id);
-                  }}
-                  style={{
-                    position: "absolute",
-                    width: playerPx,
-                    height: playerPx,
-                    borderRadius: defensiveReadPlayerIds.includes(player.id)
-                      ? 0
-                      : "4px",
-                    clipPath: defensiveReadPlayerIds.includes(player.id)
-                      ? "polygon(50% 0%, 0% 100%, 100% 100%)"
-                      : "none",
-                    background: getDefaultPlayerColor(
-                      player,
-                      fieldBlackWhiteMode,
-                      teamBranding
-                    ),
-                    color: getPlayerTextColor(
-                      player,
-                      getDefaultPlayerColor(
-                        player,
-                        fieldBlackWhiteMode,
-                        teamBranding
-                      )
-                    ),
-                    fontWeight: 900,
-                    fontSize: playerFontPx,
-                    left: `${player.x}%`,
-                    top: playerTop(player),
-                    transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
-                    transformOrigin: "center center",
-                    border: defensiveReadPlayerIds.includes(player.id)
-                      ? `${selectedPlayerBorderPx}px solid #a855f7`
-                      : selectedSide === "defense" &&
-                          selectedPlayerId === player.id
-                        ? `${selectedPlayerBorderPx}px solid #facc15`
-                        : `${playerBorderPx}px solid ${getPlayerDefaultBorderColor(
-                            player,
-                            getDefaultPlayerColor(
-                              player,
-                              fieldBlackWhiteMode,
-                              teamBranding
-                            )
-                          )}`,
-                    cursor:
-                      tool === "Move"
-                        ? "grab"
-                        : tool === "Draw"
-                          ? "crosshair"
-                          : "pointer",
-                    zIndex:
-                      selectedSide === "defense" &&
-                      selectedPlayerId === player.id
-                        ? 2500
-                        : 2000,
-                    boxShadow: `0 ${playerPx * 0.12}px ${
-                      playerPx * 0.38
-                    }px rgba(0,0,0,.6)`,
-                    touchAction: "none",
-                    userSelect: "none",
-                    WebkitUserSelect: "none",
-                  }}
-                >
-                  {defensiveReadPlayerIds.includes(player.id) && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: -playerPx * 0.62,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        background: "#a855f7",
-                        color: "white",
-                        borderRadius: 999,
-                        padding: "1px 5px",
-                        fontSize: Math.max(6, playerFontPx * 0.68),
-                        fontWeight: 950,
-                        letterSpacing: ".04em",
-                        pointerEvents: "none",
-                        boxShadow: "0 4px 10px rgba(0,0,0,.45)",
-                      }}
-                    >
-                      READ
-                    </span>
-                  )}
-                  {player.position}
-                </button>
-              ))}
+              {defensePlayers.map((player) => {
+                const isReadPlayer = defensiveReadPlayerIds.includes(player.id);
+                const playerFillColor = getDefaultPlayerColor(
+                  player,
+                  fieldBlackWhiteMode,
+                  teamBranding
+                );
+                const playerTextColor = getPlayerTextColor(player, playerFillColor);
+                const playerOutlineColor = getPlayerDefaultBorderColor(
+                  player,
+                  playerFillColor
+                );
+
+                return (
+                  <button
+                    key={player.id}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      if (tool === "Move") {
+                        setDraggingId(player.id);
+                        setDraggingSide("defense");
+                      }
+                      if (tool === "Draw") startDrawing(e.clientX, e.clientY);
+                    }}
+                    onClick={() => {
+                      setSelectedFieldItem(null);
+                      setSelectedPlayerId(player.id);
+                      setSelectedSide("defense");
+                      setManAssignDefenderId(player.id);
+                    }}
+                    style={{
+                      position: "absolute",
+                      width: playerPx,
+                      height: playerPx,
+                      borderRadius: isReadPlayer
+                        ? 0
+                        : Math.max(3, playerPx * 0.16),
+                      clipPath: isReadPlayer
+                        ? "polygon(50% 0%, 0% 100%, 100% 100%)"
+                        : "none",
+                      background: playerFillColor,
+                      color: playerTextColor,
+                      fontWeight: 950,
+                      fontSize: isReadPlayer
+                        ? Math.max(6, playerFontPx * 0.68)
+                        : playerFontPx,
+                      lineHeight: 1,
+                      left: `${player.x}%`,
+                      top: playerTop(player),
+                      transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
+                      transformOrigin: "center center",
+                      border:
+                        selectedSide === "defense" && selectedPlayerId === player.id
+                          ? `${selectedPlayerBorderPx}px solid #facc15`
+                          : `${playerBorderPx}px solid ${playerOutlineColor}`,
+                      cursor:
+                        tool === "Move"
+                          ? "grab"
+                          : tool === "Draw"
+                            ? "crosshair"
+                            : "pointer",
+                      zIndex:
+                        selectedSide === "defense" &&
+                        selectedPlayerId === player.id
+                          ? 2500
+                          : 2000,
+                      boxShadow: `0 ${playerPx * 0.12}px ${
+                        playerPx * 0.38
+                      }px rgba(0,0,0,.6)`,
+                      touchAction: "none",
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                    }}
+                  >
+                    {player.position}
+                  </button>
+                );
+              })}
               {offensePlayers.map((player) => (
                 <button
                   key={player.id}
