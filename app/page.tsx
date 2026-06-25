@@ -1125,156 +1125,92 @@ function getRoutePoints(
   route: RouteModel,
   qbPoint?: FieldPoint,
 ) {
-  // Professional route engine:
-  // Routes are drawn as clean football route primitives instead of freehand curves.
-  // Every route keeps the player's exact alignment as its starting point and uses
-  // crisp straight SVG segments with hard breaks.
+  // Routes start from the player's actual saved field location.
+  // Fullscreen may resize icons, but it must never move spacing/alignments.
   const routeStartYards = player.yardsFromGoal;
   const start = { x: player.x, y: fieldYFromYards(routeStartYards) };
-
-  const stemDepth = Math.max(0, route.breakDepth);
-  const totalDepth = Math.max(stemDepth, route.finishDepth);
-
-  const breakYards = Math.max(0, routeStartYards - stemDepth);
-  const finishYards = Math.max(0, routeStartYards - totalDepth);
-
+  const breakYards = Math.max(0, routeStartYards - route.breakDepth);
+  const finishYards = Math.max(0, routeStartYards - route.finishDepth);
   const breakPoint = { x: player.x, y: fieldYFromYards(breakYards) };
-  const verticalFinish = {
-    x: player.x,
-    y: fieldYFromYards(finishYards),
-  };
-
   const towardMiddle = player.x > 50 ? -1 : 1;
   const towardOutside = player.x > 50 ? 1 : -1;
-
-  const clampX = (x: number) => Math.max(4, Math.min(96, x));
-  const pointAtDepth = (x: number, yards: number): FieldPoint => ({
-    x: clampX(x),
-    y: fieldYFromYards(Math.max(0, yards)),
-  });
+  let finishX = player.x;
+  let finishY = fieldYFromYards(finishYards);
 
   switch (route.routeType) {
     case "Go":
-      return {
-        polyline: [start, verticalFinish],
-        breakPoint: verticalFinish,
-      };
-
-    case "Slant": {
-      const slantDepth = Math.max(6, totalDepth);
-      return {
-        polyline: [
-          start,
-          pointAtDepth(player.x + towardMiddle * 16, routeStartYards - slantDepth),
-        ],
-        breakPoint: start,
-      };
-    }
-
+      finishX = player.x;
+      break;
+    case "Slant":
+      finishX = player.x + towardMiddle * 10;
+      break;
     case "Out":
-      return {
-        polyline: [
-          start,
-          breakPoint,
-          { x: clampX(breakPoint.x + towardOutside * 16), y: breakPoint.y },
-        ],
-        breakPoint,
-      };
-
+      finishX = player.x + towardOutside * 10;
+      finishY = breakPoint.y;
+      break;
     case "In":
-      return {
-        polyline: [
-          start,
-          breakPoint,
-          { x: clampX(breakPoint.x + towardMiddle * 16), y: breakPoint.y },
-        ],
-        breakPoint,
-      };
-
+      finishX = player.x + towardMiddle * 10;
+      finishY = breakPoint.y;
+      break;
     case "Post":
-      return {
-        polyline: [
-          start,
-          breakPoint,
-          pointAtDepth(breakPoint.x + towardMiddle * 14, routeStartYards - totalDepth),
-        ],
-        breakPoint,
-      };
-
+      finishX = player.x + towardMiddle * 10;
+      break;
     case "Corner":
-      return {
-        polyline: [
-          start,
-          breakPoint,
-          pointAtDepth(breakPoint.x + towardOutside * 14, routeStartYards - totalDepth),
-        ],
-        breakPoint,
-      };
-
+      finishX = player.x + towardOutside * 10;
+      break;
     case "Curl": {
       const target = qbPoint ?? { x: 54, y: fieldYFromYards(LOS_YARDS + 4) };
-      const dx = target.x - verticalFinish.x;
-      const dy = target.y - verticalFinish.y;
+      const dx = target.x - breakPoint.x;
+      const dy = target.y - breakPoint.y;
       const dist = Math.max(0.001, Math.hypot(dx, dy));
-      const settlePoint = {
-        x: clampX(verticalFinish.x + (dx / dist) * 4.5),
-        y: verticalFinish.y + (dy / dist) * 4.5,
-      };
-
-      return {
-        polyline: [start, verticalFinish, settlePoint],
-        breakPoint: verticalFinish,
-      };
+      finishX = breakPoint.x + (dx / dist) * 4;
+      finishY = breakPoint.y + (dy / dist) * 4;
+      break;
     }
-
-    case "Comeback": {
-      const comebackPoint = {
-        x: clampX(verticalFinish.x + towardOutside * 7),
-        y: fieldYFromYards(Math.min(routeStartYards, finishYards + 4)),
-      };
-
-      return {
-        polyline: [start, verticalFinish, comebackPoint],
-        breakPoint: verticalFinish,
-      };
-    }
+    case "Comeback":
+      finishX = player.x + towardOutside * -6;
+      break;
   }
+
+  finishX = Math.max(5, Math.min(95, finishX));
+  if (route.routeType === "Go")
+    return { polyline: [start, { x: finishX, y: finishY }], breakPoint };
+  return {
+    polyline: [start, breakPoint, { x: finishX, y: finishY }],
+    breakPoint,
+  };
 }
 
-function routeArrow(polyline: FieldPoint[], size = 1.25) {
+function routeArrow(polyline: FieldPoint[], size = 2.4) {
   const last = polyline[polyline.length - 1];
   const prev = polyline[polyline.length - 2] ?? last;
   const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
-  const arrowAngle = Math.PI / 8;
-
   return {
     last,
     a: {
-      x: last.x - size * Math.cos(angle - arrowAngle),
-      y: last.y - size * Math.sin(angle - arrowAngle),
+      x: last.x - size * Math.cos(angle - Math.PI / 8),
+      y: last.y - size * Math.sin(angle - Math.PI / 8),
     },
     b: {
-      x: last.x - size * Math.cos(angle + arrowAngle),
-      y: last.y - size * Math.sin(angle + arrowAngle),
+      x: last.x - size * Math.cos(angle + Math.PI / 8),
+      y: last.y - size * Math.sin(angle + Math.PI / 8),
     },
   };
 }
 
-function drawLineArrow(points: FieldPoint[], size = 1.15) {
+function drawLineArrow(points: FieldPoint[], size = 1.6) {
   const last = points[points.length - 1];
   const prev = points[points.length - 2] ?? last;
   const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
-  const arrowAngle = Math.PI / 8;
-
   return {
     last,
     a: {
-      x: last.x - size * Math.cos(angle - arrowAngle),
-      y: last.y - size * Math.sin(angle - arrowAngle),
+      x: last.x - size * Math.cos(angle - Math.PI / 8),
+      y: last.y - size * Math.sin(angle - Math.PI / 8),
     },
     b: {
-      x: last.x - size * Math.cos(angle + arrowAngle),
-      y: last.y - size * Math.sin(angle + arrowAngle),
+      x: last.x - size * Math.cos(angle + Math.PI / 8),
+      y: last.y - size * Math.sin(angle + Math.PI / 8),
     },
   };
 }
@@ -1294,6 +1230,10 @@ function blockTCap(points: FieldPoint[], capSize = 1.1) {
       y: last.y - capSize * Math.sin(perp),
     },
   };
+}
+
+function arrowPolygonPoints(arrow: ReturnType<typeof routeArrow>) {
+  return `${arrow.last.x},${arrow.last.y} ${arrow.a.x},${arrow.a.y} ${arrow.b.x},${arrow.b.y}`;
 }
 
 function distancePointToLine(
@@ -2039,27 +1979,18 @@ function CoachBoardWebApp() {
   // Unified line sizing system.
   // Routes, solid draw, dotted draw, block lines, arrows, and T-caps now share
   // the same visual stroke size so no tool looks thicker than another.
-  const lineStroke = Math.max(0.28, playerPx * 0.012);
-  const lineOutlineStroke = lineStroke + Math.max(0.12, visualPlayerPx * 0.006);
+  const lineStroke = Math.max(0.28, playerPx * 0.014);
 
   const routeStroke = lineStroke;
-  const routeOutlineStroke = lineOutlineStroke;
-
   const blockStroke = lineStroke;
-  const blockOutlineStroke = lineOutlineStroke;
-
   const blockCapStroke = lineStroke;
-  const blockCapOutlineStroke = lineOutlineStroke;
 
-  const arrowSize = Math.max(0.55, playerPx * 0.045);
-  const blockCapSize = visualPlayerPx * 0.04;
+  const arrowSize = Math.max(0.72, playerPx * 0.052);
+  const blockCapSize = visualPlayerPx * 0.045;
 
   // Tight, clean dotted pattern. The round caps in the SVG make this look like
   // true dots instead of long thick dashes.
-  const dashPattern = `${Math.max(0.01, lineStroke * 0.05)} ${Math.max(
-    1.15,
-    lineStroke * 4.2,
-  )}`;
+  const dashPattern = `${Math.max(0.01, lineStroke * 0.05)} ${Math.max(1.35, lineStroke * 3.1)}`;
 
   const endzoneFontPx = fieldFullscreen
     ? Math.max(40, Math.min(100, fieldPixelHeight * 0.08))
@@ -8985,19 +8916,6 @@ function CoachBoardWebApp() {
 
                   return (
                     <g key={line.id}>
-                      {/* dark outline keeps every drawn line sharp on bright field markings */}
-                      <path
-                        d={path}
-                        fill="none"
-                        stroke="rgba(0,0,0,.72)"
-                        strokeWidth={
-                          isBlock ? blockOutlineStroke : routeOutlineStroke
-                        }
-                        strokeLinecap={isDotted ? "round" : "butt"}
-                        strokeLinejoin="miter"
-                        strokeDasharray={isDotted ? dashPattern : undefined}
-                        shapeRendering="geometricPrecision"
-                      />
                       <path
                         d={path}
                         fill="none"
@@ -9008,7 +8926,7 @@ function CoachBoardWebApp() {
                           isSelectedDrawing
                             ? Math.max(
                                 isBlock ? blockStroke : routeStroke,
-                                lineStroke * 1.55,
+                                lineStroke * 1.25,
                               )
                             : isBlock
                               ? blockStroke
@@ -9041,16 +8959,6 @@ function CoachBoardWebApp() {
                             y1={cap.a.y}
                             x2={cap.b.x}
                             y2={cap.b.y}
-                            stroke="rgba(0,0,0,.75)"
-                            strokeWidth={blockCapOutlineStroke}
-                            strokeLinecap="butt"
-                            shapeRendering="geometricPrecision"
-                          />
-                          <line
-                            x1={cap.a.x}
-                            y1={cap.a.y}
-                            x2={cap.b.x}
-                            y2={cap.b.y}
                             stroke={drawingColorForDisplay}
                             strokeWidth={blockCapStroke}
                             strokeLinecap="butt"
@@ -9060,44 +8968,10 @@ function CoachBoardWebApp() {
                       )}
                       {arrow && (
                         <>
-                          <line
-                            x1={arrow.a.x}
-                            y1={arrow.a.y}
-                            x2={arrow.last.x}
-                            y2={arrow.last.y}
-                            stroke="rgba(0,0,0,.72)"
-                            strokeWidth={routeOutlineStroke}
-                            strokeLinecap="butt"
-                            shapeRendering="geometricPrecision"
-                          />
-                          <line
-                            x1={arrow.b.x}
-                            y1={arrow.b.y}
-                            x2={arrow.last.x}
-                            y2={arrow.last.y}
-                            stroke="rgba(0,0,0,.72)"
-                            strokeWidth={routeOutlineStroke}
-                            strokeLinecap="butt"
-                            shapeRendering="geometricPrecision"
-                          />
-                          <line
-                            x1={arrow.a.x}
-                            y1={arrow.a.y}
-                            x2={arrow.last.x}
-                            y2={arrow.last.y}
-                            stroke={drawingColorForDisplay}
-                            strokeWidth={routeStroke}
-                            strokeLinecap="butt"
-                            shapeRendering="geometricPrecision"
-                          />
-                          <line
-                            x1={arrow.b.x}
-                            y1={arrow.b.y}
-                            x2={arrow.last.x}
-                            y2={arrow.last.y}
-                            stroke={drawingColorForDisplay}
-                            strokeWidth={routeStroke}
-                            strokeLinecap="butt"
+                          <polygon
+                            points={arrowPolygonPoints(arrow)}
+                            fill={drawingColorForDisplay}
+                            stroke="none"
                             shapeRendering="geometricPrecision"
                           />
                         </>
@@ -9137,22 +9011,12 @@ function CoachBoardWebApp() {
                       <polyline
                         points={routePoints}
                         fill="none"
-                        stroke="rgba(0,0,0,.72)"
-                        strokeWidth={routeOutlineStroke}
-                        strokeLinecap="butt"
-                        strokeLinejoin="miter"
-                        strokeMiterlimit={10}
-                        shapeRendering="geometricPrecision"
-                      />
-                      <polyline
-                        points={routePoints}
-                        fill="none"
                         stroke={
                           isSelectedRoute ? "#38bdf8" : routeColorForDisplay
                         }
                         strokeWidth={
                           isSelectedRoute
-                            ? Math.max(routeStroke, lineStroke * 1.55)
+                            ? Math.max(routeStroke, lineStroke * 1.25)
                             : routeStroke
                         }
                         strokeLinecap="butt"
@@ -9178,44 +9042,10 @@ function CoachBoardWebApp() {
                         }}
                         style={{ cursor: "pointer" }}
                       />
-                      <line
-                        x1={arrow.a.x}
-                        y1={arrow.a.y}
-                        x2={arrow.last.x}
-                        y2={arrow.last.y}
-                        stroke="rgba(0,0,0,.72)"
-                        strokeWidth={routeOutlineStroke}
-                        strokeLinecap="butt"
-                        shapeRendering="geometricPrecision"
-                      />
-                      <line
-                        x1={arrow.b.x}
-                        y1={arrow.b.y}
-                        x2={arrow.last.x}
-                        y2={arrow.last.y}
-                        stroke="rgba(0,0,0,.72)"
-                        strokeWidth={routeOutlineStroke}
-                        strokeLinecap="butt"
-                        shapeRendering="geometricPrecision"
-                      />
-                      <line
-                        x1={arrow.a.x}
-                        y1={arrow.a.y}
-                        x2={arrow.last.x}
-                        y2={arrow.last.y}
-                        stroke={routeColorForDisplay}
-                        strokeWidth={routeStroke}
-                        strokeLinecap="butt"
-                        shapeRendering="geometricPrecision"
-                      />
-                      <line
-                        x1={arrow.b.x}
-                        y1={arrow.b.y}
-                        x2={arrow.last.x}
-                        y2={arrow.last.y}
-                        stroke={routeColorForDisplay}
-                        strokeWidth={routeStroke}
-                        strokeLinecap="butt"
+                      <polygon
+                        points={arrowPolygonPoints(arrow)}
+                        fill={isSelectedRoute ? "#38bdf8" : routeColorForDisplay}
+                        stroke="none"
                         shapeRendering="geometricPrecision"
                       />
                     </g>
