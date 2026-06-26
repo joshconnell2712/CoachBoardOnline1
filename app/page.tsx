@@ -1181,73 +1181,35 @@ function getRoutePoints(
   };
 }
 
-function routeArrow(polyline: FieldPoint[], size = 0.8) {
+function routeArrow(polyline: FieldPoint[], size = 1.15) {
   const last = polyline[polyline.length - 1];
   const prev = polyline[polyline.length - 2] ?? last;
   const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
 
-  // Longer and slimmer than the previous oversized triangle.
-  // This gives a cleaner Hudl-style arrowhead that is visible without
-  // overpowering the route line.
+  // Professional playbook arrowhead:
+  // visible enough to read, but slim enough to avoid the oversized triangle look.
   const headLength = size;
-  const headWidth = size * 0.38;
+  const headWidth = size * 0.48;
+  const base = {
+    x: last.x - headLength * Math.cos(angle),
+    y: last.y - headLength * Math.sin(angle),
+  };
 
   return {
     last,
     a: {
-      x:
-        last.x -
-        headLength * Math.cos(angle) +
-        headWidth * Math.sin(angle),
-      y:
-        last.y -
-        headLength * Math.sin(angle) -
-        headWidth * Math.cos(angle),
+      x: base.x + headWidth * Math.sin(angle),
+      y: base.y - headWidth * Math.cos(angle),
     },
     b: {
-      x:
-        last.x -
-        headLength * Math.cos(angle) -
-        headWidth * Math.sin(angle),
-      y:
-        last.y -
-        headLength * Math.sin(angle) +
-        headWidth * Math.cos(angle),
+      x: base.x - headWidth * Math.sin(angle),
+      y: base.y + headWidth * Math.cos(angle),
     },
   };
 }
 
-function drawLineArrow(points: FieldPoint[], size = 0.8) {
-  const last = points[points.length - 1];
-  const prev = points[points.length - 2] ?? last;
-  const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
-
-  const headLength = size;
-  const headWidth = size * 0.38;
-
-  return {
-    last,
-    a: {
-      x:
-        last.x -
-        headLength * Math.cos(angle) +
-        headWidth * Math.sin(angle),
-      y:
-        last.y -
-        headLength * Math.sin(angle) -
-        headWidth * Math.cos(angle),
-    },
-    b: {
-      x:
-        last.x -
-        headLength * Math.cos(angle) -
-        headWidth * Math.sin(angle),
-      y:
-        last.y -
-        headLength * Math.sin(angle) +
-        headWidth * Math.cos(angle),
-    },
-  };
+function drawLineArrow(points: FieldPoint[], size = 1.0) {
+  return routeArrow(points, size);
 }
 
 function blockTCap(points: FieldPoint[], capSize = 1.1) {
@@ -2020,10 +1982,7 @@ function CoachBoardWebApp() {
   const blockStroke = lineStroke;
   const blockCapStroke = lineStroke;
 
-  // Professional arrowhead sizing:
-  // Keep arrows visible, but not oversized. The helper treats this as the
-  // arrowhead length in the SVG field coordinate system.
-  const arrowSize = Math.max(0.42, playerPx * 0.032);
+  const arrowSize = Math.max(1.15, playerPx * 0.035);
   const blockCapSize = visualPlayerPx * 0.045;
 
   // Tight, clean dotted pattern. The round caps in the SVG make this look like
