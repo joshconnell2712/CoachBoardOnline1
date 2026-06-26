@@ -1185,15 +1185,17 @@ function routeArrow(polyline: FieldPoint[], size = 2.4) {
   const last = polyline[polyline.length - 1];
   const prev = polyline[polyline.length - 2] ?? last;
   const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+  const baseAngle = Math.PI / 5.25;
+
   return {
     last,
     a: {
-      x: last.x - size * Math.cos(angle - Math.PI / 8),
-      y: last.y - size * Math.sin(angle - Math.PI / 8),
+      x: last.x - size * Math.cos(angle - baseAngle),
+      y: last.y - size * Math.sin(angle - baseAngle),
     },
     b: {
-      x: last.x - size * Math.cos(angle + Math.PI / 8),
-      y: last.y - size * Math.sin(angle + Math.PI / 8),
+      x: last.x - size * Math.cos(angle + baseAngle),
+      y: last.y - size * Math.sin(angle + baseAngle),
     },
   };
 }
@@ -1202,15 +1204,17 @@ function drawLineArrow(points: FieldPoint[], size = 1.6) {
   const last = points[points.length - 1];
   const prev = points[points.length - 2] ?? last;
   const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+  const baseAngle = Math.PI / 5.25;
+
   return {
     last,
     a: {
-      x: last.x - size * Math.cos(angle - Math.PI / 8),
-      y: last.y - size * Math.sin(angle - Math.PI / 8),
+      x: last.x - size * Math.cos(angle - baseAngle),
+      y: last.y - size * Math.sin(angle - baseAngle),
     },
     b: {
-      x: last.x - size * Math.cos(angle + Math.PI / 8),
-      y: last.y - size * Math.sin(angle + Math.PI / 8),
+      x: last.x - size * Math.cos(angle + baseAngle),
+      y: last.y - size * Math.sin(angle + baseAngle),
     },
   };
 }
@@ -1985,7 +1989,10 @@ function CoachBoardWebApp() {
   const blockStroke = lineStroke;
   const blockCapStroke = lineStroke;
 
-  const arrowSize = Math.max(0.72, playerPx * 0.052);
+  // Larger arrowheads so route finish points are visible from the sideline
+  // and in fullscreen. Coordinates are SVG viewBox percentages, so this stays
+  // proportional on every screen size.
+  const arrowSize = Math.max(1.45, playerPx * 0.105);
   const blockCapSize = visualPlayerPx * 0.045;
 
   // Tight, clean dotted pattern. The round caps in the SVG make this look like
@@ -8896,7 +8903,7 @@ function CoachBoardWebApp() {
                       : null;
                   const arrow =
                     !isBlock && renderedPoints.length > 1
-                      ? drawLineArrow(renderedPoints, arrowSize * 0.8)
+                      ? drawLineArrow(renderedPoints, arrowSize * 0.95)
                       : null;
                   const path =
                     line.mode === "curve"
