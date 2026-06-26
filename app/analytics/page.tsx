@@ -498,7 +498,7 @@ export default function AnalyticsPage() {
       <header style={topBarStyle}>
         <div>
           <div style={eyebrowStyle}>COACHBOARD</div>
-          <h1 style={titleStyle}>Analytics Command Center</h1>
+          <h1 style={titleStyle}>Analytics</h1>
           <p style={subTitleStyle}>{selectedGame ? `Week ${selectedGame.week ?? "-"} vs ${selectedGame.opponent}` : "Create a game to start charting."}</p>
         </div>
         <Link href="/" style={backButtonStyle}>Back to CoachBoard</Link>
@@ -507,7 +507,7 @@ export default function AnalyticsPage() {
       {message && <div style={messageStyle}>{message}</div>}
 
       <nav style={navStyle}>
-        <NavButton label="Command Center" active={activeSection === "command"} onClick={() => setActiveSection("command")} />
+        <NavButton label="Game Center" active={activeSection === "command"} onClick={() => setActiveSection("command")} />
         <NavButton label="Setup" active={activeSection === "setup"} onClick={() => setActiveSection("setup")} />
         <NavButton label="Games" active={activeSection === "games"} onClick={() => setActiveSection("games")} />
         <NavButton label="Reports" active={activeSection === "reports"} onClick={() => setActiveSection("reports")} />
@@ -533,7 +533,7 @@ export default function AnalyticsPage() {
           <section style={commandGridStyle}>
             <div style={cardStyle}>
               <div style={sectionHeaderStyle}>
-                <h2 style={sectionTitleStyle}>Fast Play Entry</h2>
+                <h2 style={sectionTitleStyle}>Quick Chart</h2>
                 <select style={{ ...inputStyle, maxWidth: 280 }} value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)}>
                   <option value="">Select Game</option>
                   {games.map((game) => <option key={game.id} value={game.id}>Week {game.week ?? "-"} vs {game.opponent}</option>)}
@@ -558,7 +558,7 @@ export default function AnalyticsPage() {
               <datalist id="plays">{plays.map((item) => <option key={item.id} value={item.name} />)}</datalist>
               <datalist id="players">{players.map((item) => <option key={item.id} value={playerLabel(item)} />)}</datalist>
 
-              <button style={saveButtonStyle} onClick={savePlay} disabled={saving}>SAVE PLAY / ENTER</button>
+              <button style={saveButtonStyle} onClick={savePlay} disabled={saving}>SAVE PLAY</button>
 
               <div style={tableWrapStyle}>
                 <table style={sheetTableStyle}>
@@ -935,47 +935,399 @@ function Report({ title, rows }: { title: string; rows: ReportRow[] }) {
   );
 }
 
-const pageStyle: React.CSSProperties = { minHeight: "100vh", background: "radial-gradient(circle at top left, rgba(220,38,38,.22), transparent 32%), #020617", color: "white", padding: 24, fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" };
-const topBarStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, marginBottom: 18 };
-const eyebrowStyle: React.CSSProperties = { color: "#f87171", fontSize: 11, fontWeight: 950, letterSpacing: ".16em", textTransform: "uppercase" };
-const titleStyle: React.CSSProperties = { fontSize: 44, lineHeight: 1, margin: "8px 0", fontWeight: 950 };
-const subTitleStyle: React.CSSProperties = { color: "#a8b3cf", fontSize: 16, marginTop: 4 };
-const backButtonStyle: React.CSSProperties = { color: "white", textDecoration: "none", background: "linear-gradient(180deg, #1f2937, #020617)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 14, padding: "12px 15px", fontWeight: 900 };
-const messageStyle: React.CSSProperties = { background: "rgba(250,204,21,.12)", color: "#fde68a", border: "1px solid rgba(250,204,21,.35)", borderRadius: 14, padding: 12, marginBottom: 18, fontWeight: 800 };
-const navStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 18 };
-const navButtonStyle: React.CSSProperties = { border: "1px solid rgba(255,255,255,.14)", borderRadius: 14, padding: "11px 15px", background: "rgba(15,23,42,.86)", color: "white", fontWeight: 950, cursor: "pointer", fontSize: 15 };
-const navButtonActiveStyle: React.CSSProperties = { background: "linear-gradient(180deg, #ef4444, #991b1b)", border: "1px solid rgba(248,113,113,.95)" };
-const scoreboardStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(12, minmax(95px, 1fr))", gap: 6, marginBottom: 14, overflowX: "auto" };
-const statStyle: React.CSSProperties = { background: "#facc15", color: "black", border: "2px solid #111827", borderRadius: 2, padding: "7px 8px", textAlign: "center", minHeight: 58 };
-const statTitleStyle: React.CSSProperties = { fontSize: 12, fontWeight: 950 };
-const statValueStyle: React.CSSProperties = { fontSize: 22, fontWeight: 950, marginTop: 2 };
-const commandGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(0, 2.2fr) minmax(330px, .8fr)", gap: 14, marginBottom: 14 };
-const sideGridStyle: React.CSSProperties = { display: "grid", gap: 14, alignContent: "start" };
-const cardStyle: React.CSSProperties = { background: "rgba(15, 23, 42, 0.96)", border: "1px solid rgba(255,255,255,.13)", borderRadius: 18, padding: 18, boxShadow: "0 18px 48px rgba(0,0,0,.42)" };
-const sectionHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 12 };
-const sectionTitleStyle: React.CSSProperties = { fontSize: 24, margin: 0, fontWeight: 950 };
-const entrySheetStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "115px 150px 150px 100px 75px 75px 85px 100px 55px 70px 70px", gap: 0, overflowX: "auto", border: "2px solid #111827", background: "#111827" };
-const sheetInputWrapStyle: React.CSSProperties = { display: "grid", gap: 0, color: "black", fontWeight: 950, fontSize: 13, minWidth: 70 };
-const sheetInputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", border: "1px solid #111827", borderRadius: 0, padding: "9px 8px", fontSize: 16, fontWeight: 800, color: "black", background: "white", outline: "none" };
-const saveButtonStyle: React.CSSProperties = { width: "100%", marginTop: 12, padding: "15px 18px", borderRadius: 12, border: "1px solid rgba(248,113,113,.95)", background: "linear-gradient(180deg, #ef4444, #991b1b)", color: "white", fontWeight: 950, cursor: "pointer", fontSize: 18 };
-const tableWrapStyle: React.CSSProperties = { overflowX: "auto", marginTop: 14 };
-const sheetTableStyle: React.CSSProperties = { width: "100%", borderCollapse: "collapse", minWidth: 900, background: "white", color: "black" };
-const sheetThStyle: React.CSSProperties = { padding: "8px 7px", background: "#e5e7eb", border: "2px solid #111827", fontSize: 14, fontWeight: 950, textAlign: "center" };
-const sheetTdStyle: React.CSSProperties = { padding: "7px 7px", border: "2px solid #111827", fontSize: 14, fontWeight: 700, textAlign: "center" };
-const badgeStyle: React.CSSProperties = { display: "inline-flex", border: "1px solid", borderRadius: 999, padding: "3px 7px", fontSize: 11, fontWeight: 950 };
-const recStyle: React.CSSProperties = { display: "grid", gap: 6, padding: 14, borderRadius: 14, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.10)", marginTop: 12 };
-const playerStatRowStyle: React.CSSProperties = { display: "grid", gap: 3, padding: 10, borderBottom: "1px solid rgba(255,255,255,.10)" };
-const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "12px 13px", borderRadius: 12, border: "1px solid rgba(255,255,255,.18)", background: "#ffffff", color: "#020617", outline: "none", fontSize: 15, fontWeight: 700 };
-const setupGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))", gap: 14 };
-const reportsGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 14 };
-const formFourStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 };
-const formThreeStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 };
-const formTwoStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 };
-const inlineFormStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 10, alignItems: "stretch" };
-const primaryButtonStyle: React.CSSProperties = { marginTop: 12, padding: "12px 16px", borderRadius: 13, border: "1px solid rgba(248,113,113,.95)", background: "linear-gradient(180deg, #ef4444, #991b1b)", color: "white", fontWeight: 950, cursor: "pointer" };
-const primaryButtonStyleNoMargin: React.CSSProperties = { padding: "12px 16px", borderRadius: 13, border: "1px solid rgba(248,113,113,.95)", background: "linear-gradient(180deg, #ef4444, #991b1b)", color: "white", fontWeight: 950, cursor: "pointer" };
-const dangerButtonStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 9, border: "1px solid rgba(248,113,113,.45)", background: "rgba(127,29,29,.45)", color: "#fecaca", fontWeight: 900, cursor: "pointer" };
-const smallActionButtonStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 9, border: "1px solid rgba(34,197,94,.45)", background: "rgba(22,101,52,.55)", color: "#bbf7d0", fontWeight: 900, cursor: "pointer" };
-const listStyle: React.CSSProperties = { display: "grid", gap: 10, marginTop: 16 };
-const listRowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 13px", borderRadius: 12, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.09)" };
-const tagStyle: React.CSSProperties = { marginLeft: 8, color: "#fecaca", fontSize: 12, fontWeight: 950, textTransform: "uppercase" };
+const pageStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  background:
+    "radial-gradient(circle at top left, rgba(239,68,68,.18), transparent 30%), radial-gradient(circle at bottom right, rgba(15,23,42,.85), transparent 34%), #030712",
+  color: "white",
+  padding: 22,
+  fontFamily:
+    "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+};
+
+const topBarStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 18,
+  marginBottom: 18,
+  padding: "18px 20px",
+  borderRadius: 24,
+  background: "linear-gradient(180deg, rgba(15,23,42,.92), rgba(2,6,23,.88))",
+  border: "1px solid rgba(255,255,255,.10)",
+  boxShadow: "0 20px 50px rgba(0,0,0,.35)",
+};
+
+const eyebrowStyle: React.CSSProperties = {
+  color: "#f87171",
+  fontSize: 11,
+  fontWeight: 950,
+  letterSpacing: ".18em",
+  textTransform: "uppercase",
+};
+
+const titleStyle: React.CSSProperties = {
+  fontSize: 42,
+  lineHeight: 1,
+  margin: "8px 0 6px",
+  fontWeight: 950,
+  letterSpacing: "-.04em",
+};
+
+const subTitleStyle: React.CSSProperties = {
+  color: "#94a3b8",
+  fontSize: 15,
+  marginTop: 4,
+};
+
+const backButtonStyle: React.CSSProperties = {
+  color: "white",
+  textDecoration: "none",
+  background: "rgba(15,23,42,.82)",
+  border: "1px solid rgba(255,255,255,.14)",
+  borderRadius: 999,
+  padding: "11px 16px",
+  fontWeight: 900,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,.06)",
+};
+
+const messageStyle: React.CSSProperties = {
+  background: "rgba(250,204,21,.12)",
+  color: "#fde68a",
+  border: "1px solid rgba(250,204,21,.35)",
+  borderRadius: 16,
+  padding: 12,
+  marginBottom: 16,
+  fontWeight: 850,
+};
+
+const navStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginBottom: 16,
+  padding: 6,
+  width: "fit-content",
+  borderRadius: 999,
+  background: "rgba(15,23,42,.78)",
+  border: "1px solid rgba(255,255,255,.08)",
+};
+
+const navButtonStyle: React.CSSProperties = {
+  border: "1px solid transparent",
+  borderRadius: 999,
+  padding: "10px 15px",
+  background: "transparent",
+  color: "#cbd5e1",
+  fontWeight: 950,
+  cursor: "pointer",
+  fontSize: 14,
+};
+
+const navButtonActiveStyle: React.CSSProperties = {
+  background: "linear-gradient(180deg, #ef4444, #b91c1c)",
+  color: "white",
+  border: "1px solid rgba(248,113,113,.65)",
+  boxShadow: "0 10px 24px rgba(220,38,38,.25)",
+};
+
+const scoreboardStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(12, minmax(105px, 1fr))",
+  gap: 10,
+  marginBottom: 14,
+  overflowX: "auto",
+};
+
+const statStyle: React.CSSProperties = {
+  background: "linear-gradient(180deg, rgba(15,23,42,.98), rgba(2,6,23,.98))",
+  color: "white",
+  border: "1px solid rgba(255,255,255,.10)",
+  borderRadius: 18,
+  padding: "13px 12px",
+  textAlign: "left",
+  minHeight: 70,
+  boxShadow: "0 14px 34px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06)",
+};
+
+const statTitleStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 950,
+  color: "#94a3b8",
+  textTransform: "uppercase",
+  letterSpacing: ".08em",
+};
+
+const statValueStyle: React.CSSProperties = {
+  fontSize: 27,
+  fontWeight: 950,
+  marginTop: 5,
+  letterSpacing: "-.03em",
+};
+
+const commandGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 2.15fr) minmax(340px, .85fr)",
+  gap: 16,
+  marginBottom: 16,
+};
+
+const sideGridStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 16,
+  alignContent: "start",
+};
+
+const cardStyle: React.CSSProperties = {
+  background: "linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.94))",
+  border: "1px solid rgba(255,255,255,.10)",
+  borderRadius: 24,
+  padding: 18,
+  boxShadow: "0 22px 60px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.05)",
+};
+
+const sectionHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 16,
+  alignItems: "center",
+  marginBottom: 14,
+};
+
+const sectionTitleStyle: React.CSSProperties = {
+  fontSize: 24,
+  margin: 0,
+  fontWeight: 950,
+  letterSpacing: "-.035em",
+};
+
+const entrySheetStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns:
+    "115px 150px 160px 92px 85px 85px 95px 110px 60px 75px 75px",
+  gap: 8,
+  overflowX: "auto",
+  padding: 10,
+  borderRadius: 18,
+  background: "rgba(255,255,255,.055)",
+  border: "1px solid rgba(255,255,255,.10)",
+};
+
+const sheetInputWrapStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 6,
+  color: "#cbd5e1",
+  fontWeight: 950,
+  fontSize: 11,
+  textTransform: "uppercase",
+  letterSpacing: ".06em",
+  minWidth: 70,
+};
+
+const sheetInputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  border: "1px solid rgba(255,255,255,.12)",
+  borderRadius: 12,
+  padding: "10px 10px",
+  fontSize: 15,
+  fontWeight: 850,
+  color: "#020617",
+  background: "rgba(255,255,255,.97)",
+  outline: "none",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,.45)",
+};
+
+const saveButtonStyle: React.CSSProperties = {
+  width: "100%",
+  marginTop: 12,
+  padding: "15px 18px",
+  borderRadius: 16,
+  border: "1px solid rgba(248,113,113,.85)",
+  background: "linear-gradient(180deg, #ef4444, #991b1b)",
+  color: "white",
+  fontWeight: 950,
+  cursor: "pointer",
+  fontSize: 17,
+  letterSpacing: ".02em",
+  boxShadow: "0 14px 30px rgba(220,38,38,.25)",
+};
+
+const tableWrapStyle: React.CSSProperties = {
+  overflowX: "auto",
+  marginTop: 14,
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,.10)",
+};
+
+const sheetTableStyle: React.CSSProperties = {
+  width: "100%",
+  borderCollapse: "separate",
+  borderSpacing: 0,
+  minWidth: 900,
+  background: "rgba(2,6,23,.28)",
+  color: "white",
+};
+
+const sheetThStyle: React.CSSProperties = {
+  padding: "11px 9px",
+  background: "rgba(15,23,42,.98)",
+  borderBottom: "1px solid rgba(255,255,255,.10)",
+  fontSize: 12,
+  fontWeight: 950,
+  color: "#fca5a5",
+  textAlign: "left",
+  textTransform: "uppercase",
+  letterSpacing: ".06em",
+};
+
+const sheetTdStyle: React.CSSProperties = {
+  padding: "10px 9px",
+  borderBottom: "1px solid rgba(255,255,255,.07)",
+  fontSize: 14,
+  fontWeight: 750,
+  textAlign: "left",
+  color: "#e5e7eb",
+};
+
+const badgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  border: "1px solid",
+  borderRadius: 999,
+  padding: "4px 8px",
+  fontSize: 11,
+  fontWeight: 950,
+};
+
+const recStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 6,
+  padding: 14,
+  borderRadius: 18,
+  background: "rgba(255,255,255,.055)",
+  border: "1px solid rgba(255,255,255,.09)",
+  marginTop: 12,
+};
+
+const playerStatRowStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 3,
+  padding: "11px 0",
+  borderBottom: "1px solid rgba(255,255,255,.09)",
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "12px 13px",
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,.14)",
+  background: "#ffffff",
+  color: "#020617",
+  outline: "none",
+  fontSize: 15,
+  fontWeight: 750,
+};
+
+const setupGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))",
+  gap: 16,
+};
+
+const reportsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
+  gap: 16,
+};
+
+const formFourStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+  gap: 10,
+};
+
+const formThreeStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gap: 10,
+};
+
+const formTwoStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+  gap: 10,
+};
+
+const inlineFormStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(220px, 1fr) auto",
+  gap: 10,
+  alignItems: "stretch",
+};
+
+const primaryButtonStyle: React.CSSProperties = {
+  marginTop: 12,
+  padding: "12px 16px",
+  borderRadius: 14,
+  border: "1px solid rgba(248,113,113,.85)",
+  background: "linear-gradient(180deg, #ef4444, #991b1b)",
+  color: "white",
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const primaryButtonStyleNoMargin: React.CSSProperties = {
+  padding: "12px 16px",
+  borderRadius: 14,
+  border: "1px solid rgba(248,113,113,.85)",
+  background: "linear-gradient(180deg, #ef4444, #991b1b)",
+  color: "white",
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const dangerButtonStyle: React.CSSProperties = {
+  padding: "7px 10px",
+  borderRadius: 10,
+  border: "1px solid rgba(248,113,113,.35)",
+  background: "rgba(127,29,29,.38)",
+  color: "#fecaca",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const smallActionButtonStyle: React.CSSProperties = {
+  padding: "7px 10px",
+  borderRadius: 10,
+  border: "1px solid rgba(34,197,94,.35)",
+  background: "rgba(22,101,52,.48)",
+  color: "#bbf7d0",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const listStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 10,
+  marginTop: 16,
+};
+
+const listRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  padding: "12px 13px",
+  borderRadius: 14,
+  background: "rgba(255,255,255,.055)",
+  border: "1px solid rgba(255,255,255,.08)",
+};
+
+const tagStyle: React.CSSProperties = {
+  marginLeft: 8,
+  color: "#fecaca",
+  fontSize: 12,
+  fontWeight: 950,
+  textTransform: "uppercase",
+};
