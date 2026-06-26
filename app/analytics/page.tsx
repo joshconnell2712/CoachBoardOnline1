@@ -1161,6 +1161,14 @@ const smallRedStyle: React.CSSProperties = {
   textTransform: "uppercase",
 };
 
+const sectionTitleStyle: React.CSSProperties = {
+  fontSize: 22,
+  margin: "0 0 10px",
+  fontWeight: 950,
+  letterSpacing: "-.035em",
+  color: "#0f172a",
+};
+
 const panelTitleStyle: React.CSSProperties = {
   fontSize: 24,
   margin: "4px 0 0",
