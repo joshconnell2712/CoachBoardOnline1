@@ -5,8 +5,9 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
-type Section = "gamecenter" | "setup" | "games" | "reports";
+type Section = "command" | "setup" | "games" | "reports";
 type PlayType = "Run" | "Pass" | "RPO" | "Screen" | "Other";
+type Grade = "negative" | "normal" | "success" | "explosive";
 
 type Team = { id: string; user_id: string; team_name: string; season: number };
 type Player = { id: string; team_id: string | null; first_name: string; last_name: string; jersey_number: number | null; position: string | null; active: boolean | null };
@@ -38,17 +39,26 @@ type ChartPlay = {
   created_at: string | null;
 };
 
-type PlayGrade = "negative" | "normal" | "success" | "explosive";
-type GroupReportRow = { id: string; label: string; calls: number; yards: number; average: number; successes: number; explosives: number; successRate: number; explosiveRate: number };
+type ReportRow = {
+  id: string;
+  label: string;
+  calls: number;
+  yards: number;
+  avg: number;
+  success: number;
+  explosive: number;
+  successRate: number;
+  explosiveRate: number;
+};
 
-const RUN_SUCCESS_YARDS = 4;
-const PASS_SUCCESS_YARDS = 12;
-const RUN_EXPLOSIVE_YARDS = 10;
-const PASS_EXPLOSIVE_YARDS = 25;
+const RUN_SUCCESS = 4;
+const PASS_SUCCESS = 12;
+const RUN_EXPLOSIVE = 10;
+const PASS_EXPLOSIVE = 25;
 
 export default function AnalyticsPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [activeSection, setActiveSection] = useState<Section>("gamecenter");
+  const [activeSection, setActiveSection] = useState<Section>("command");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -62,39 +72,34 @@ export default function AnalyticsPage() {
 
   const [teamName, setTeamName] = useState("My Team");
   const [season, setSeason] = useState(new Date().getFullYear());
-
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [jerseyNumber, setJerseyNumber] = useState("");
-  const [position, setPosition] = useState("");
-
-  const [formationName, setFormationName] = useState("");
-  const [playName, setPlayName] = useState("");
-  const [playType, setPlayType] = useState<PlayType>("Run");
-
-  const [newOpponent, setNewOpponent] = useState("");
-  const [newWeek, setNewWeek] = useState("");
-  const [newGameDate, setNewGameDate] = useState("");
   const [selectedGameId, setSelectedGameId] = useState("");
 
-  const [quarter, setQuarter] = useState("1");
-  const [down, setDown] = useState("1");
-  const [distance, setDistance] = useState("10");
-  const [yardLine, setYardLine] = useState("35");
-  const [hash, setHash] = useState("");
+  const [newWeek, setNewWeek] = useState("");
+  const [newOpponent, setNewOpponent] = useState("");
+  const [newGameDate, setNewGameDate] = useState("");
 
-  const [formationQuick, setFormationQuick] = useState("");
-  const [playQuick, setPlayQuick] = useState("");
-  const [entryPlayType, setEntryPlayType] = useState<PlayType>("Run");
-  const [ballCarrierQuick, setBallCarrierQuick] = useState("");
-  const [passerQuick, setPasserQuick] = useState("");
-  const [receiverQuick, setReceiverQuick] = useState("");
-  const [yards, setYards] = useState("");
-  const [touchdown, setTouchdown] = useState(false);
-  const [firstDown, setFirstDown] = useState(false);
-  const [turnover, setTurnover] = useState(false);
-  const [penalty, setPenalty] = useState(false);
-  const [notes, setNotes] = useState("");
+  const [playerFirst, setPlayerFirst] = useState("");
+  const [playerLast, setPlayerLast] = useState("");
+  const [playerNumber, setPlayerNumber] = useState("");
+  const [playerPosition, setPlayerPosition] = useState("");
+  const [formationSetup, setFormationSetup] = useState("");
+  const [playSetup, setPlaySetup] = useState("");
+  const [playSetupType, setPlaySetupType] = useState<PlayType>("Run");
+
+  const [entry, setEntry] = useState({
+    dd: "1 and 10",
+    formation: "",
+    play: "",
+    yards: "",
+    rusher: "",
+    passer: "",
+    receiver: "",
+    result: "",
+    qtr: "1",
+    ball: "35",
+    hash: "",
+    notes: "",
+  });
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -105,51 +110,47 @@ export default function AnalyticsPage() {
       setLoading(false);
       return;
     }
-    loadEverything(user.id);
+    loadAll(user.id);
   }, [user]);
 
   useEffect(() => {
-    if (games.length > 0 && !selectedGameId) setSelectedGameId(games[0].id);
+    if (games.length && !selectedGameId) setSelectedGameId(games[0].id);
   }, [games, selectedGameId]);
 
   useEffect(() => {
-    if (!team || !selectedGameId) {
-      setChartPlays([]);
-      return;
-    }
-    loadChartPlays(selectedGameId);
-  }, [team, selectedGameId]);
+    if (selectedGameId) loadChart(selectedGameId);
+  }, [selectedGameId]);
 
-  async function loadEverything(userId: string) {
+  async function loadAll(userId: string) {
     setLoading(true);
     setMessage("");
 
     let activeTeam: Team | null = null;
 
-    const teamsRes = await supabase
+    const teamRes = await supabase
       .from("coachboard_analytics_teams")
-      .select("id, user_id, team_name, season")
+      .select("id,user_id,team_name,season")
       .eq("user_id", userId)
       .order("created_at", { ascending: true })
       .limit(1);
 
-    if (teamsRes.error) {
-      setMessage(`Database error: ${teamsRes.error.message}`);
+    if (teamRes.error) {
+      setMessage(teamRes.error.message);
       setLoading(false);
       return;
     }
 
-    if (teamsRes.data && teamsRes.data.length > 0) {
-      activeTeam = teamsRes.data[0] as Team;
+    if (teamRes.data && teamRes.data.length) {
+      activeTeam = teamRes.data[0] as Team;
     } else {
       const created = await supabase
         .from("coachboard_analytics_teams")
         .insert({ user_id: userId, team_name: "My Team", season: new Date().getFullYear() })
-        .select("id, user_id, team_name, season")
+        .select("id,user_id,team_name,season")
         .single();
 
       if (created.error) {
-        setMessage(`Could not create team: ${created.error.message}`);
+        setMessage(created.error.message);
         setLoading(false);
         return;
       }
@@ -161,38 +162,38 @@ export default function AnalyticsPage() {
     setTeamName(activeTeam.team_name);
     setSeason(activeTeam.season);
 
-    const [playersRes, formationsRes, playsRes, gamesRes] = await Promise.all([
-      supabase.from("coachboard_analytics_players").select("id, team_id, first_name, last_name, jersey_number, position, active").eq("team_id", activeTeam.id).order("jersey_number", { ascending: true }),
-      supabase.from("coachboard_analytics_formations").select("id, team_id, name").eq("team_id", activeTeam.id).order("name", { ascending: true }),
-      supabase.from("coachboard_analytics_plays").select("id, team_id, name, play_type").eq("team_id", activeTeam.id).order("name", { ascending: true }),
-      supabase.from("coachboard_analytics_games").select("id, team_id, opponent, week, game_date, home_game").eq("team_id", activeTeam.id).order("week", { ascending: true }),
+    const [pRes, fRes, plRes, gRes] = await Promise.all([
+      supabase.from("coachboard_analytics_players").select("id,team_id,first_name,last_name,jersey_number,position,active").eq("team_id", activeTeam.id).order("jersey_number", { ascending: true }),
+      supabase.from("coachboard_analytics_formations").select("id,team_id,name").eq("team_id", activeTeam.id).order("name", { ascending: true }),
+      supabase.from("coachboard_analytics_plays").select("id,team_id,name,play_type").eq("team_id", activeTeam.id).order("name", { ascending: true }),
+      supabase.from("coachboard_analytics_games").select("id,team_id,opponent,week,game_date,home_game").eq("team_id", activeTeam.id).order("week", { ascending: true }),
     ]);
 
-    if (playersRes.error) setMessage(playersRes.error.message);
-    if (formationsRes.error) setMessage(formationsRes.error.message);
-    if (playsRes.error) setMessage(playsRes.error.message);
-    if (gamesRes.error) setMessage(gamesRes.error.message);
+    if (pRes.error) setMessage(pRes.error.message);
+    if (fRes.error) setMessage(fRes.error.message);
+    if (plRes.error) setMessage(plRes.error.message);
+    if (gRes.error) setMessage(gRes.error.message);
 
-    setPlayers((playersRes.data ?? []) as Player[]);
-    setFormations((formationsRes.data ?? []) as Formation[]);
-    setPlays((playsRes.data ?? []) as Play[]);
-    setGames((gamesRes.data ?? []) as Game[]);
+    setPlayers((pRes.data ?? []) as Player[]);
+    setFormations((fRes.data ?? []) as Formation[]);
+    setPlays((plRes.data ?? []) as Play[]);
+    setGames((gRes.data ?? []) as Game[]);
 
-    if (gamesRes.data && gamesRes.data.length > 0) {
-      const firstGame = gamesRes.data[0] as Game;
+    const firstGame = (gRes.data ?? [])[0] as Game | undefined;
+    if (firstGame) {
       setSelectedGameId(firstGame.id);
-      await loadChartPlays(firstGame.id);
+      await loadChart(firstGame.id);
     }
 
     setLoading(false);
   }
 
-  async function refreshTeamData() {
+  async function refresh() {
     if (!user) return;
-    await loadEverything(user.id);
+    await loadAll(user.id);
   }
 
-  async function loadChartPlays(gameId: string) {
+  async function loadChart(gameId: string) {
     const res = await supabase
       .from("coachboard_analytics_play_chart")
       .select("*")
@@ -201,18 +202,11 @@ export default function AnalyticsPage() {
       .order("created_at", { ascending: true });
 
     if (res.error) {
-      setMessage(`Play chart error: ${res.error.message}`);
+      setMessage(res.error.message);
       return;
     }
 
     setChartPlays((res.data ?? []) as ChartPlay[]);
-  }
-
-  function handleQuickKey(event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      savePlayEntry();
-    }
   }
 
   async function findOrCreateFormation(name: string) {
@@ -220,13 +214,13 @@ export default function AnalyticsPage() {
     const clean = name.trim();
     if (!clean) return null;
 
-    const existing = formations.find((formation) => formation.name.toLowerCase() === clean.toLowerCase());
+    const existing = formations.find((item) => item.name.toLowerCase() === clean.toLowerCase());
     if (existing) return existing.id;
 
     const res = await supabase
       .from("coachboard_analytics_formations")
       .insert({ team_id: team.id, name: clean })
-      .select("id, team_id, name")
+      .select("id,team_id,name")
       .single();
 
     if (res.error) {
@@ -244,13 +238,13 @@ export default function AnalyticsPage() {
     const clean = name.trim();
     if (!clean) return null;
 
-    const existing = plays.find((play) => play.name.toLowerCase() === clean.toLowerCase());
+    const existing = plays.find((item) => item.name.toLowerCase() === clean.toLowerCase());
     if (existing) return existing.id;
 
     const res = await supabase
       .from("coachboard_analytics_plays")
       .insert({ team_id: team.id, name: clean, play_type: type })
-      .select("id, team_id, name, play_type")
+      .select("id,team_id,name,play_type")
       .single();
 
     if (res.error) {
@@ -263,108 +257,113 @@ export default function AnalyticsPage() {
     return created.id;
   }
 
-  function findPlayerId(text: string) {
-    const clean = text.trim().toLowerCase();
+  function findPlayerId(value: string) {
+    const clean = value.trim().toLowerCase();
     if (!clean) return null;
 
-    const numberMatch = clean.match(/\d+/);
-    if (numberMatch) {
-      const jersey = Number(numberMatch[0]);
-      const byNumber = players.find((player) => player.jersey_number === jersey);
-      if (byNumber) return byNumber.id;
+    const num = clean.match(/\d+/);
+    if (num) {
+      const player = players.find((item) => item.jersey_number === Number(num[0]));
+      if (player) return player.id;
     }
 
-    const byName = players.find((player) => {
-      const full = `${player.first_name} ${player.last_name}`.toLowerCase();
-      const label = playerLabel(player).toLowerCase();
+    const player = players.find((item) => {
+      const full = `${item.first_name} ${item.last_name}`.toLowerCase();
+      const label = playerLabel(item).toLowerCase();
       return full.includes(clean) || label.includes(clean);
     });
 
-    return byName?.id ?? null;
+    return player?.id ?? null;
+  }
+
+  async function savePlay() {
+    if (!team || !selectedGameId) {
+      setMessage("Create/select a game first.");
+      return;
+    }
+
+    if (!entry.formation.trim() || !entry.play.trim()) {
+      setMessage("Type formation and play.");
+      return;
+    }
+
+    const yards = Number(entry.yards);
+    if (Number.isNaN(yards) || entry.yards.trim() === "") {
+      setMessage("Type yards.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const formationId = await findOrCreateFormation(entry.formation);
+    const playType = detectType(entry);
+    const playId = await findOrCreatePlay(entry.play, playType);
+
+    if (!formationId || !playId) {
+      setSaving(false);
+      return;
+    }
+
+    const parsedDD = parseDownDistance(entry.dd);
+    const result = entry.result.toUpperCase();
+    const nextNumber = chartPlays.length ? Math.max(...chartPlays.map((row) => row.play_number ?? 0)) + 1 : 1;
+
+    const res = await supabase.from("coachboard_analytics_play_chart").insert({
+      team_id: team.id,
+      game_id: selectedGameId,
+      play_number: nextNumber,
+      quarter: Number(entry.qtr) || 1,
+      down: parsedDD.down,
+      distance: parsedDD.distance,
+      yard_line: Number(entry.ball) || null,
+      hash: entry.hash.trim() || null,
+      formation_id: formationId,
+      play_id: playId,
+      play_type: playType,
+      ball_carrier_id: findPlayerId(entry.rusher),
+      passer_id: findPlayerId(entry.passer),
+      receiver_id: findPlayerId(entry.receiver),
+      yards,
+      touchdown: result.includes("TD"),
+      first_down: result.includes("FD") || yards >= parsedDD.distance,
+      turnover: result.includes("INT") || result.includes("FUM") || result.includes("TO"),
+      penalty: result.includes("PEN"),
+      notes: entry.notes.trim() || null,
+    });
+
+    if (res.error) {
+      setMessage(res.error.message);
+    } else {
+      await loadChart(selectedGameId);
+      setEntry((current) => ({
+        ...current,
+        dd: nextDownDistance(current.dd, yards),
+        play: "",
+        yards: "",
+        rusher: "",
+        passer: "",
+        receiver: "",
+        result: "",
+        notes: "",
+      }));
+    }
+
+    setSaving(false);
   }
 
   async function saveTeam() {
     if (!team) return;
     setSaving(true);
-    setMessage("");
-
-    const res = await supabase
-      .from("coachboard_analytics_teams")
-      .update({ team_name: teamName.trim() || "My Team", season: Number(season) || new Date().getFullYear() })
-      .eq("id", team.id);
-
+    const res = await supabase.from("coachboard_analytics_teams").update({ team_name: teamName.trim() || "My Team", season }).eq("id", team.id);
     if (res.error) setMessage(res.error.message);
-    else {
-      await refreshTeamData();
-      setMessage("Team saved.");
-    }
-
-    setSaving(false);
-  }
-
-  async function addPlayer() {
-    if (!team || !firstName.trim() || !lastName.trim()) return;
-    setSaving(true);
-    setMessage("");
-
-    const res = await supabase.from("coachboard_analytics_players").insert({
-      team_id: team.id,
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      jersey_number: jerseyNumber.trim() ? Number(jerseyNumber) : null,
-      position: position.trim() || null,
-      active: true,
-    });
-
-    if (res.error) setMessage(res.error.message);
-    else {
-      setFirstName("");
-      setLastName("");
-      setJerseyNumber("");
-      setPosition("");
-      await refreshTeamData();
-    }
-
-    setSaving(false);
-  }
-
-  async function addFormation() {
-    if (!team || !formationName.trim()) return;
-    setSaving(true);
-    setMessage("");
-
-    const res = await supabase.from("coachboard_analytics_formations").insert({ team_id: team.id, name: formationName.trim() });
-
-    if (res.error) setMessage(res.error.message);
-    else {
-      setFormationName("");
-      await refreshTeamData();
-    }
-
-    setSaving(false);
-  }
-
-  async function addPlay() {
-    if (!team || !playName.trim()) return;
-    setSaving(true);
-    setMessage("");
-
-    const res = await supabase.from("coachboard_analytics_plays").insert({ team_id: team.id, name: playName.trim(), play_type: playType });
-
-    if (res.error) setMessage(res.error.message);
-    else {
-      setPlayName("");
-      setPlayType("Run");
-      await refreshTeamData();
-    }
-
+    else await refresh();
     setSaving(false);
   }
 
   async function addGame() {
     if (!team || !newOpponent.trim()) return;
     setSaving(true);
-    setMessage("");
 
     const res = await supabase
       .from("coachboard_analytics_games")
@@ -380,121 +379,99 @@ export default function AnalyticsPage() {
 
     if (res.error) setMessage(res.error.message);
     else {
-      setNewOpponent("");
       setNewWeek("");
+      setNewOpponent("");
       setNewGameDate("");
-      await refreshTeamData();
+      await refresh();
       if (res.data?.id) {
         setSelectedGameId(res.data.id as string);
-        setActiveSection("gamecenter");
+        setActiveSection("command");
       }
     }
 
     setSaving(false);
   }
 
-  async function savePlayEntry() {
-    if (!team || !selectedGameId) {
-      setMessage("Create/select a game first.");
-      return;
-    }
-
-    const yardsNumber = Number(yards);
-    if (Number.isNaN(yardsNumber) || yards.trim() === "") {
-      setMessage("Enter yards gained/lost.");
-      return;
-    }
-
+  async function addPlayer() {
+    if (!team || !playerFirst.trim() || !playerLast.trim()) return;
     setSaving(true);
-    setMessage("");
 
-    const formationId = await findOrCreateFormation(formationQuick);
-    const playId = await findOrCreatePlay(playQuick, entryPlayType);
-
-    if (!formationId || !playId) {
-      setSaving(false);
-      setMessage("Type a formation and play.");
-      return;
-    }
-
-    const nextPlayNumber = chartPlays.length === 0 ? 1 : Math.max(...chartPlays.map((play) => play.play_number ?? 0)) + 1;
-
-    const res = await supabase.from("coachboard_analytics_play_chart").insert({
+    const res = await supabase.from("coachboard_analytics_players").insert({
       team_id: team.id,
-      game_id: selectedGameId,
-      play_number: nextPlayNumber,
-      quarter: Number(quarter) || 1,
-      down: Number(down) || 1,
-      distance: Number(distance) || 0,
-      yard_line: Number(yardLine) || null,
-      hash: hash.trim() || null,
-      formation_id: formationId,
-      play_id: playId,
-      play_type: entryPlayType,
-      ball_carrier_id: findPlayerId(ballCarrierQuick),
-      passer_id: findPlayerId(passerQuick),
-      receiver_id: findPlayerId(receiverQuick),
-      yards: yardsNumber,
-      touchdown,
-      first_down: firstDown,
-      turnover,
-      penalty,
-      notes: notes.trim() || null,
+      first_name: playerFirst.trim(),
+      last_name: playerLast.trim(),
+      jersey_number: playerNumber.trim() ? Number(playerNumber) : null,
+      position: playerPosition.trim() || null,
+      active: true,
     });
 
-    if (res.error) {
-      setMessage(res.error.message);
-    } else {
-      await loadChartPlays(selectedGameId);
-      setYards("");
-      setTouchdown(false);
-      setFirstDown(false);
-      setTurnover(false);
-      setPenalty(false);
-      setNotes("");
+    if (res.error) setMessage(res.error.message);
+    else {
+      setPlayerFirst("");
+      setPlayerLast("");
+      setPlayerNumber("");
+      setPlayerPosition("");
+      await refresh();
     }
 
     setSaving(false);
+  }
+
+  async function addFormation() {
+    if (!team || !formationSetup.trim()) return;
+    await findOrCreateFormation(formationSetup);
+    setFormationSetup("");
+  }
+
+  async function addPlay() {
+    if (!team || !playSetup.trim()) return;
+    await findOrCreatePlay(playSetup, playSetupType);
+    setPlaySetup("");
+    setPlaySetupType("Run");
   }
 
   async function deleteRow(table: string, id: string) {
     setSaving(true);
     const res = await supabase.from(table).delete().eq("id", id);
-
     if (res.error) setMessage(res.error.message);
-    else if (table === "coachboard_analytics_play_chart" && selectedGameId) await loadChartPlays(selectedGameId);
-    else await refreshTeamData();
-
+    else if (table === "coachboard_analytics_play_chart" && selectedGameId) await loadChart(selectedGameId);
+    else await refresh();
     setSaving(false);
   }
 
+  function updateEntry(key: keyof typeof entry, value: string) {
+    setEntry((current) => ({ ...current, [key]: value }));
+  }
+
+  function keySave(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      savePlay();
+    }
+  }
+
   const selectedGame = useMemo(() => games.find((game) => game.id === selectedGameId) ?? null, [games, selectedGameId]);
-  const liveStats = useMemo(() => calculateStats(chartPlays), [chartPlays]);
+  const stats = useMemo(() => calculateStats(chartPlays), [chartPlays]);
 
-  const playReport = useMemo(
-    () => makeGroupReport(chartPlays, (row) => row.play_id, (id) => plays.find((play) => play.id === id)?.name ?? "Unknown Play"),
-    [chartPlays, plays],
-  );
-
-  const formationReport = useMemo(
-    () => makeGroupReport(chartPlays, (row) => row.formation_id, (id) => formations.find((formation) => formation.id === id)?.name ?? "Unknown Formation"),
-    [chartPlays, formations],
-  );
-
+  const playReport = useMemo(() => makeReport(chartPlays, (row) => row.play_id, (id) => plays.find((item) => item.id === id)?.name ?? "Unknown"), [chartPlays, plays]);
+  const formationReport = useMemo(() => makeReport(chartPlays, (row) => row.formation_id, (id) => formations.find((item) => item.id === id)?.name ?? "Unknown"), [chartPlays, formations]);
   const formationPlayReport = useMemo(
     () =>
-      makeGroupReport(
+      makeReport(
         chartPlays,
         (row) => `${row.formation_id ?? "none"}|${row.play_id ?? "none"}`,
         (id) => {
           const [formationId, playId] = id.split("|");
-          const formation = formations.find((item) => item.id === formationId)?.name ?? "Unknown Formation";
-          const play = plays.find((item) => item.id === playId)?.name ?? "Unknown Play";
+          const formation = formations.find((item) => item.id === formationId)?.name ?? "Unknown";
+          const play = plays.find((item) => item.id === playId)?.name ?? "Unknown";
           return `${formation} — ${play}`;
         },
       ),
     [chartPlays, formations, plays],
   );
+
+  const topPlayers = useMemo(() => makePlayerReport(chartPlays, players), [chartPlays, players]);
+  const matrix = useMemo(() => buildMatrix(chartPlays, formations, plays), [chartPlays, formations, plays]);
 
   if (loading) {
     return (
@@ -521,8 +498,8 @@ export default function AnalyticsPage() {
       <header style={topBarStyle}>
         <div>
           <div style={eyebrowStyle}>COACHBOARD</div>
-          <h1 style={titleStyle}>Analytics</h1>
-          <p style={subTitleStyle}>Real-time Game Center • Quick Entry • Success Rate • Tendencies</p>
+          <h1 style={titleStyle}>Analytics Command Center</h1>
+          <p style={subTitleStyle}>{selectedGame ? `Week ${selectedGame.week ?? "-"} vs ${selectedGame.opponent}` : "Create a game to start charting."}</p>
         </div>
         <Link href="/" style={backButtonStyle}>Back to CoachBoard</Link>
       </header>
@@ -530,212 +507,145 @@ export default function AnalyticsPage() {
       {message && <div style={messageStyle}>{message}</div>}
 
       <nav style={navStyle}>
-        <NavButton label="Game Center" active={activeSection === "gamecenter"} onClick={() => setActiveSection("gamecenter")} />
+        <NavButton label="Command Center" active={activeSection === "command"} onClick={() => setActiveSection("command")} />
         <NavButton label="Setup" active={activeSection === "setup"} onClick={() => setActiveSection("setup")} />
         <NavButton label="Games" active={activeSection === "games"} onClick={() => setActiveSection("games")} />
         <NavButton label="Reports" active={activeSection === "reports"} onClick={() => setActiveSection("reports")} />
       </nav>
 
-      {activeSection === "gamecenter" && (
-        <section style={gameCenterGridStyle}>
-          <div style={cardStyle}>
-            <div style={sectionHeaderStyle}>
-              <div>
-                <h2 style={sectionTitleStyle}>Quick Game Entry</h2>
-                <p style={mutedStyle}>
-                  {selectedGame ? `Week ${selectedGame.week ?? "-"} vs ${selectedGame.opponent}` : "Create a game to begin charting."}
-                </p>
+      {activeSection === "command" && (
+        <>
+          <section style={scoreboardStyle}>
+            <Stat title="Total Yards" value={stats.yards} />
+            <Stat title="Rush Yards" value={stats.rushYards} />
+            <Stat title="Pass Yards" value={stats.passYards} />
+            <Stat title="Total Plays" value={stats.total} />
+            <Stat title="TDs" value={stats.tds} />
+            <Stat title="Turnovers" value={stats.turnovers} bad={stats.turnovers > 0} />
+            <Stat title="1st Downs" value={stats.firstDowns} />
+            <Stat title="Sacks" value={stats.sacks} />
+            <Stat title="Penalties" value={stats.penalties} />
+            <Stat title="Success" value={`${stats.successRate}%`} />
+            <Stat title="Explosive" value={`${stats.explosiveRate}%`} />
+            <Stat title="Avg" value={stats.averageYards} />
+          </section>
+
+          <section style={commandGridStyle}>
+            <div style={cardStyle}>
+              <div style={sectionHeaderStyle}>
+                <h2 style={sectionTitleStyle}>Fast Play Entry</h2>
+                <select style={{ ...inputStyle, maxWidth: 280 }} value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)}>
+                  <option value="">Select Game</option>
+                  {games.map((game) => <option key={game.id} value={game.id}>Week {game.week ?? "-"} vs {game.opponent}</option>)}
+                </select>
               </div>
 
-              <select style={{ ...inputStyle, maxWidth: 280 }} value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)}>
-                <option value="">Select Game</option>
-                {games.map((game) => (
-                  <option key={game.id} value={game.id}>Week {game.week ?? "-"} vs {game.opponent}</option>
+              <div style={entrySheetStyle}>
+                <SheetInput label="D & Dist" value={entry.dd} onChange={(value) => updateEntry("dd", value)} onKeyDown={keySave} />
+                <SheetInput label="Formation" value={entry.formation} onChange={(value) => updateEntry("formation", value)} onKeyDown={keySave} list="formations" />
+                <SheetInput label="Play" value={entry.play} onChange={(value) => updateEntry("play", value)} onKeyDown={keySave} list="plays" />
+                <SheetInput label="Yardage" value={entry.yards} onChange={(value) => updateEntry("yards", value)} onKeyDown={keySave} />
+                <SheetInput label="Rusher" value={entry.rusher} onChange={(value) => updateEntry("rusher", value)} onKeyDown={keySave} list="players" />
+                <SheetInput label="Passer" value={entry.passer} onChange={(value) => updateEntry("passer", value)} onKeyDown={keySave} list="players" />
+                <SheetInput label="Receiver" value={entry.receiver} onChange={(value) => updateEntry("receiver", value)} onKeyDown={keySave} list="players" />
+                <SheetInput label="Result" value={entry.result} onChange={(value) => updateEntry("result", value)} onKeyDown={keySave} placeholder="TD / INT / FUM" />
+                <SheetInput label="Q" value={entry.qtr} onChange={(value) => updateEntry("qtr", value)} onKeyDown={keySave} />
+                <SheetInput label="Ball" value={entry.ball} onChange={(value) => updateEntry("ball", value)} onKeyDown={keySave} />
+                <SheetInput label="Hash" value={entry.hash} onChange={(value) => updateEntry("hash", value)} onKeyDown={keySave} />
+              </div>
+
+              <datalist id="formations">{formations.map((item) => <option key={item.id} value={item.name} />)}</datalist>
+              <datalist id="plays">{plays.map((item) => <option key={item.id} value={item.name} />)}</datalist>
+              <datalist id="players">{players.map((item) => <option key={item.id} value={playerLabel(item)} />)}</datalist>
+
+              <button style={saveButtonStyle} onClick={savePlay} disabled={saving}>SAVE PLAY / ENTER</button>
+
+              <div style={tableWrapStyle}>
+                <table style={sheetTableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={sheetThStyle}>#</th>
+                      <th style={sheetThStyle}>D & Dist</th>
+                      <th style={sheetThStyle}>Formation</th>
+                      <th style={sheetThStyle}>Play</th>
+                      <th style={sheetThStyle}>Yardage</th>
+                      <th style={sheetThStyle}>Rusher</th>
+                      <th style={sheetThStyle}>Passer</th>
+                      <th style={sheetThStyle}>Receiver</th>
+                      <th style={sheetThStyle}>Result</th>
+                      <th style={sheetThStyle}>Grade</th>
+                      <th style={sheetThStyle}>Delete</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chartPlays.map((row) => {
+                      const grade = classify(row);
+                      return (
+                        <tr key={row.id} style={rowStyleForGrade(grade)}>
+                          <td style={sheetTdStyle}>{row.play_number}</td>
+                          <td style={sheetTdStyle}>{row.down} and {row.distance}</td>
+                          <td style={sheetTdStyle}>{formationNameById(formations, row.formation_id)}</td>
+                          <td style={sheetTdStyle}>{playNameById(plays, row.play_id)}</td>
+                          <td style={sheetTdStyle}>{row.yards}</td>
+                          <td style={sheetTdStyle}>{playerShort(players, row.ball_carrier_id)}</td>
+                          <td style={sheetTdStyle}>{playerShort(players, row.passer_id)}</td>
+                          <td style={sheetTdStyle}>{playerShort(players, row.receiver_id)}</td>
+                          <td style={sheetTdStyle}>{row.touchdown ? "TD" : row.turnover ? "TO" : row.penalty ? "PEN" : ""}</td>
+                          <td style={sheetTdStyle}><span style={{ ...badgeStyle, ...badgeFor(grade) }}>{gradeLabel(grade)}</span></td>
+                          <td style={sheetTdStyle}><button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_play_chart", row.id)}>Delete</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <aside style={sideGridStyle}>
+              <div style={cardStyle}>
+                <h2 style={sectionTitleStyle}>Recommendations</h2>
+                <Rec title="Best Play" row={playReport[0]} />
+                <Rec title="Best Formation" row={formationReport[0]} />
+                <Rec title="Best Formation + Play" row={formationPlayReport[0]} />
+              </div>
+
+              <div style={cardStyle}>
+                <h2 style={sectionTitleStyle}>Individual Stats</h2>
+                {topPlayers.slice(0, 8).map((item) => (
+                  <div key={item.id} style={playerStatRowStyle}>
+                    <strong>{item.label}</strong>
+                    <span>{item.touches} touches • {item.yards} yds • {item.avg.toFixed(1)} avg • {item.tds} TD</span>
+                  </div>
                 ))}
-              </select>
-            </div>
+              </div>
+            </aside>
+          </section>
 
-            <div style={quickEntryGridStyle}>
-              <QuickInput label="Q" value={quarter} onChange={setQuarter} onKeyDown={handleQuickKey} />
-              <QuickInput label="Down" value={down} onChange={setDown} onKeyDown={handleQuickKey} />
-              <QuickInput label="Dist" value={distance} onChange={setDistance} onKeyDown={handleQuickKey} />
-              <QuickInput label="Ball" value={yardLine} onChange={setYardLine} onKeyDown={handleQuickKey} />
-              <QuickInput label="Hash" value={hash} onChange={setHash} onKeyDown={handleQuickKey} placeholder="L/M/R" />
-
-              <QuickInput
-                label="Formation"
-                value={formationQuick}
-                onChange={setFormationQuick}
-                onKeyDown={handleQuickKey}
-                list="formation-options"
-                placeholder="Trips R"
-              />
-
-              <QuickInput
-                label="Play"
-                value={playQuick}
-                onChange={setPlayQuick}
-                onKeyDown={handleQuickKey}
-                list="play-options"
-                placeholder="Inside Zone"
-              />
-
-              <label style={fieldLabelStyle}>
-                <span>Type</span>
-                <select style={inputStyle} value={entryPlayType} onChange={(event) => setEntryPlayType(event.target.value as PlayType)}>
-                  <option value="Run">Run</option>
-                  <option value="Pass">Pass</option>
-                  <option value="RPO">RPO</option>
-                  <option value="Screen">Screen</option>
-                  <option value="Other">Other</option>
-                </select>
-              </label>
-
-              <QuickInput label="Carrier" value={ballCarrierQuick} onChange={setBallCarrierQuick} onKeyDown={handleQuickKey} list="player-options" placeholder="#22" />
-              <QuickInput label="Passer" value={passerQuick} onChange={setPasserQuick} onKeyDown={handleQuickKey} list="player-options" placeholder="#7" />
-              <QuickInput label="Receiver" value={receiverQuick} onChange={setReceiverQuick} onKeyDown={handleQuickKey} list="player-options" placeholder="#11" />
-              <QuickInput label="Yards" value={yards} onChange={setYards} onKeyDown={handleQuickKey} placeholder="8" />
-            </div>
-
-            <datalist id="formation-options">
-              {formations.map((formation) => <option key={formation.id} value={formation.name} />)}
-            </datalist>
-
-            <datalist id="play-options">
-              {plays.map((play) => <option key={play.id} value={play.name} />)}
-            </datalist>
-
-            <datalist id="player-options">
-              {players.map((player) => <option key={player.id} value={playerLabel(player)} />)}
-            </datalist>
-
-            <div style={checkGridStyle}>
-              <Check label="TD" checked={touchdown} onChange={setTouchdown} />
-              <Check label="First Down" checked={firstDown} onChange={setFirstDown} />
-              <Check label="Turnover" checked={turnover} onChange={setTurnover} />
-              <Check label="Penalty" checked={penalty} onChange={setPenalty} />
-            </div>
-
-            <textarea
-              style={{ ...inputStyle, minHeight: 60, marginTop: 14 }}
-              placeholder="Notes"
-              value={notes}
-              onKeyDown={handleQuickKey}
-              onChange={(event) => setNotes(event.target.value)}
-            />
-
-            <button style={saveButtonStyle} onClick={savePlayEntry} disabled={saving}>
-              SAVE PLAY / ENTER
-            </button>
-          </div>
-
-          <aside style={cardStyle}>
-            <h2 style={sectionTitleStyle}>Live Analytics</h2>
-            <div style={metricGridStyle}>
-              <Metric label="Plays" value={`${chartPlays.length}`} />
-              <Metric label="Success" value={`${liveStats.successRate}%`} />
-              <Metric label="Explosive" value={`${liveStats.explosiveRate}%`} />
-              <Metric label="Avg Yards" value={`${liveStats.averageYards}`} />
-            </div>
-
-            <div style={recommendationStyle}>
-              <div style={eyebrowStyle}>BEST CALL</div>
-              <strong>{playReport[0]?.label ?? "-"}</strong>
-              <span>{playReport[0] ? `${playReport[0].successRate}% success • ${playReport[0].average.toFixed(1)} avg • ${playReport[0].calls} calls` : "Start charting to generate recommendations."}</span>
-            </div>
-
-            <div style={recommendationStyle}>
-              <div style={eyebrowStyle}>BEST FORMATION + PLAY</div>
-              <strong>{formationPlayReport[0]?.label ?? "-"}</strong>
-              <span>{formationPlayReport[0] ? `${formationPlayReport[0].successRate}% success • ${formationPlayReport[0].average.toFixed(1)} avg` : "No call data yet."}</span>
-            </div>
-          </aside>
-
-          <div style={{ ...cardStyle, gridColumn: "1 / -1" }}>
-            <h2 style={sectionTitleStyle}>Live Play Feed</h2>
+          <section style={cardStyle}>
+            <h2 style={sectionTitleStyle}>Formation / Play Matrix</h2>
             <div style={tableWrapStyle}>
-              <table style={tableStyle}>
+              <table style={sheetTableStyle}>
                 <thead>
                   <tr>
-                    <th style={thStyle}>#</th>
-                    <th style={thStyle}>Q</th>
-                    <th style={thStyle}>D&D</th>
-                    <th style={thStyle}>Formation</th>
-                    <th style={thStyle}>Play</th>
-                    <th style={thStyle}>Type</th>
-                    <th style={thStyle}>Yards</th>
-                    <th style={thStyle}>Result</th>
-                    <th style={thStyle}>Delete</th>
+                    <th style={sheetThStyle}>Play</th>
+                    {matrix.formations.map((formation) => <th key={formation} style={sheetThStyle}>{formation}</th>)}
                   </tr>
                 </thead>
                 <tbody>
-                  {chartPlays.map((row) => {
-                    const grade = classifyPlay(row);
-                    return (
-                      <tr key={row.id}>
-                        <td style={tdStyle}>{row.play_number}</td>
-                        <td style={tdStyle}>{row.quarter}</td>
-                        <td style={tdStyle}>{row.down} & {row.distance}</td>
-                        <td style={tdStyle}>{formationNameById(formations, row.formation_id)}</td>
-                        <td style={tdStyle}>{playNameById(plays, row.play_id)}</td>
-                        <td style={tdStyle}>{row.play_type}</td>
-                        <td style={tdStyle}>{row.yards}</td>
-                        <td style={tdStyle}><span style={{ ...badgeStyle, ...badgeStyleForGrade(grade) }}>{gradeLabel(grade)}</span></td>
-                        <td style={tdStyle}><button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_play_chart", row.id)}>Delete</button></td>
-                      </tr>
-                    );
-                  })}
+                  {matrix.plays.map((play) => (
+                    <tr key={play}>
+                      <td style={sheetTdStyle}>{play}</td>
+                      {matrix.formations.map((formation) => {
+                        const cell = matrix.cells[`${play}|${formation}`];
+                        return <td key={`${play}-${formation}`} style={sheetTdStyle}>{cell ? `${cell.calls} / ${cell.yards}` : ""}</td>;
+                      })}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        </section>
-      )}
-
-      {activeSection === "setup" && (
-        <section style={setupGridStyle}>
-          <div style={cardStyle}>
-            <h2 style={sectionTitleStyle}>Team</h2>
-            <div style={formTwoStyle}>
-              <Field label="Team Name"><input style={inputStyle} value={teamName} onChange={(event) => setTeamName(event.target.value)} /></Field>
-              <Field label="Season"><input style={inputStyle} type="number" value={season} onChange={(event) => setSeason(Number(event.target.value))} /></Field>
-            </div>
-            <button style={primaryButtonStyle} onClick={saveTeam} disabled={saving}>Save Team</button>
-          </div>
-
-          <div style={cardStyle}>
-            <h2 style={sectionTitleStyle}>Players</h2>
-            <div style={formFourStyle}>
-              <input style={inputStyle} placeholder="First" value={firstName} onChange={(event) => setFirstName(event.target.value)} />
-              <input style={inputStyle} placeholder="Last" value={lastName} onChange={(event) => setLastName(event.target.value)} />
-              <input style={inputStyle} placeholder="Number" value={jerseyNumber} onChange={(event) => setJerseyNumber(event.target.value)} />
-              <input style={inputStyle} placeholder="Position" value={position} onChange={(event) => setPosition(event.target.value)} />
-            </div>
-            <button style={primaryButtonStyle} onClick={addPlayer} disabled={saving}>Add Player</button>
-            <List>{players.map((player) => <Row key={player.id}><span>{playerLabel(player)}</span><button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_players", player.id)}>Delete</button></Row>)}</List>
-          </div>
-
-          <div style={cardStyle}>
-            <h2 style={sectionTitleStyle}>Formations</h2>
-            <div style={inlineFormStyle}>
-              <input style={inputStyle} placeholder="Formation" value={formationName} onChange={(event) => setFormationName(event.target.value)} />
-              <button style={primaryButtonStyleNoMargin} onClick={addFormation} disabled={saving}>Add</button>
-            </div>
-            <List>{formations.map((formation) => <Row key={formation.id}><span>{formation.name}</span><button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_formations", formation.id)}>Delete</button></Row>)}</List>
-          </div>
-
-          <div style={cardStyle}>
-            <h2 style={sectionTitleStyle}>Plays</h2>
-            <div style={formTwoStyle}>
-              <input style={inputStyle} placeholder="Play" value={playName} onChange={(event) => setPlayName(event.target.value)} />
-              <select style={inputStyle} value={playType} onChange={(event) => setPlayType(event.target.value as PlayType)}>
-                <option value="Run">Run</option><option value="Pass">Pass</option><option value="RPO">RPO</option><option value="Screen">Screen</option><option value="Other">Other</option>
-              </select>
-            </div>
-            <button style={primaryButtonStyle} onClick={addPlay} disabled={saving}>Add Play</button>
-            <List>{plays.map((play) => <Row key={play.id}><span>{play.name} <span style={tagStyle}>{play.play_type}</span></span><button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_plays", play.id)}>Delete</button></Row>)}</List>
-          </div>
-        </section>
+          </section>
+        </>
       )}
 
       {activeSection === "games" && (
@@ -747,156 +657,260 @@ export default function AnalyticsPage() {
             <input style={inputStyle} type="date" value={newGameDate} onChange={(event) => setNewGameDate(event.target.value)} />
           </div>
           <button style={primaryButtonStyle} onClick={addGame} disabled={saving}>Add Game</button>
-          <List>{games.map((game) => <Row key={game.id}><span>Week {game.week ?? "-"} vs {game.opponent}{game.game_date ? ` • ${game.game_date}` : ""}</span><div style={{ display: "flex", gap: 8 }}><button style={smallActionButtonStyle} onClick={() => { setSelectedGameId(game.id); setActiveSection("gamecenter"); }}>Open</button><button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_games", game.id)}>Delete</button></div></Row>)}</List>
+          <List>
+            {games.map((game) => (
+              <Row key={game.id}>
+                <span>Week {game.week ?? "-"} vs {game.opponent}{game.game_date ? ` • ${game.game_date}` : ""}</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button style={smallActionButtonStyle} onClick={() => { setSelectedGameId(game.id); setActiveSection("command"); }}>Open</button>
+                  <button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_games", game.id)}>Delete</button>
+                </div>
+              </Row>
+            ))}
+          </List>
+        </section>
+      )}
+
+      {activeSection === "setup" && (
+        <section style={setupGridStyle}>
+          <div style={cardStyle}>
+            <h2 style={sectionTitleStyle}>Team</h2>
+            <div style={formTwoStyle}>
+              <input style={inputStyle} value={teamName} onChange={(event) => setTeamName(event.target.value)} />
+              <input style={inputStyle} type="number" value={season} onChange={(event) => setSeason(Number(event.target.value))} />
+            </div>
+            <button style={primaryButtonStyle} onClick={saveTeam} disabled={saving}>Save Team</button>
+          </div>
+
+          <div style={cardStyle}>
+            <h2 style={sectionTitleStyle}>Players</h2>
+            <div style={formFourStyle}>
+              <input style={inputStyle} placeholder="First" value={playerFirst} onChange={(event) => setPlayerFirst(event.target.value)} />
+              <input style={inputStyle} placeholder="Last" value={playerLast} onChange={(event) => setPlayerLast(event.target.value)} />
+              <input style={inputStyle} placeholder="Number" value={playerNumber} onChange={(event) => setPlayerNumber(event.target.value)} />
+              <input style={inputStyle} placeholder="Position" value={playerPosition} onChange={(event) => setPlayerPosition(event.target.value)} />
+            </div>
+            <button style={primaryButtonStyle} onClick={addPlayer} disabled={saving}>Add Player</button>
+            <List>{players.map((item) => <Row key={item.id}><span>{playerLabel(item)}</span><button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_players", item.id)}>Delete</button></Row>)}</List>
+          </div>
+
+          <div style={cardStyle}>
+            <h2 style={sectionTitleStyle}>Formations</h2>
+            <div style={inlineFormStyle}>
+              <input style={inputStyle} placeholder="Formation" value={formationSetup} onChange={(event) => setFormationSetup(event.target.value)} />
+              <button style={primaryButtonStyleNoMargin} onClick={addFormation} disabled={saving}>Add</button>
+            </div>
+            <List>{formations.map((item) => <Row key={item.id}><span>{item.name}</span><button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_formations", item.id)}>Delete</button></Row>)}</List>
+          </div>
+
+          <div style={cardStyle}>
+            <h2 style={sectionTitleStyle}>Plays</h2>
+            <div style={formTwoStyle}>
+              <input style={inputStyle} placeholder="Play" value={playSetup} onChange={(event) => setPlaySetup(event.target.value)} />
+              <select style={inputStyle} value={playSetupType} onChange={(event) => setPlaySetupType(event.target.value as PlayType)}>
+                <option value="Run">Run</option>
+                <option value="Pass">Pass</option>
+                <option value="RPO">RPO</option>
+                <option value="Screen">Screen</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <button style={primaryButtonStyle} onClick={addPlay} disabled={saving}>Add Play</button>
+            <List>{plays.map((item) => <Row key={item.id}><span>{item.name} <span style={tagStyle}>{item.play_type}</span></span><button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_plays", item.id)}>Delete</button></Row>)}</List>
+          </div>
         </section>
       )}
 
       {activeSection === "reports" && (
         <section style={reportsGridStyle}>
-          <ReportCard title="Best Plays" rows={playReport} />
-          <ReportCard title="Best Formations" rows={formationReport} />
-          <ReportCard title="Best Formation + Play" rows={formationPlayReport} />
+          <Report title="Best Plays" rows={playReport} />
+          <Report title="Best Formations" rows={formationReport} />
+          <Report title="Best Formation + Play" rows={formationPlayReport} />
         </section>
       )}
     </main>
   );
 }
 
-function normalizePlayType(value: string | null | undefined): PlayType {
+function parseDownDistance(value: string) {
+  const nums = value.match(/\d+/g)?.map(Number) ?? [];
+  return { down: nums[0] || 1, distance: nums[1] || 10 };
+}
+
+function nextDownDistance(current: string, yards: number) {
+  const { down, distance } = parseDownDistance(current);
+  if (yards >= distance) return "1 and 10";
+  const nextDown = down + 1;
+  if (nextDown > 4) return "1 and 10";
+  return `${nextDown} and ${Math.max(1, distance - yards)}`;
+}
+
+function detectType(entry: { rusher: string; passer: string; receiver: string; play: string }) {
+  const play = entry.play.toLowerCase();
+  if (entry.passer.trim() || entry.receiver.trim()) return "Pass";
+  if (play.includes("pass") || play.includes("mesh") || play.includes("screen") || play.includes("verts") || play.includes("slant")) return "Pass";
+  return "Run";
+}
+
+function normalizeType(value: string | null | undefined): PlayType {
   if (value === "Run" || value === "Pass" || value === "RPO" || value === "Screen" || value === "Other") return value;
   return "Run";
 }
 
-function classifyPlay(play: Pick<ChartPlay, "play_type" | "yards">): PlayGrade {
-  const yards = play.yards ?? 0;
-  const type = normalizePlayType(play.play_type);
+function classify(row: Pick<ChartPlay, "play_type" | "yards">): Grade {
+  const yards = row.yards ?? 0;
+  const type = normalizeType(row.play_type);
   if (yards <= 0) return "negative";
   if (type === "Run") {
-    if (yards >= RUN_EXPLOSIVE_YARDS) return "explosive";
-    if (yards >= RUN_SUCCESS_YARDS) return "success";
+    if (yards >= RUN_EXPLOSIVE) return "explosive";
+    if (yards >= RUN_SUCCESS) return "success";
     return "normal";
   }
-  if (yards >= PASS_EXPLOSIVE_YARDS) return "explosive";
-  if (yards >= PASS_SUCCESS_YARDS) return "success";
+  if (yards >= PASS_EXPLOSIVE) return "explosive";
+  if (yards >= PASS_SUCCESS) return "success";
   return "normal";
-}
-
-function isSuccessful(play: ChartPlay) {
-  const grade = classifyPlay(play);
-  return grade === "success" || grade === "explosive";
-}
-
-function isExplosive(play: ChartPlay) {
-  return classifyPlay(play) === "explosive";
 }
 
 function calculateStats(rows: ChartPlay[]) {
   const total = rows.length;
-  const successes = rows.filter(isSuccessful).length;
-  const explosives = rows.filter(isExplosive).length;
+  const success = rows.filter((row) => ["success", "explosive"].includes(classify(row))).length;
+  const explosive = rows.filter((row) => classify(row) === "explosive").length;
   const yards = rows.reduce((sum, row) => sum + (row.yards ?? 0), 0);
+  const rushRows = rows.filter((row) => normalizeType(row.play_type) === "Run");
+  const passRows = rows.filter((row) => normalizeType(row.play_type) !== "Run");
+
   return {
     total,
-    successes,
-    explosives,
     yards,
-    successRate: total === 0 ? 0 : Math.round((successes / total) * 100),
-    explosiveRate: total === 0 ? 0 : Math.round((explosives / total) * 100),
-    averageYards: total === 0 ? "0.0" : (yards / total).toFixed(1),
+    rushYards: rushRows.reduce((sum, row) => sum + (row.yards ?? 0), 0),
+    passYards: passRows.reduce((sum, row) => sum + (row.yards ?? 0), 0),
+    tds: rows.filter((row) => row.touchdown).length,
+    turnovers: rows.filter((row) => row.turnover).length,
+    firstDowns: rows.filter((row) => row.first_down).length,
+    sacks: rows.filter((row) => (row.notes ?? "").toLowerCase().includes("sack")).length,
+    penalties: rows.filter((row) => row.penalty).length,
+    successRate: total ? Math.round((success / total) * 100) : 0,
+    explosiveRate: total ? Math.round((explosive / total) * 100) : 0,
+    averageYards: total ? (yards / total).toFixed(1) : "0.0",
   };
 }
 
-function makeGroupReport(rows: ChartPlay[], keyGetter: (row: ChartPlay) => string | null | undefined, labelGetter: (id: string) => string): GroupReportRow[] {
-  const map = new Map<string, ChartPlay[]>();
+function makeReport(rows: ChartPlay[], keyGetter: (row: ChartPlay) => string | null | undefined, labelGetter: (id: string) => string): ReportRow[] {
+  const groups = new Map<string, ChartPlay[]>();
   rows.forEach((row) => {
     const key = keyGetter(row);
     if (!key) return;
-    const current = map.get(key) ?? [];
-    current.push(row);
-    map.set(key, current);
+    groups.set(key, [...(groups.get(key) ?? []), row]);
   });
 
-  return Array.from(map.entries())
-    .map(([id, groupRows]) => {
-      const stats = calculateStats(groupRows);
-      const yards = groupRows.reduce((sum, row) => sum + (row.yards ?? 0), 0);
-      return {
-        id,
-        label: labelGetter(id),
-        calls: groupRows.length,
-        yards,
-        average: groupRows.length === 0 ? 0 : yards / groupRows.length,
-        successes: stats.successes,
-        explosives: stats.explosives,
-        successRate: stats.successRate,
-        explosiveRate: stats.explosiveRate,
-      };
-    })
-    .sort((a, b) => {
-      if (b.successRate !== a.successRate) return b.successRate - a.successRate;
-      if (b.average !== a.average) return b.average - a.average;
-      return b.calls - a.calls;
-    });
+  return Array.from(groups.entries()).map(([id, items]) => {
+    const yards = items.reduce((sum, item) => sum + (item.yards ?? 0), 0);
+    const success = items.filter((item) => ["success", "explosive"].includes(classify(item))).length;
+    const explosive = items.filter((item) => classify(item) === "explosive").length;
+    return {
+      id,
+      label: labelGetter(id),
+      calls: items.length,
+      yards,
+      avg: items.length ? yards / items.length : 0,
+      success,
+      explosive,
+      successRate: items.length ? Math.round((success / items.length) * 100) : 0,
+      explosiveRate: items.length ? Math.round((explosive / items.length) * 100) : 0,
+    };
+  }).sort((a, b) => b.successRate - a.successRate || b.avg - a.avg || b.calls - a.calls);
+}
+
+function makePlayerReport(rows: ChartPlay[], players: Player[]) {
+  return players.map((player) => {
+    const touches = rows.filter((row) => row.ball_carrier_id === player.id || row.receiver_id === player.id);
+    const yards = touches.reduce((sum, row) => sum + (row.yards ?? 0), 0);
+    return {
+      id: player.id,
+      label: playerLabel(player),
+      touches: touches.length,
+      yards,
+      avg: touches.length ? yards / touches.length : 0,
+      tds: touches.filter((row) => row.touchdown).length,
+    };
+  }).filter((item) => item.touches > 0).sort((a, b) => b.yards - a.yards);
+}
+
+function buildMatrix(rows: ChartPlay[], formations: Formation[], plays: Play[]) {
+  const formationNames = Array.from(new Set(rows.map((row) => formationNameById(formations, row.formation_id)).filter(Boolean)));
+  const playNames = Array.from(new Set(rows.map((row) => playNameById(plays, row.play_id)).filter(Boolean)));
+  const cells: Record<string, { calls: number; yards: number }> = {};
+
+  rows.forEach((row) => {
+    const play = playNameById(plays, row.play_id);
+    const formation = formationNameById(formations, row.formation_id);
+    const key = `${play}|${formation}`;
+    cells[key] = cells[key] ?? { calls: 0, yards: 0 };
+    cells[key].calls += 1;
+    cells[key].yards += row.yards ?? 0;
+  });
+
+  return { formations: formationNames, plays: playNames, cells };
 }
 
 function playerLabel(player: Player) {
-  const number = player.jersey_number === null || player.jersey_number === undefined ? "-" : player.jersey_number;
-  return `#${number} ${player.first_name} ${player.last_name}${player.position ? ` • ${player.position}` : ""}`;
+  const num = player.jersey_number ?? "-";
+  return `#${num} ${player.first_name} ${player.last_name}${player.position ? ` (${player.position})` : ""}`;
+}
+
+function playerShort(players: Player[], id: string | null) {
+  const player = players.find((item) => item.id === id);
+  return player ? `${player.first_name[0]}. ${player.last_name} (${player.jersey_number ?? "-"})` : "";
 }
 
 function formationNameById(formations: Formation[], id: string | null) {
-  return formations.find((formation) => formation.id === id)?.name ?? "-";
+  return formations.find((item) => item.id === id)?.name ?? "";
 }
 
 function playNameById(plays: Play[], id: string | null) {
-  return plays.find((play) => play.id === id)?.name ?? "-";
+  return plays.find((item) => item.id === id)?.name ?? "";
 }
 
-function gradeLabel(grade: PlayGrade) {
-  if (grade === "negative") return "NEGATIVE";
-  if (grade === "explosive") return "EXPLOSIVE";
-  if (grade === "success") return "SUCCESS";
-  return "NORMAL";
+function gradeLabel(grade: Grade) {
+  if (grade === "negative") return "NEG";
+  if (grade === "explosive") return "BIG";
+  if (grade === "success") return "OK";
+  return "";
 }
 
-function badgeStyleForGrade(grade: PlayGrade): React.CSSProperties {
-  if (grade === "negative") return { background: "rgba(220,38,38,.18)", color: "#fecaca", borderColor: "rgba(248,113,113,.65)" };
-  if (grade === "explosive") return { background: "rgba(250,204,21,.18)", color: "#facc15", borderColor: "rgba(250,204,21,.75)" };
-  if (grade === "success") return { background: "rgba(34,197,94,.18)", color: "#86efac", borderColor: "rgba(34,197,94,.65)" };
-  return { background: "rgba(255,255,255,.08)", color: "#ffffff", borderColor: "rgba(255,255,255,.18)" };
+function badgeFor(grade: Grade): React.CSSProperties {
+  if (grade === "negative") return { color: "#fecaca", borderColor: "#ef4444", background: "rgba(239,68,68,.18)" };
+  if (grade === "explosive") return { color: "#fde68a", borderColor: "#facc15", background: "rgba(250,204,21,.18)" };
+  if (grade === "success") return { color: "#bbf7d0", borderColor: "#22c55e", background: "rgba(34,197,94,.18)" };
+  return { color: "#e5e7eb", borderColor: "rgba(255,255,255,.2)", background: "rgba(255,255,255,.08)" };
+}
+
+function rowStyleForGrade(grade: Grade): React.CSSProperties {
+  if (grade === "negative") return { background: "rgba(239,68,68,.10)" };
+  if (grade === "explosive") return { background: "rgba(250,204,21,.14)" };
+  if (grade === "success") return { background: "rgba(34,197,94,.10)" };
+  return {};
 }
 
 function NavButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return <button onClick={onClick} style={{ ...navButtonStyle, ...(active ? navButtonActiveStyle : {}) }}>{label}</button>;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label style={fieldLabelStyle}><span>{label}</span>{children}</label>;
+function Stat({ title, value, bad }: { title: string; value: string | number; bad?: boolean }) {
+  return <div style={statStyle}><div style={statTitleStyle}>{title}</div><div style={{ ...statValueStyle, color: bad ? "#ef4444" : "white" }}>{value}</div></div>;
 }
 
-function QuickInput({ label, value, onChange, onKeyDown, placeholder, list }: { label: string; value: string; onChange: (value: string) => void; onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void; placeholder?: string; list?: string }) {
+function SheetInput({ label, value, onChange, onKeyDown, placeholder, list }: { label: string; value: string; onChange: (value: string) => void; onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void; placeholder?: string; list?: string }) {
   return (
-    <label style={fieldLabelStyle}>
+    <label style={sheetInputWrapStyle}>
       <span>{label}</span>
-      <input
-        style={inputStyle}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder={placeholder}
-        list={list}
-        autoComplete="off"
-      />
+      <input style={sheetInputStyle} value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={onKeyDown} placeholder={placeholder} list={list} autoComplete="off" />
     </label>
   );
 }
 
-function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
-  return <label style={checkStyle}><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /><span>{label}</span></label>;
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div style={metricCardStyle}><div style={metricLabelStyle}>{label}</div><div style={metricValueStyle}>{value}</div></div>;
+function Rec({ title, row }: { title: string; row?: ReportRow }) {
+  return <div style={recStyle}><div style={eyebrowStyle}>{title}</div><strong>{row?.label ?? "-"}</strong><span>{row ? `${row.calls} calls • ${row.avg.toFixed(1)} avg • ${row.successRate}% success • ${row.explosiveRate}% big` : "No data yet"}</span></div>;
 }
 
 function List({ children }: { children: React.ReactNode }) {
@@ -907,61 +921,61 @@ function Row({ children }: { children: React.ReactNode }) {
   return <div style={listRowStyle}>{children}</div>;
 }
 
-function ReportCard({ title, rows }: { title: string; rows: GroupReportRow[] }) {
+function Report({ title, rows }: { title: string; rows: ReportRow[] }) {
   return (
     <div style={cardStyle}>
       <h2 style={sectionTitleStyle}>{title}</h2>
       <div style={tableWrapStyle}>
-        <table style={tableStyle}>
-          <thead><tr><th style={thStyle}>Call</th><th style={thStyle}>Calls</th><th style={thStyle}>Avg</th><th style={thStyle}>Success</th><th style={thStyle}>Explosive</th></tr></thead>
-          <tbody>{rows.map((row) => <tr key={row.id}><td style={tdStyle}>{row.label}</td><td style={tdStyle}>{row.calls}</td><td style={tdStyle}>{row.average.toFixed(1)}</td><td style={tdStyle}>{row.successRate}%</td><td style={tdStyle}>{row.explosiveRate}%</td></tr>)}</tbody>
+        <table style={sheetTableStyle}>
+          <thead><tr><th style={sheetThStyle}>Name</th><th style={sheetThStyle}>Calls</th><th style={sheetThStyle}>Yards</th><th style={sheetThStyle}>Avg</th><th style={sheetThStyle}>Success</th><th style={sheetThStyle}>Big</th></tr></thead>
+          <tbody>{rows.map((row) => <tr key={row.id}><td style={sheetTdStyle}>{row.label}</td><td style={sheetTdStyle}>{row.calls}</td><td style={sheetTdStyle}>{row.yards}</td><td style={sheetTdStyle}>{row.avg.toFixed(1)}</td><td style={sheetTdStyle}>{row.successRate}%</td><td style={sheetTdStyle}>{row.explosiveRate}%</td></tr>)}</tbody>
         </table>
       </div>
     </div>
   );
 }
 
-const pageStyle: React.CSSProperties = { minHeight: "100vh", background: "radial-gradient(circle at top left, rgba(220,38,38,.22), transparent 32%), #020617", color: "white", padding: 28, fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" };
-const topBarStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, marginBottom: 22 };
-const eyebrowStyle: React.CSSProperties = { color: "#f87171", fontSize: 13, fontWeight: 950, letterSpacing: ".18em" };
-const titleStyle: React.CSSProperties = { fontSize: 52, lineHeight: 1, margin: "10px 0 8px", fontWeight: 950 };
-const subTitleStyle: React.CSSProperties = { color: "#a8b3cf", fontSize: 18, marginTop: 6 };
+const pageStyle: React.CSSProperties = { minHeight: "100vh", background: "radial-gradient(circle at top left, rgba(220,38,38,.22), transparent 32%), #020617", color: "white", padding: 24, fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" };
+const topBarStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, marginBottom: 18 };
+const eyebrowStyle: React.CSSProperties = { color: "#f87171", fontSize: 11, fontWeight: 950, letterSpacing: ".16em", textTransform: "uppercase" };
+const titleStyle: React.CSSProperties = { fontSize: 44, lineHeight: 1, margin: "8px 0", fontWeight: 950 };
+const subTitleStyle: React.CSSProperties = { color: "#a8b3cf", fontSize: 16, marginTop: 4 };
 const backButtonStyle: React.CSSProperties = { color: "white", textDecoration: "none", background: "linear-gradient(180deg, #1f2937, #020617)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 14, padding: "12px 15px", fontWeight: 900 };
 const messageStyle: React.CSSProperties = { background: "rgba(250,204,21,.12)", color: "#fde68a", border: "1px solid rgba(250,204,21,.35)", borderRadius: 14, padding: 12, marginBottom: 18, fontWeight: 800 };
-const navStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 };
-const navButtonStyle: React.CSSProperties = { border: "1px solid rgba(255,255,255,.14)", borderRadius: 14, padding: "12px 16px", background: "rgba(15,23,42,.86)", color: "white", fontWeight: 950, cursor: "pointer", fontSize: 16 };
+const navStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 18 };
+const navButtonStyle: React.CSSProperties = { border: "1px solid rgba(255,255,255,.14)", borderRadius: 14, padding: "11px 15px", background: "rgba(15,23,42,.86)", color: "white", fontWeight: 950, cursor: "pointer", fontSize: 15 };
 const navButtonActiveStyle: React.CSSProperties = { background: "linear-gradient(180deg, #ef4444, #991b1b)", border: "1px solid rgba(248,113,113,.95)" };
-const cardStyle: React.CSSProperties = { background: "rgba(15, 23, 42, 0.95)", border: "1px solid rgba(255,255,255,.13)", borderRadius: 22, padding: 22, boxShadow: "0 18px 48px rgba(0,0,0,.42)" };
-const gameCenterGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(0, 2.2fr) minmax(320px, .9fr)", gap: 18 };
-const setupGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))", gap: 18 };
-const reportsGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 18 };
-const sectionHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 18 };
-const sectionTitleStyle: React.CSSProperties = { fontSize: 26, margin: 0, fontWeight: 950 };
-const mutedStyle: React.CSSProperties = { color: "#94a3b8", marginTop: 6 };
-const quickEntryGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "70px 90px 90px 100px 100px minmax(150px, 1.2fr) minmax(170px, 1.5fr) 120px minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 1fr) 90px", gap: 10, alignItems: "end" };
-const checkGridStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14 };
-const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "13px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.18)", background: "#ffffff", color: "#020617", outline: "none", fontSize: 16, fontWeight: 700 };
-const primaryButtonStyle: React.CSSProperties = { marginTop: 14, padding: "12px 16px", borderRadius: 13, border: "1px solid rgba(248,113,113,.95)", background: "linear-gradient(180deg, #ef4444, #991b1b)", color: "white", fontWeight: 950, cursor: "pointer" };
-const saveButtonStyle: React.CSSProperties = { ...primaryButtonStyle, width: "100%", fontSize: 18, padding: "16px 18px" };
+const scoreboardStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(12, minmax(95px, 1fr))", gap: 6, marginBottom: 14, overflowX: "auto" };
+const statStyle: React.CSSProperties = { background: "#facc15", color: "black", border: "2px solid #111827", borderRadius: 2, padding: "7px 8px", textAlign: "center", minHeight: 58 };
+const statTitleStyle: React.CSSProperties = { fontSize: 12, fontWeight: 950 };
+const statValueStyle: React.CSSProperties = { fontSize: 22, fontWeight: 950, marginTop: 2 };
+const commandGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(0, 2.2fr) minmax(330px, .8fr)", gap: 14, marginBottom: 14 };
+const sideGridStyle: React.CSSProperties = { display: "grid", gap: 14, alignContent: "start" };
+const cardStyle: React.CSSProperties = { background: "rgba(15, 23, 42, 0.96)", border: "1px solid rgba(255,255,255,.13)", borderRadius: 18, padding: 18, boxShadow: "0 18px 48px rgba(0,0,0,.42)" };
+const sectionHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 12 };
+const sectionTitleStyle: React.CSSProperties = { fontSize: 24, margin: 0, fontWeight: 950 };
+const entrySheetStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "115px 150px 150px 100px 75px 75px 85px 100px 55px 70px 70px", gap: 0, overflowX: "auto", border: "2px solid #111827", background: "#111827" };
+const sheetInputWrapStyle: React.CSSProperties = { display: "grid", gap: 0, color: "black", fontWeight: 950, fontSize: 13, minWidth: 70 };
+const sheetInputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", border: "1px solid #111827", borderRadius: 0, padding: "9px 8px", fontSize: 16, fontWeight: 800, color: "black", background: "white", outline: "none" };
+const saveButtonStyle: React.CSSProperties = { width: "100%", marginTop: 12, padding: "15px 18px", borderRadius: 12, border: "1px solid rgba(248,113,113,.95)", background: "linear-gradient(180deg, #ef4444, #991b1b)", color: "white", fontWeight: 950, cursor: "pointer", fontSize: 18 };
+const tableWrapStyle: React.CSSProperties = { overflowX: "auto", marginTop: 14 };
+const sheetTableStyle: React.CSSProperties = { width: "100%", borderCollapse: "collapse", minWidth: 900, background: "white", color: "black" };
+const sheetThStyle: React.CSSProperties = { padding: "8px 7px", background: "#e5e7eb", border: "2px solid #111827", fontSize: 14, fontWeight: 950, textAlign: "center" };
+const sheetTdStyle: React.CSSProperties = { padding: "7px 7px", border: "2px solid #111827", fontSize: 14, fontWeight: 700, textAlign: "center" };
+const badgeStyle: React.CSSProperties = { display: "inline-flex", border: "1px solid", borderRadius: 999, padding: "3px 7px", fontSize: 11, fontWeight: 950 };
+const recStyle: React.CSSProperties = { display: "grid", gap: 6, padding: 14, borderRadius: 14, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.10)", marginTop: 12 };
+const playerStatRowStyle: React.CSSProperties = { display: "grid", gap: 3, padding: 10, borderBottom: "1px solid rgba(255,255,255,.10)" };
+const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "12px 13px", borderRadius: 12, border: "1px solid rgba(255,255,255,.18)", background: "#ffffff", color: "#020617", outline: "none", fontSize: 15, fontWeight: 700 };
+const setupGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))", gap: 14 };
+const reportsGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 14 };
+const formFourStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 };
+const formThreeStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 };
+const formTwoStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 };
+const inlineFormStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 10, alignItems: "stretch" };
+const primaryButtonStyle: React.CSSProperties = { marginTop: 12, padding: "12px 16px", borderRadius: 13, border: "1px solid rgba(248,113,113,.95)", background: "linear-gradient(180deg, #ef4444, #991b1b)", color: "white", fontWeight: 950, cursor: "pointer" };
 const primaryButtonStyleNoMargin: React.CSSProperties = { padding: "12px 16px", borderRadius: 13, border: "1px solid rgba(248,113,113,.95)", background: "linear-gradient(180deg, #ef4444, #991b1b)", color: "white", fontWeight: 950, cursor: "pointer" };
-const dangerButtonStyle: React.CSSProperties = { padding: "8px 11px", borderRadius: 10, border: "1px solid rgba(248,113,113,.45)", background: "rgba(127,29,29,.45)", color: "#fecaca", fontWeight: 900, cursor: "pointer" };
-const smallActionButtonStyle: React.CSSProperties = { padding: "8px 11px", borderRadius: 10, border: "1px solid rgba(34,197,94,.45)", background: "rgba(22,101,52,.55)", color: "#bbf7d0", fontWeight: 900, cursor: "pointer" };
-const formFourStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12 };
-const formThreeStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12 };
-const formTwoStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 };
-const inlineFormStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 12, alignItems: "stretch" };
-const listStyle: React.CSSProperties = { display: "grid", gap: 10, marginTop: 20 };
-const listRowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "13px 14px", borderRadius: 14, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.09)" };
+const dangerButtonStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 9, border: "1px solid rgba(248,113,113,.45)", background: "rgba(127,29,29,.45)", color: "#fecaca", fontWeight: 900, cursor: "pointer" };
+const smallActionButtonStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 9, border: "1px solid rgba(34,197,94,.45)", background: "rgba(22,101,52,.55)", color: "#bbf7d0", fontWeight: 900, cursor: "pointer" };
+const listStyle: React.CSSProperties = { display: "grid", gap: 10, marginTop: 16 };
+const listRowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 13px", borderRadius: 12, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.09)" };
 const tagStyle: React.CSSProperties = { marginLeft: 8, color: "#fecaca", fontSize: 12, fontWeight: 950, textTransform: "uppercase" };
-const fieldLabelStyle: React.CSSProperties = { display: "grid", gap: 6, color: "#cbd5e1", fontWeight: 900, fontSize: 13 };
-const checkStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.10)", fontWeight: 900 };
-const metricGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginTop: 16 };
-const metricCardStyle: React.CSSProperties = { background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.10)", borderRadius: 16, padding: 14 };
-const metricLabelStyle: React.CSSProperties = { color: "#94a3b8", fontSize: 12, fontWeight: 900, textTransform: "uppercase" };
-const metricValueStyle: React.CSSProperties = { color: "white", fontSize: 32, fontWeight: 950, marginTop: 4 };
-const recommendationStyle: React.CSSProperties = { display: "grid", gap: 8, marginTop: 16, padding: 16, borderRadius: 16, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.10)" };
-const tableWrapStyle: React.CSSProperties = { overflowX: "auto", marginTop: 16 };
-const tableStyle: React.CSSProperties = { width: "100%", borderCollapse: "collapse", minWidth: 760 };
-const thStyle: React.CSSProperties = { textAlign: "left", padding: "10px 8px", color: "#fca5a5", fontSize: 12, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,.12)" };
-const tdStyle: React.CSSProperties = { padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,.08)", color: "#e5e7eb", fontWeight: 700 };
-const badgeStyle: React.CSSProperties = { display: "inline-flex", border: "1px solid", borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 950 };
