@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
@@ -210,7 +211,7 @@ export default function AnalyticsPage() {
           <h1 style={titleStyle}>Analytics</h1>
           <p style={mutedStyle}>Built from your Excel stat system. Logged in as {fullName}.</p>
         </div>
-        <a href="/" style={backButtonStyle}>Back to Whiteboard</a>
+        <Link href="/">Back to CoachBoard</Link>
       </header>
 
       <nav style={navStyle}>
