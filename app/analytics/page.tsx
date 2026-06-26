@@ -96,8 +96,6 @@ export default function AnalyticsPage() {
     receiver: "",
     result: "",
     qtr: "1",
-    ball: "35",
-    hash: "",
     notes: "",
   });
 
@@ -316,8 +314,8 @@ export default function AnalyticsPage() {
       quarter: Number(entry.qtr) || 1,
       down: parsedDD.down,
       distance: parsedDD.distance,
-      yard_line: Number(entry.ball) || null,
-      hash: entry.hash.trim() || null,
+      yard_line: null,
+      hash: null,
       formation_id: formationId,
       play_id: playId,
       play_type: playType,
@@ -498,7 +496,7 @@ export default function AnalyticsPage() {
       <header style={topBarStyle}>
         <div>
           <div style={eyebrowStyle}>COACHBOARD</div>
-          <h1 style={titleStyle}>Analytics</h1>
+          <h1 style={titleStyle}>Analytics Command Center</h1>
           <p style={subTitleStyle}>{selectedGame ? `Week ${selectedGame.week ?? "-"} vs ${selectedGame.opponent}` : "Create a game to start charting."}</p>
         </div>
         <Link href="/" style={backButtonStyle}>Back to CoachBoard</Link>
@@ -507,7 +505,7 @@ export default function AnalyticsPage() {
       {message && <div style={messageStyle}>{message}</div>}
 
       <nav style={navStyle}>
-        <NavButton label="Live Sheet" active={activeSection === "command"} onClick={() => setActiveSection("command")} />
+        <NavButton label="Command Center" active={activeSection === "command"} onClick={() => setActiveSection("command")} />
         <NavButton label="Setup" active={activeSection === "setup"} onClick={() => setActiveSection("setup")} />
         <NavButton label="Games" active={activeSection === "games"} onClick={() => setActiveSection("games")} />
         <NavButton label="Reports" active={activeSection === "reports"} onClick={() => setActiveSection("reports")} />
@@ -515,84 +513,106 @@ export default function AnalyticsPage() {
 
       {activeSection === "command" && (
         <>
-          <section style={scoreboardStyle}>
-            <Stat title="Total Yards" value={stats.yards} />
-            <Stat title="Rush Yards" value={stats.rushYards} />
-            <Stat title="Pass Yards" value={stats.passYards} />
-            <Stat title="Total Plays" value={stats.total} />
-            <Stat title="TDs" value={stats.tds} />
-            <Stat title="Turnovers" value={stats.turnovers} bad={stats.turnovers > 0} />
-            <Stat title="1st Downs" value={stats.firstDowns} />
-            <Stat title="Sacks" value={stats.sacks} />
-            <Stat title="Penalties" value={stats.penalties} />
-            <Stat title="Success" value={`${stats.successRate}%`} />
-            <Stat title="Explosive" value={`${stats.explosiveRate}%`} />
-            <Stat title="Avg" value={stats.averageYards} />
+          <section style={topMetricGridStyle}>
+            <TopMetric label="Total Yards" value={stats.yards} />
+            <TopMetric label="Rush" value={stats.rushYards} />
+            <TopMetric label="Pass" value={stats.passYards} />
+            <TopMetric label="Plays" value={stats.total} />
+            <TopMetric label="TDs" value={stats.tds} />
+            <TopMetric label="Turnovers" value={stats.turnovers} danger={stats.turnovers > 0} />
+            <TopMetric label="1st Downs" value={stats.firstDowns} />
+            <TopMetric label="Success" value={`${stats.successRate}%`} />
+            <TopMetric label="Explosive" value={`${stats.explosiveRate}%`} />
+            <TopMetric label="Average" value={stats.averageYards} />
           </section>
 
-          <section style={commandGridStyle}>
-            <div style={cardStyle}>
-              <div style={sectionHeaderStyle}>
-                <h2 style={sectionTitleStyle}>Play Entry</h2>
-                <select style={{ ...inputStyle, maxWidth: 280 }} value={selectedGameId} onChange={(event) => setSelectedGameId(event.target.value)}>
+          <section style={mainGridStyle}>
+            <div style={panelStyle}>
+              <div style={panelHeaderRowStyle}>
+                <div>
+                  <div style={smallRedStyle}>LIVE CHART</div>
+                  <h2 style={panelTitleStyle}>Play Entry</h2>
+                </div>
+
+                <select
+                  style={gameSelectStyle}
+                  value={selectedGameId}
+                  onChange={(event) => setSelectedGameId(event.target.value)}
+                >
                   <option value="">Select Game</option>
-                  {games.map((game) => <option key={game.id} value={game.id}>Week {game.week ?? "-"} vs {game.opponent}</option>)}
+                  {games.map((game) => (
+                    <option key={game.id} value={game.id}>
+                      Week {game.week ?? "-"} vs {game.opponent}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <div style={entrySheetStyle}>
+              <div style={entryBarStyle}>
                 <SheetInput label="D & Dist" value={entry.dd} onChange={(value) => updateEntry("dd", value)} onKeyDown={keySave} />
                 <SheetInput label="Formation" value={entry.formation} onChange={(value) => updateEntry("formation", value)} onKeyDown={keySave} list="formations" />
                 <SheetInput label="Play" value={entry.play} onChange={(value) => updateEntry("play", value)} onKeyDown={keySave} list="plays" />
-                <SheetInput label="Yardage" value={entry.yards} onChange={(value) => updateEntry("yards", value)} onKeyDown={keySave} />
+                <SheetInput label="Yards" value={entry.yards} onChange={(value) => updateEntry("yards", value)} onKeyDown={keySave} />
                 <SheetInput label="Rusher" value={entry.rusher} onChange={(value) => updateEntry("rusher", value)} onKeyDown={keySave} list="players" />
                 <SheetInput label="Passer" value={entry.passer} onChange={(value) => updateEntry("passer", value)} onKeyDown={keySave} list="players" />
                 <SheetInput label="Receiver" value={entry.receiver} onChange={(value) => updateEntry("receiver", value)} onKeyDown={keySave} list="players" />
                 <SheetInput label="Result" value={entry.result} onChange={(value) => updateEntry("result", value)} onKeyDown={keySave} placeholder="TD / INT / FUM" />
                 <SheetInput label="Q" value={entry.qtr} onChange={(value) => updateEntry("qtr", value)} onKeyDown={keySave} />
-                <SheetInput label="Ball" value={entry.ball} onChange={(value) => updateEntry("ball", value)} onKeyDown={keySave} />
-                <SheetInput label="Hash" value={entry.hash} onChange={(value) => updateEntry("hash", value)} onKeyDown={keySave} />
               </div>
 
               <datalist id="formations">{formations.map((item) => <option key={item.id} value={item.name} />)}</datalist>
               <datalist id="plays">{plays.map((item) => <option key={item.id} value={item.name} />)}</datalist>
               <datalist id="players">{players.map((item) => <option key={item.id} value={playerLabel(item)} />)}</datalist>
 
-              <button style={saveButtonStyle} onClick={savePlay} disabled={saving}>SAVE PLAY</button>
+              <button style={saveButtonStyle} onClick={savePlay} disabled={saving}>
+                {saving ? "SAVING..." : "SAVE PLAY"}
+              </button>
 
               <div style={tableWrapStyle}>
-                <table style={sheetTableStyle}>
+                <table style={modernTableStyle}>
                   <thead>
                     <tr>
-                      <th style={sheetThStyle}>#</th>
-                      <th style={sheetThStyle}>D & Dist</th>
-                      <th style={sheetThStyle}>Formation</th>
-                      <th style={sheetThStyle}>Play</th>
-                      <th style={sheetThStyle}>Yardage</th>
-                      <th style={sheetThStyle}>Rusher</th>
-                      <th style={sheetThStyle}>Passer</th>
-                      <th style={sheetThStyle}>Receiver</th>
-                      <th style={sheetThStyle}>Result</th>
-                      <th style={sheetThStyle}>Grade</th>
-                      <th style={sheetThStyle}>Delete</th>
+                      <th style={modernThStyle}>#</th>
+                      <th style={modernThStyle}>D & Dist</th>
+                      <th style={modernThStyle}>Formation</th>
+                      <th style={modernThStyle}>Play</th>
+                      <th style={modernThStyle}>Yards</th>
+                      <th style={modernThStyle}>Rusher</th>
+                      <th style={modernThStyle}>Passer</th>
+                      <th style={modernThStyle}>Receiver</th>
+                      <th style={modernThStyle}>Result</th>
+                      <th style={modernThStyle}>Grade</th>
+                      <th style={modernThStyle}></th>
                     </tr>
                   </thead>
                   <tbody>
+                    {chartPlays.length === 0 && (
+                      <tr>
+                        <td style={emptyTdStyle} colSpan={11}>
+                          No plays entered yet. Type the first play above and press SAVE PLAY.
+                        </td>
+                      </tr>
+                    )}
+
                     {chartPlays.map((row) => {
                       const grade = classify(row);
                       return (
-                        <tr key={row.id} style={rowStyleForGrade(grade)}>
-                          <td style={sheetTdStyle}>{row.play_number}</td>
-                          <td style={sheetTdStyle}>{row.down} and {row.distance}</td>
-                          <td style={sheetTdStyle}>{formationNameById(formations, row.formation_id)}</td>
-                          <td style={sheetTdStyle}>{playNameById(plays, row.play_id)}</td>
-                          <td style={sheetTdStyle}>{row.yards}</td>
-                          <td style={sheetTdStyle}>{playerShort(players, row.ball_carrier_id)}</td>
-                          <td style={sheetTdStyle}>{playerShort(players, row.passer_id)}</td>
-                          <td style={sheetTdStyle}>{playerShort(players, row.receiver_id)}</td>
-                          <td style={sheetTdStyle}>{row.touchdown ? "TD" : row.turnover ? "TO" : row.penalty ? "PEN" : ""}</td>
-                          <td style={sheetTdStyle}><span style={{ ...badgeStyle, ...badgeFor(grade) }}>{gradeLabel(grade)}</span></td>
-                          <td style={sheetTdStyle}><button style={dangerButtonStyle} onClick={() => deleteRow("coachboard_analytics_play_chart", row.id)}>Delete</button></td>
+                        <tr key={row.id} style={modernRowStyleForGrade(grade)}>
+                          <td style={modernTdStyle}>{row.play_number}</td>
+                          <td style={modernTdStyle}>{row.down} and {row.distance}</td>
+                          <td style={modernTdStyle}>{formationNameById(formations, row.formation_id)}</td>
+                          <td style={modernTdStyle}>{playNameById(plays, row.play_id)}</td>
+                          <td style={modernTdStyle}>{row.yards}</td>
+                          <td style={modernTdStyle}>{playerShort(players, row.ball_carrier_id)}</td>
+                          <td style={modernTdStyle}>{playerShort(players, row.passer_id)}</td>
+                          <td style={modernTdStyle}>{playerShort(players, row.receiver_id)}</td>
+                          <td style={modernTdStyle}>{row.touchdown ? "TD" : row.turnover ? "TO" : row.penalty ? "PEN" : ""}</td>
+                          <td style={modernTdStyle}>
+                            <span style={{ ...pillStyle, ...pillFor(grade) }}>{gradeLabel(grade)}</span>
+                          </td>
+                          <td style={modernTdStyle}>
+                            <button style={miniDeleteButtonStyle} onClick={() => deleteRow("coachboard_analytics_play_chart", row.id)}>×</button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -601,18 +621,19 @@ export default function AnalyticsPage() {
               </div>
             </div>
 
-            <aside style={sideGridStyle}>
-              <div style={cardStyle}>
-                <h2 style={sectionTitleStyle}>Recommendations</h2>
-                <Rec title="Best Play" row={playReport[0]} />
-                <Rec title="Best Formation" row={formationReport[0]} />
-                <Rec title="Best Formation + Play" row={formationPlayReport[0]} />
+            <aside style={rightRailStyle}>
+              <div style={panelStyle}>
+                <div style={smallRedStyle}>CALL IT NOW</div>
+                <Recommendation title="Best Play" row={playReport[0]} />
+                <Recommendation title="Best Formation" row={formationReport[0]} />
+                <Recommendation title="Best Formation + Play" row={formationPlayReport[0]} />
               </div>
 
-              <div style={cardStyle}>
-                <h2 style={sectionTitleStyle}>Individual Stats</h2>
+              <div style={panelStyle}>
+                <div style={smallRedStyle}>INDIVIDUAL STATS</div>
+                {topPlayers.length === 0 && <p style={mutedTextStyle}>Stats will appear after plays are entered.</p>}
                 {topPlayers.slice(0, 8).map((item) => (
-                  <div key={item.id} style={playerStatRowStyle}>
+                  <div key={item.id} style={compactPlayerRowStyle}>
                     <strong>{item.label}</strong>
                     <span>{item.touches} touches • {item.yards} yds • {item.avg.toFixed(1)} avg • {item.tds} TD</span>
                   </div>
@@ -621,23 +642,29 @@ export default function AnalyticsPage() {
             </aside>
           </section>
 
-          <section style={cardStyle}>
-            <h2 style={sectionTitleStyle}>Formation / Play Matrix</h2>
+          <section style={panelStyle}>
+            <div style={panelHeaderRowStyle}>
+              <div>
+                <div style={smallRedStyle}>LIVE MATRIX</div>
+                <h2 style={panelTitleStyle}>Formation / Play Results</h2>
+              </div>
+            </div>
+
             <div style={tableWrapStyle}>
-              <table style={sheetTableStyle}>
+              <table style={modernTableStyle}>
                 <thead>
                   <tr>
-                    <th style={sheetThStyle}>Play</th>
-                    {matrix.formations.map((formation) => <th key={formation} style={sheetThStyle}>{formation}</th>)}
+                    <th style={modernThStyle}>Play</th>
+                    {matrix.formations.map((formation) => <th key={formation} style={modernThStyle}>{formation}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {matrix.plays.map((play) => (
                     <tr key={play}>
-                      <td style={sheetTdStyle}>{play}</td>
+                      <td style={modernTdStyle}>{play}</td>
                       {matrix.formations.map((formation) => {
                         const cell = matrix.cells[`${play}|${formation}`];
-                        return <td key={`${play}-${formation}`} style={sheetTdStyle}>{cell ? `${cell.calls} / ${cell.yards}` : ""}</td>;
+                        return <td key={`${play}-${formation}`} style={modernTdStyle}>{cell ? `${cell.calls} / ${cell.yards}` : ""}</td>;
                       })}
                     </tr>
                   ))}
@@ -885,6 +912,21 @@ function badgeFor(grade: Grade): React.CSSProperties {
   return { color: "#e5e7eb", borderColor: "rgba(255,255,255,.2)", background: "rgba(255,255,255,.08)" };
 }
 
+
+function modernRowStyleForGrade(grade: Grade): React.CSSProperties {
+  if (grade === "negative") return { background: "#fff1f2" };
+  if (grade === "explosive") return { background: "#fef9c3" };
+  if (grade === "success") return { background: "#f0fdf4" };
+  return {};
+}
+
+function pillFor(grade: Grade): React.CSSProperties {
+  if (grade === "negative") return { color: "#991b1b", borderColor: "#fecaca", background: "#fee2e2" };
+  if (grade === "explosive") return { color: "#854d0e", borderColor: "#fde68a", background: "#fef3c7" };
+  if (grade === "success") return { color: "#166534", borderColor: "#bbf7d0", background: "#dcfce7" };
+  return { color: "#475569", borderColor: "#cbd5e1", background: "#f8fafc" };
+}
+
 function rowStyleForGrade(grade: Grade): React.CSSProperties {
   if (grade === "negative") return { background: "rgba(239,68,68,.10)" };
   if (grade === "explosive") return { background: "rgba(250,204,21,.14)" };
@@ -903,9 +945,28 @@ function Stat({ title, value, bad }: { title: string; value: string | number; ba
 function SheetInput({ label, value, onChange, onKeyDown, placeholder, list }: { label: string; value: string; onChange: (value: string) => void; onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void; placeholder?: string; list?: string }) {
   return (
     <label style={sheetInputWrapStyle}>
-      <span style={sheetInputWrapHeaderStyle}>{label}</span>
+      <span>{label}</span>
       <input style={sheetInputStyle} value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={onKeyDown} placeholder={placeholder} list={list} autoComplete="off" />
     </label>
+  );
+}
+
+function TopMetric({ label, value, danger }: { label: string; value: string | number; danger?: boolean }) {
+  return (
+    <div style={topMetricStyle}>
+      <div style={topMetricLabelStyle}>{label}</div>
+      <div style={{ ...topMetricValueStyle, color: danger ? "#ef4444" : "#0f172a" }}>{value}</div>
+    </div>
+  );
+}
+
+function Recommendation({ title, row }: { title: string; row?: ReportRow }) {
+  return (
+    <div style={recommendationCardStyle}>
+      <span>{title}</span>
+      <strong>{row?.label ?? "-"}</strong>
+      <small>{row ? `${row.calls} calls • ${row.avg.toFixed(1)} avg • ${row.successRate}% success` : "No data yet"}</small>
+    </div>
   );
 }
 
@@ -937,11 +998,10 @@ function Report({ title, rows }: { title: string; rows: ReportRow[] }) {
 
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
-  background: "#f3f4f6",
+  background: "#f4f6f8",
   color: "#0f172a",
-  padding: 14,
-  fontFamily:
-    "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  padding: 18,
+  fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 
 const topBarStyle: React.CSSProperties = {
@@ -949,12 +1009,12 @@ const topBarStyle: React.CSSProperties = {
   justifyContent: "space-between",
   alignItems: "center",
   gap: 18,
-  marginBottom: 12,
-  padding: "14px 16px",
-  borderRadius: 18,
+  marginBottom: 14,
+  padding: "16px 18px",
+  borderRadius: 20,
   background: "#ffffff",
-  border: "1px solid #d7dce5",
-  boxShadow: "0 10px 28px rgba(15,23,42,.08)",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 10px 30px rgba(15, 23, 42, .07)",
 };
 
 const eyebrowStyle: React.CSSProperties = {
@@ -966,12 +1026,12 @@ const eyebrowStyle: React.CSSProperties = {
 };
 
 const titleStyle: React.CSSProperties = {
-  fontSize: 36,
+  fontSize: 38,
   lineHeight: 1,
-  margin: "6px 0 4px",
+  margin: "7px 0 4px",
   fontWeight: 950,
   letterSpacing: "-.04em",
-  color: "#111827",
+  color: "#0f172a",
 };
 
 const subTitleStyle: React.CSSProperties = {
@@ -981,10 +1041,10 @@ const subTitleStyle: React.CSSProperties = {
 };
 
 const backButtonStyle: React.CSSProperties = {
-  color: "#111827",
+  color: "#0f172a",
   textDecoration: "none",
   background: "#f8fafc",
-  border: "1px solid #d7dce5",
+  border: "1px solid #e2e8f0",
   borderRadius: 999,
   padding: "10px 14px",
   fontWeight: 900,
@@ -1004,13 +1064,13 @@ const navStyle: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: 6,
-  marginBottom: 12,
+  marginBottom: 14,
   padding: 6,
   width: "fit-content",
   borderRadius: 14,
   background: "#ffffff",
-  border: "1px solid #d7dce5",
-  boxShadow: "0 8px 22px rgba(15,23,42,.06)",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 8px 20px rgba(15,23,42,.05)",
 };
 
 const navButtonStyle: React.CSSProperties = {
@@ -1030,124 +1090,136 @@ const navButtonActiveStyle: React.CSSProperties = {
   border: "1px solid #b91c1c",
 };
 
-const scoreboardStyle: React.CSSProperties = {
+const topMetricGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(12, minmax(92px, 1fr))",
-  gap: 0,
-  marginBottom: 10,
+  gridTemplateColumns: "repeat(10, minmax(115px, 1fr))",
+  gap: 10,
+  marginBottom: 14,
   overflowX: "auto",
-  border: "2px solid #1f2937",
-  background: "#1f2937",
 };
 
-const statStyle: React.CSSProperties = {
-  background: "#fff200",
-  color: "#111827",
-  borderRight: "2px solid #1f2937",
-  padding: "7px 8px",
-  textAlign: "center",
-  minHeight: 58,
+const topMetricStyle: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 16,
+  padding: "12px 13px",
+  boxShadow: "0 8px 22px rgba(15,23,42,.06)",
 };
 
-const statTitleStyle: React.CSSProperties = {
+const topMetricLabelStyle: React.CSSProperties = {
+  color: "#64748b",
   fontSize: 11,
   fontWeight: 950,
-  color: "#111827",
-  whiteSpace: "nowrap",
+  textTransform: "uppercase",
+  letterSpacing: ".08em",
 };
 
-const statValueStyle: React.CSSProperties = {
-  fontSize: 21,
+const topMetricValueStyle: React.CSSProperties = {
+  color: "#0f172a",
+  fontSize: 26,
   fontWeight: 950,
-  marginTop: 2,
-  color: "#111827",
+  marginTop: 4,
+  letterSpacing: "-.03em",
 };
 
-const commandGridStyle: React.CSSProperties = {
+const mainGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1.45fr) minmax(340px, .55fr)",
-  gap: 10,
-  marginBottom: 10,
+  gridTemplateColumns: "minmax(0, 2fr) minmax(330px, .75fr)",
+  gap: 14,
+  marginBottom: 14,
 };
 
-const sideGridStyle: React.CSSProperties = {
+const rightRailStyle: React.CSSProperties = {
   display: "grid",
-  gap: 10,
+  gap: 14,
   alignContent: "start",
 };
 
-const cardStyle: React.CSSProperties = {
+const panelStyle: React.CSSProperties = {
   background: "#ffffff",
-  border: "1px solid #cbd5e1",
-  borderRadius: 14,
-  padding: 12,
-  boxShadow: "0 10px 28px rgba(15,23,42,.08)",
+  border: "1px solid #e2e8f0",
+  borderRadius: 18,
+  padding: 16,
+  boxShadow: "0 10px 30px rgba(15,23,42,.07)",
 };
 
-const sectionHeaderStyle: React.CSSProperties = {
+const panelHeaderRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 12,
+  gap: 14,
   alignItems: "center",
-  marginBottom: 10,
+  marginBottom: 12,
 };
 
-const sectionTitleStyle: React.CSSProperties = {
-  fontSize: 21,
-  margin: 0,
+const smallRedStyle: React.CSSProperties = {
+  color: "#dc2626",
+  fontSize: 11,
   fontWeight: 950,
-  letterSpacing: "-.025em",
-  color: "#111827",
+  letterSpacing: ".14em",
+  textTransform: "uppercase",
 };
 
-const entrySheetStyle: React.CSSProperties = {
+const panelTitleStyle: React.CSSProperties = {
+  fontSize: 24,
+  margin: "4px 0 0",
+  fontWeight: 950,
+  letterSpacing: "-.035em",
+  color: "#0f172a",
+};
+
+const gameSelectStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 280,
+  boxSizing: "border-box",
+  padding: "10px 11px",
+  borderRadius: 12,
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  color: "#0f172a",
+  outline: "none",
+  fontSize: 14,
+  fontWeight: 800,
+};
+
+const entryBarStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns:
-    "110px 145px 150px 90px 78px 78px 88px 96px 54px 68px 68px",
-  gap: 0,
+  gridTemplateColumns: "105px 150px 160px 85px 90px 90px 105px 120px 60px",
+  gap: 8,
   overflowX: "auto",
-  border: "2px solid #111827",
-  background: "#111827",
+  padding: 10,
+  borderRadius: 16,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
 };
 
 const sheetInputWrapStyle: React.CSSProperties = {
   display: "grid",
-  gap: 0,
-  color: "#111827",
+  gap: 5,
+  color: "#475569",
   fontWeight: 950,
-  fontSize: 12,
-  minWidth: 60,
-};
-
-const sheetInputWrapHeaderStyle: React.CSSProperties = {
-  background: "#e5e7eb",
-  color: "#111827",
-  borderRight: "2px solid #111827",
-  borderBottom: "2px solid #111827",
-  padding: "6px 6px",
-  textAlign: "center",
-  fontWeight: 950,
+  fontSize: 11,
+  textTransform: "uppercase",
+  letterSpacing: ".06em",
 };
 
 const sheetInputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  border: "0",
-  borderRight: "2px solid #111827",
-  borderRadius: 0,
-  padding: "8px 7px",
+  border: "1px solid #cbd5e1",
+  borderRadius: 11,
+  padding: "10px 9px",
   fontSize: 15,
   fontWeight: 800,
-  color: "#111827",
+  color: "#0f172a",
   background: "#ffffff",
-  outline: "2px solid transparent",
+  outline: "none",
 };
 
 const saveButtonStyle: React.CSSProperties = {
   width: "100%",
   marginTop: 10,
-  padding: "13px 16px",
-  borderRadius: 12,
+  padding: "14px 16px",
+  borderRadius: 14,
   border: "1px solid #991b1b",
   background: "linear-gradient(180deg, #ef4444, #b91c1c)",
   color: "white",
@@ -1158,74 +1230,99 @@ const saveButtonStyle: React.CSSProperties = {
 
 const tableWrapStyle: React.CSSProperties = {
   overflowX: "auto",
-  marginTop: 10,
-  border: "2px solid #111827",
-  background: "#111827",
+  marginTop: 12,
+  borderRadius: 14,
+  border: "1px solid #e2e8f0",
 };
 
-const sheetTableStyle: React.CSSProperties = {
+const modernTableStyle: React.CSSProperties = {
   width: "100%",
-  borderCollapse: "collapse",
+  borderCollapse: "separate",
+  borderSpacing: 0,
   minWidth: 900,
   background: "#ffffff",
-  color: "#111827",
 };
 
-const sheetThStyle: React.CSSProperties = {
-  padding: "7px 6px",
-  background: "#e5e7eb",
-  border: "2px solid #111827",
-  fontSize: 12,
+const modernThStyle: React.CSSProperties = {
+  padding: "10px 9px",
+  background: "#f8fafc",
+  borderBottom: "1px solid #e2e8f0",
+  color: "#475569",
+  fontSize: 11,
   fontWeight: 950,
-  color: "#111827",
-  textAlign: "center",
+  textAlign: "left",
+  textTransform: "uppercase",
+  letterSpacing: ".07em",
   whiteSpace: "nowrap",
 };
 
-const sheetTdStyle: React.CSSProperties = {
-  padding: "6px 6px",
-  border: "2px solid #111827",
-  fontSize: 13,
+const modernTdStyle: React.CSSProperties = {
+  padding: "9px 9px",
+  borderBottom: "1px solid #edf2f7",
+  color: "#0f172a",
+  fontSize: 14,
   fontWeight: 700,
-  textAlign: "center",
-  color: "#111827",
+  textAlign: "left",
 };
 
-const badgeStyle: React.CSSProperties = {
+const emptyTdStyle: React.CSSProperties = {
+  padding: 24,
+  color: "#64748b",
+  textAlign: "center",
+  fontWeight: 800,
+};
+
+const pillStyle: React.CSSProperties = {
   display: "inline-flex",
   border: "1px solid",
   borderRadius: 999,
-  padding: "3px 7px",
+  padding: "3px 8px",
   fontSize: 10,
   fontWeight: 950,
 };
 
-const recStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 5,
-  padding: 10,
-  borderRadius: 10,
-  background: "#f8fafc",
-  border: "1px solid #d7dce5",
-  marginTop: 10,
+const miniDeleteButtonStyle: React.CSSProperties = {
+  width: 26,
+  height: 26,
+  borderRadius: 999,
+  border: "1px solid #fecaca",
+  background: "#fee2e2",
+  color: "#991b1b",
+  fontWeight: 950,
+  cursor: "pointer",
 };
 
-const playerStatRowStyle: React.CSSProperties = {
+const recommendationCardStyle: React.CSSProperties = {
   display: "grid",
-  gap: 2,
-  padding: "8px 0",
-  borderBottom: "1px solid #e5e7eb",
-  color: "#111827",
+  gap: 4,
+  padding: 12,
+  marginTop: 10,
+  borderRadius: 14,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+};
+
+const mutedTextStyle: React.CSSProperties = {
+  color: "#64748b",
+  fontWeight: 800,
+};
+
+const compactPlayerRowStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 3,
+  padding: "9px 0",
+  borderBottom: "1px solid #e2e8f0",
+  color: "#0f172a",
 };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   padding: "10px 11px",
-  borderRadius: 10,
+  borderRadius: 12,
   border: "1px solid #cbd5e1",
   background: "#ffffff",
-  color: "#111827",
+  color: "#0f172a",
   outline: "none",
   fontSize: 14,
   fontWeight: 750,
@@ -1234,13 +1331,13 @@ const inputStyle: React.CSSProperties = {
 const setupGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))",
-  gap: 10,
+  gap: 12,
 };
 
 const reportsGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-  gap: 10,
+  gap: 12,
 };
 
 const formFourStyle: React.CSSProperties = {
@@ -1271,7 +1368,7 @@ const inlineFormStyle: React.CSSProperties = {
 const primaryButtonStyle: React.CSSProperties = {
   marginTop: 10,
   padding: "10px 14px",
-  borderRadius: 10,
+  borderRadius: 12,
   border: "1px solid #991b1b",
   background: "linear-gradient(180deg, #ef4444, #b91c1c)",
   color: "white",
@@ -1281,7 +1378,7 @@ const primaryButtonStyle: React.CSSProperties = {
 
 const primaryButtonStyleNoMargin: React.CSSProperties = {
   padding: "10px 14px",
-  borderRadius: 10,
+  borderRadius: 12,
   border: "1px solid #991b1b",
   background: "linear-gradient(180deg, #ef4444, #b91c1c)",
   color: "white",
@@ -1291,7 +1388,7 @@ const primaryButtonStyleNoMargin: React.CSSProperties = {
 
 const dangerButtonStyle: React.CSSProperties = {
   padding: "6px 9px",
-  borderRadius: 8,
+  borderRadius: 9,
   border: "1px solid #fecaca",
   background: "#fee2e2",
   color: "#991b1b",
@@ -1301,7 +1398,7 @@ const dangerButtonStyle: React.CSSProperties = {
 
 const smallActionButtonStyle: React.CSSProperties = {
   padding: "6px 9px",
-  borderRadius: 8,
+  borderRadius: 9,
   border: "1px solid #bbf7d0",
   background: "#dcfce7",
   color: "#166534",
@@ -1321,10 +1418,10 @@ const listRowStyle: React.CSSProperties = {
   alignItems: "center",
   gap: 10,
   padding: "10px 11px",
-  borderRadius: 10,
+  borderRadius: 12,
   background: "#f8fafc",
-  border: "1px solid #d7dce5",
-  color: "#111827",
+  border: "1px solid #e2e8f0",
+  color: "#0f172a",
 };
 
 const tagStyle: React.CSSProperties = {
