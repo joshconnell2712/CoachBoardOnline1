@@ -7581,6 +7581,20 @@ function CoachBoardWebApp() {
                 border: "none",
                 cursor: "pointer",
               }}
+              <button
+  style={{
+    ...buttonBase,
+    width: "100%",
+    background: "#090b10",
+    color: "white",
+    padding: "8px",
+  }}
+  onClick={() => {
+    window.location.href = "/analytics";
+  }}
+>
+  Analytics
+</button>
             >
               {teamCode ? `Gameday Room: ${teamCode}` : "Gameday Room"}
             </button>
