@@ -1090,6 +1090,32 @@ const navButtonActiveStyle: React.CSSProperties = {
   border: "1px solid #b91c1c",
 };
 
+const statStyle: React.CSSProperties = {
+  background: "#ffffff",
+  color: "#0f172a",
+  border: "1px solid #e2e8f0",
+  borderRadius: 16,
+  padding: "12px 13px",
+  minHeight: 66,
+  boxShadow: "0 8px 22px rgba(15,23,42,.06)",
+};
+
+const statTitleStyle: React.CSSProperties = {
+  color: "#64748b",
+  fontSize: 11,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: ".08em",
+};
+
+const statValueStyle: React.CSSProperties = {
+  color: "#0f172a",
+  fontSize: 26,
+  fontWeight: 950,
+  marginTop: 4,
+  letterSpacing: "-.03em",
+};
+
 const topMetricGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(10, minmax(115px, 1fr))",
