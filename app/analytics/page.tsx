@@ -1334,6 +1334,16 @@ const miniDeleteButtonStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const recStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 4,
+  padding: 12,
+  marginTop: 10,
+  borderRadius: 14,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+};
+
 const recommendationCardStyle: React.CSSProperties = {
   display: "grid",
   gap: 4,
