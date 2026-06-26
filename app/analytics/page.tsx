@@ -938,10 +938,6 @@ function NavButton({ label, active, onClick }: { label: string; active: boolean;
   return <button onClick={onClick} style={{ ...navButtonStyle, ...(active ? navButtonActiveStyle : {}) }}>{label}</button>;
 }
 
-function Stat({ title, value, bad }: { title: string; value: string | number; bad?: boolean }) {
-  return <div style={statStyle}><div style={statTitleStyle}>{title}</div><div style={{ ...statValueStyle, color: bad ? "#ef4444" : "white" }}>{value}</div></div>;
-}
-
 function SheetInput({ label, value, onChange, onKeyDown, placeholder, list }: { label: string; value: string; onChange: (value: string) => void; onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void; placeholder?: string; list?: string }) {
   return (
     <label style={sheetInputWrapStyle}>
@@ -968,10 +964,6 @@ function Recommendation({ title, row }: { title: string; row?: ReportRow }) {
       <small>{row ? `${row.calls} calls • ${row.avg.toFixed(1)} avg • ${row.successRate}% success` : "No data yet"}</small>
     </div>
   );
-}
-
-function Rec({ title, row }: { title: string; row?: ReportRow }) {
-  return <div style={recStyle}><div style={eyebrowStyle}>{title}</div><strong>{row?.label ?? "-"}</strong><span>{row ? `${row.calls} calls • ${row.avg.toFixed(1)} avg • ${row.successRate}% success • ${row.explosiveRate}% big` : "No data yet"}</span></div>;
 }
 
 function List({ children }: { children: React.ReactNode }) {
