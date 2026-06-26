@@ -7568,20 +7568,7 @@ function CoachBoardWebApp() {
           >
             Game Plan
           </button>
-          <div style={{ marginTop: 14 }}>
-            <button
-              onClick={() => setShowGamedayRoom(true)}
-              style={{
-                width: "100%",
-                padding: 10,
-                borderRadius: 10,
-                fontWeight: 900,
-                background: teamCode ? "#16a34a" : "#dc2626",
-                color: "white",
-                border: "none",
-                cursor: "pointer",
-              }}
-              <button
+          <button
   style={{
     ...buttonBase,
     width: "100%",
@@ -7595,6 +7582,19 @@ function CoachBoardWebApp() {
 >
   Analytics
 </button>
+          <div style={{ marginTop: 14 }}>
+            <button
+              onClick={() => setShowGamedayRoom(true)}
+              style={{
+                width: "100%",
+                padding: 10,
+                borderRadius: 10,
+                fontWeight: 900,
+                background: teamCode ? "#16a34a" : "#dc2626",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+              }}
             >
               {teamCode ? `Gameday Room: ${teamCode}` : "Gameday Room"}
             </button>
