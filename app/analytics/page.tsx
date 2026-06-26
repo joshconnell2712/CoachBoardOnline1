@@ -1143,6 +1143,8 @@ const panelStyle: React.CSSProperties = {
   boxShadow: "0 10px 30px rgba(15,23,42,.07)",
 };
 
+const cardStyle: React.CSSProperties = panelStyle;
+
 const panelHeaderRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
@@ -1243,6 +1245,8 @@ const modernTableStyle: React.CSSProperties = {
   background: "#ffffff",
 };
 
+const sheetTableStyle: React.CSSProperties = modernTableStyle;
+
 const modernThStyle: React.CSSProperties = {
   padding: "10px 9px",
   background: "#f8fafc",
@@ -1256,6 +1260,8 @@ const modernThStyle: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+const sheetThStyle: React.CSSProperties = modernThStyle;
+
 const modernTdStyle: React.CSSProperties = {
   padding: "9px 9px",
   borderBottom: "1px solid #edf2f7",
@@ -1264,6 +1270,8 @@ const modernTdStyle: React.CSSProperties = {
   fontWeight: 700,
   textAlign: "left",
 };
+
+const sheetTdStyle: React.CSSProperties = modernTdStyle;
 
 const emptyTdStyle: React.CSSProperties = {
   padding: 24,
