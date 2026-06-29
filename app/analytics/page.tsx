@@ -275,41 +275,76 @@ export default function AnalyticsPage() {
   }
 
   async function savePlay() {
-    if (!team || !selectedGameId) {
-      setMessage("Create/select a game first.");
+    if (!team) {
+      setMessage("Team is not loaded yet.");
       return;
     }
 
-    if (!entry.formation.trim() || !entry.play.trim()) {
-      setMessage("Type formation and play.");
-      return;
-    }
+    const cleanFormation = entry.formation.trim() || "Base";
+    const cleanPlay = entry.play.trim() || "Unknown Play";
+    const yardsNumber = Number(entry.yards);
 
-    const yards = Number(entry.yards);
-    if (Number.isNaN(yards) || entry.yards.trim() === "") {
-      setMessage("Type yards.");
+    if (Number.isNaN(yardsNumber) || entry.yards.trim() === "") {
+      setMessage("Type yards before saving.");
       return;
     }
 
     setSaving(true);
-    setMessage("");
+    setMessage("Saving play...");
 
-    const formationId = await findOrCreateFormation(entry.formation);
-    const playType = detectType(entry);
-    const playId = await findOrCreatePlay(entry.play, playType);
+    let gameId = selectedGameId;
+
+    if (!gameId) {
+      const createdGame = await supabase
+        .from("coachboard_analytics_games")
+        .insert({
+          team_id: team.id,
+          opponent: "Live Game",
+          week: games.length + 1,
+          game_date: null,
+          home_game: true,
+        })
+        .select("id,team_id,opponent,week,game_date,home_game")
+        .single();
+
+      if (createdGame.error) {
+        setMessage(`Game save error: ${createdGame.error.message}`);
+        setSaving(false);
+        return;
+      }
+
+      const newGame = createdGame.data as Game;
+      gameId = newGame.id;
+      setSelectedGameId(newGame.id);
+      setGames((current) => [...current, newGame]);
+    }
+
+    const formationId = await findOrCreateFormation(cleanFormation);
+    const detectedPlayType = detectType({
+      ...entry,
+      formation: cleanFormation,
+      play: cleanPlay,
+    });
+    const playId = await findOrCreatePlay(cleanPlay, detectedPlayType);
 
     if (!formationId || !playId) {
+      setMessage("Could not create/find formation or play.");
       setSaving(false);
       return;
     }
 
+    const currentRows = gameId === selectedGameId ? chartPlays : [];
+    const nextNumber =
+      currentRows.length === 0
+        ? 1
+        : Math.max(...currentRows.map((row) => row.play_number ?? 0)) + 1;
+
     const parsedDD = parseDownDistance(entry.dd);
     const result = entry.result.toUpperCase();
-    const nextNumber = chartPlays.length ? Math.max(...chartPlays.map((row) => row.play_number ?? 0)) + 1 : 1;
 
-    const res = await supabase.from("coachboard_analytics_play_chart").insert({
+    const insertPayload = {
       team_id: team.id,
-      game_id: selectedGameId,
+      game_id: gameId,
       play_number: nextNumber,
       quarter: Number(entry.qtr) || 1,
       down: parsedDD.down,
@@ -318,35 +353,50 @@ export default function AnalyticsPage() {
       hash: null,
       formation_id: formationId,
       play_id: playId,
-      play_type: playType,
+      play_type: detectedPlayType,
       ball_carrier_id: findPlayerId(entry.rusher),
       passer_id: findPlayerId(entry.passer),
       receiver_id: findPlayerId(entry.receiver),
-      yards,
+      yards: yardsNumber,
       touchdown: result.includes("TD"),
-      first_down: result.includes("FD") || yards >= parsedDD.distance,
+      first_down: result.includes("FD") || yardsNumber >= parsedDD.distance,
       turnover: result.includes("INT") || result.includes("FUM") || result.includes("TO"),
       penalty: result.includes("PEN"),
       notes: entry.notes.trim() || null,
-    });
+    };
+
+    const res = await supabase
+      .from("coachboard_analytics_play_chart")
+      .insert(insertPayload)
+      .select("*")
+      .single();
 
     if (res.error) {
-      setMessage(res.error.message);
-    } else {
-      await loadChart(selectedGameId);
-      setEntry((current) => ({
-        ...current,
-        dd: nextDownDistance(current.dd, yards),
-        play: "",
-        yards: "",
-        rusher: "",
-        passer: "",
-        receiver: "",
-        result: "",
-        notes: "",
-      }));
+      setMessage(`Play save error: ${res.error.message}`);
+      setSaving(false);
+      return;
     }
 
+    const savedRow = res.data as ChartPlay;
+
+    setChartPlays((current) =>
+      [...current, savedRow].sort((a, b) => (a.play_number ?? 0) - (b.play_number ?? 0)),
+    );
+
+    setEntry((current) => ({
+      ...current,
+      formation: cleanFormation,
+      dd: nextDownDistance(current.dd, yardsNumber),
+      play: "",
+      yards: "",
+      rusher: "",
+      passer: "",
+      receiver: "",
+      result: "",
+      notes: "",
+    }));
+
+    setMessage(`Saved play #${savedRow.play_number ?? nextNumber}.`);
     setSaving(false);
   }
 
