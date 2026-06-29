@@ -321,8 +321,9 @@ export default function AnalyticsPage() {
 
     const formationId = await findOrCreateFormation(cleanFormation);
     const detectedPlayType = detectType({
-      ...entry,
-      formation: cleanFormation,
+      rusher: entry.rusher,
+      passer: entry.passer,
+      receiver: entry.receiver,
       play: cleanPlay,
     });
     const playId = await findOrCreatePlay(cleanPlay, detectedPlayType);
