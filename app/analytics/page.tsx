@@ -977,6 +977,7 @@ export default function AnalyticsPage() {
 
       {activeSection === "reports" && (
         <section style={reportsGridStyle}>
+          <FormationPlaySuccessReport rows={formationPlayReport} />
           <Report title="Best Plays" rows={playReport} />
           <Report title="Best Formations" rows={formationReport} />
           <Report title="Best Formation + Play" rows={formationPlayReport} />
@@ -1169,6 +1170,22 @@ function pillFor(grade: Grade): React.CSSProperties {
   return { color: "#475569", borderColor: "#cbd5e1", background: "#f8fafc" };
 }
 
+function successGradePill(grade: "great" | "good" | "okay" | "bad"): React.CSSProperties {
+  if (grade === "great") {
+    return { color: "#166534", borderColor: "#86efac", background: "#dcfce7" };
+  }
+
+  if (grade === "good") {
+    return { color: "#1d4ed8", borderColor: "#bfdbfe", background: "#dbeafe" };
+  }
+
+  if (grade === "okay") {
+    return { color: "#854d0e", borderColor: "#fde68a", background: "#fef3c7" };
+  }
+
+  return { color: "#991b1b", borderColor: "#fecaca", background: "#fee2e2" };
+}
+
 function NavButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{ ...navButtonStyle, ...(active ? navButtonActiveStyle : {}) }}>
@@ -1239,6 +1256,85 @@ function List({ children }: { children: React.ReactNode }) {
 
 function Row({ children }: { children: React.ReactNode }) {
   return <div style={listRowStyle}>{children}</div>;
+}
+
+function FormationPlaySuccessReport({ rows }: { rows: ReportRow[] }) {
+  return (
+    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+      <div style={smallRedStyle}>SUCCESS RATE</div>
+      <h2 style={panelTitleStyle}>Play Success by Formation</h2>
+
+      <p style={reportDescriptionStyle}>
+        This shows every formation/play combination you have called, ranked by success rate.
+        Run success is 4+ yards. Pass success is 12+ yards. Zero or negative yards counts as negative.
+      </p>
+
+      <div style={tableWrapStyle}>
+        <table style={modernTableStyle}>
+          <thead>
+            <tr>
+              <th style={modernThStyle}>Formation + Play</th>
+              <th style={modernThStyle}>Calls</th>
+              <th style={modernThStyle}>Success Rate</th>
+              <th style={modernThStyle}>Big Play Rate</th>
+              <th style={modernThStyle}>Total Yards</th>
+              <th style={modernThStyle}>Avg</th>
+              <th style={modernThStyle}>Grade</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td style={emptyTdStyle} colSpan={7}>
+                  Chart plays first. This report will build automatically.
+                </td>
+              </tr>
+            )}
+
+            {rows.map((row) => {
+              const grade =
+                row.successRate >= 70
+                  ? "great"
+                  : row.successRate >= 50
+                    ? "good"
+                    : row.successRate >= 35
+                      ? "okay"
+                      : "bad";
+
+              return (
+                <tr key={row.id}>
+                  <td style={modernTdStyle}>{row.label}</td>
+                  <td style={modernTdStyle}>{row.calls}</td>
+                  <td style={modernTdStyle}>
+                    <div style={rateCellStyle}>
+                      <strong>{row.successRate}%</strong>
+                      <div style={barTrackStyle}>
+                        <div
+                          style={{
+                            ...barFillStyle,
+                            width: `${Math.min(100, Math.max(0, row.successRate))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </td>
+                  <td style={modernTdStyle}>{row.explosiveRate}%</td>
+                  <td style={modernTdStyle}>{row.yards}</td>
+                  <td style={modernTdStyle}>{row.avg.toFixed(1)}</td>
+                  <td style={modernTdStyle}>
+                    <span style={{ ...pillStyle, ...successGradePill(grade) }}>
+                      {grade.toUpperCase()}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 function Report({ title, rows }: { title: string; rows: ReportRow[] }) {
@@ -1580,6 +1676,33 @@ const miniDeleteButtonStyle: React.CSSProperties = {
   color: "#991b1b",
   fontWeight: 950,
   cursor: "pointer",
+};
+
+const reportDescriptionStyle: React.CSSProperties = {
+  color: "#64748b",
+  fontSize: 14,
+  fontWeight: 700,
+  margin: "8px 0 0",
+};
+
+const rateCellStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "50px minmax(90px, 1fr)",
+  alignItems: "center",
+  gap: 10,
+};
+
+const barTrackStyle: React.CSSProperties = {
+  height: 9,
+  borderRadius: 999,
+  background: "#e5e7eb",
+  overflow: "hidden",
+};
+
+const barFillStyle: React.CSSProperties = {
+  height: "100%",
+  borderRadius: 999,
+  background: "linear-gradient(90deg, #ef4444, #facc15, #22c55e)",
 };
 
 const recommendationCardStyle: React.CSSProperties = {
