@@ -147,13 +147,22 @@ export default function AnalyticsPage() {
 
       const saved = JSON.parse(raw) as SavedState;
 
-      setPlayers(saved.players ?? []);
+      const savedPlayers = saved.players ?? [];
+
+      setPlayers(savedPlayers);
       setFormations(saved.formations ?? []);
       setPlays(saved.plays ?? []);
 
       const savedGames = saved.games?.length ? saved.games : defaultGames;
+      const savedChartPlays = (saved.chartPlays ?? []).map((play) => ({
+        ...play,
+        rusher: resolvePlayerInput(play.rusher, savedPlayers),
+        passer: resolvePlayerInput(play.passer, savedPlayers),
+        receiver: resolvePlayerInput(play.receiver, savedPlayers),
+      }));
+
       setGames(savedGames);
-      setChartPlays(saved.chartPlays ?? []);
+      setChartPlays(savedChartPlays);
       setSelectedGameId(saved.selectedGameId || savedGames[0].id);
     } catch {
       setMessage("Could not load saved analytics data.");
@@ -358,9 +367,9 @@ export default function AnalyticsPage() {
       play: playName,
       playType,
       yards,
-      rusher: normalizePlayerText(entry.rusher),
-      passer: normalizePlayerText(entry.passer),
-      receiver: normalizePlayerText(entry.receiver),
+      rusher: resolvePlayerInput(entry.rusher, players),
+      passer: resolvePlayerInput(entry.passer, players),
+      receiver: resolvePlayerInput(entry.receiver, players),
       result: result,
       touchdown: result.includes("TD"),
       firstDown: result.includes("FD") || yards >= parsed.distance,
@@ -631,6 +640,7 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("rusher", value)}
                   onKeyDown={handleEnterSave}
                   list="player-options"
+                  placeholder="#"
                 />
                 <SheetInput
                   label="Passer"
@@ -638,6 +648,7 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("passer", value)}
                   onKeyDown={handleEnterSave}
                   list="player-options"
+                  placeholder="#"
                 />
                 <SheetInput
                   label="Receiver"
@@ -645,6 +656,7 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("receiver", value)}
                   onKeyDown={handleEnterSave}
                   list="player-options"
+                  placeholder="#"
                 />
                 <SheetInput
                   label="Result"
@@ -1189,8 +1201,34 @@ function detectPlayType(entry: EntryState): PlayType {
   return "Run";
 }
 
-function normalizePlayerText(value: string) {
-  return value.trim();
+function resolvePlayerInput(value: string, players: Player[]) {
+  const clean = value.trim();
+  if (!clean) return "";
+
+  const numberMatch = clean.match(/\d+/);
+
+  if (numberMatch) {
+    const jerseyNumber = numberMatch[0];
+
+    const rosterPlayer = players.find(
+      (player) => player.jersey.trim() === jerseyNumber,
+    );
+
+    if (rosterPlayer) {
+      return playerLabel(rosterPlayer);
+    }
+  }
+
+  const lower = clean.toLowerCase();
+
+  const rosterPlayer = players.find((player) => {
+    const fullName = `${player.firstName} ${player.lastName}`.trim().toLowerCase();
+    const fullLabel = playerLabel(player).toLowerCase();
+
+    return fullName === lower || fullLabel === lower;
+  });
+
+  return rosterPlayer ? playerLabel(rosterPlayer) : clean;
 }
 
 function classify(play: ChartPlay): Grade {
