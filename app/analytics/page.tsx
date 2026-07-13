@@ -38,7 +38,7 @@ type Possession = {
   gameId: string;
   startQuarter: number;
   startClock: string;
-  endQuarter: number;
+  endQuarter: number | null;
   endClock: string;
   durationSeconds: number;
   result: string;
@@ -80,6 +80,10 @@ type EntryState = {
   result: string;
   penalty: string;
   seriesStart: boolean;
+  possessionStart: boolean;
+  possessionEnd: boolean;
+  possessionClock: string;
+  possessionResult: string;
   qtr: string;
 };
 
@@ -135,12 +139,6 @@ export default function AnalyticsPage() {
   const [selectedGameId, setSelectedGameId] = useState(defaultGames[0].id);
   const [quarterLengthMinutes, setQuarterLengthMinutes] = useState(12);
 
-  const [possessionStartQuarter, setPossessionStartQuarter] = useState("1");
-  const [possessionStartClock, setPossessionStartClock] = useState("12:00");
-  const [possessionEndQuarter, setPossessionEndQuarter] = useState("1");
-  const [possessionEndClock, setPossessionEndClock] = useState("");
-  const [possessionResult, setPossessionResult] = useState("");
-
   const [newWeek, setNewWeek] = useState("");
   const [newOpponent, setNewOpponent] = useState("");
   const [newGameDate, setNewGameDate] = useState("");
@@ -165,6 +163,10 @@ export default function AnalyticsPage() {
     result: "",
     penalty: "",
     seriesStart: false,
+    possessionStart: false,
+    possessionEnd: false,
+    possessionClock: "",
+    possessionResult: "",
     qtr: "1",
   });
 
@@ -414,6 +416,23 @@ export default function AnalyticsPage() {
 
     const yards = Number(entry.yards);
 
+    if ((entry.possessionStart || entry.possessionEnd) && !entry.possessionClock.trim()) {
+      setMessage("Enter the game clock for the possession action.");
+      return;
+    }
+
+    if (entry.possessionClock.trim()) {
+      const clockSeconds = parseClockToSeconds(entry.possessionClock);
+      const quarterSeconds = quarterLengthMinutes * 60;
+
+      if (clockSeconds === null || clockSeconds > quarterSeconds) {
+        setMessage(
+          `Enter a valid clock time between 0:00 and ${quarterLengthMinutes}:00.`,
+        );
+        return;
+      }
+    }
+
     if (Number.isNaN(yards) || entry.yards.trim() === "") {
       setMessage("Type yards before saving.");
       return;
@@ -474,6 +493,76 @@ export default function AnalyticsPage() {
 
     setSaving(true);
 
+    const quarterNumber = Number(entry.qtr) || 1;
+    const normalizedPossessionClock = entry.possessionClock.trim()
+      ? normalizeClock(entry.possessionClock)
+      : "";
+
+    if (entry.possessionStart) {
+      const alreadyOpen = getOpenPossession(selectedGameId);
+
+      if (alreadyOpen) {
+        setMessage("A possession is already open. End it before starting another.");
+        setSaving(false);
+        return;
+      }
+
+      const openPossession: Possession = {
+        id: createId(),
+        gameId: selectedGameId,
+        startQuarter: quarterNumber,
+        startClock: normalizedPossessionClock,
+        endQuarter: null,
+        endClock: "",
+        durationSeconds: 0,
+        result: "",
+        createdAt: new Date().toISOString(),
+      };
+
+      setPossessions((current) => [...current, openPossession]);
+    }
+
+    if (entry.possessionEnd) {
+      const openPossession = getOpenPossession(selectedGameId);
+
+      if (!openPossession) {
+        setMessage("There is no open possession to end.");
+        setSaving(false);
+        return;
+      }
+
+      const durationSeconds = calculatePossessionDuration(
+        openPossession.startQuarter,
+        openPossession.startClock,
+        quarterNumber,
+        normalizedPossessionClock,
+        quarterLengthMinutes,
+      );
+
+      if (durationSeconds === null || durationSeconds <= 0) {
+        setMessage("The possession end must occur after the possession start.");
+        setSaving(false);
+        return;
+      }
+
+      setPossessions((current) =>
+        current.map((possession) =>
+          possession.id === openPossession.id
+            ? {
+                ...possession,
+                endQuarter: quarterNumber,
+                endClock: normalizedPossessionClock,
+                durationSeconds,
+                result:
+                  entry.possessionResult.trim() ||
+                  entry.result.trim() ||
+                  "Drive End",
+              }
+            : possession,
+        ),
+      );
+    }
+
     setChartPlays((current) => [...current, savedPlay]);
 
     setEntry((current) => ({
@@ -488,76 +577,28 @@ export default function AnalyticsPage() {
       result: "",
       penalty: "",
       seriesStart: false,
+      possessionStart: false,
+      possessionEnd: false,
+      possessionClock: "",
+      possessionResult: "",
     }));
 
     setMessage(`Saved play #${nextPlayNumber}.`);
     window.setTimeout(() => setSaving(false), 150);
   }
 
-  function savePossession() {
-    setMessage("");
-
-    if (!selectedGameId) {
-      setMessage("Select a game first.");
-      return;
-    }
-
-    const startQuarter = Number(possessionStartQuarter);
-    const endQuarter = Number(possessionEndQuarter);
-
-    if (
-      !Number.isInteger(startQuarter) ||
-      !Number.isInteger(endQuarter) ||
-      startQuarter < 1 ||
-      endQuarter < startQuarter
-    ) {
-      setMessage("Enter valid start and end quarters.");
-      return;
-    }
-
-    const durationSeconds = calculatePossessionDuration(
-      startQuarter,
-      possessionStartClock,
-      endQuarter,
-      possessionEndClock,
-      quarterLengthMinutes,
-    );
-
-    if (durationSeconds === null) {
-      setMessage("Enter valid game-clock times such as 12:00 and 8:34.");
-      return;
-    }
-
-    if (durationSeconds <= 0) {
-      setMessage("The possession end must occur after the possession start.");
-      return;
-    }
-
-    const possession: Possession = {
-      id: createId(),
-      gameId: selectedGameId,
-      startQuarter,
-      startClock: normalizeClock(possessionStartClock),
-      endQuarter,
-      endClock: normalizeClock(possessionEndClock),
-      durationSeconds,
-      result: possessionResult.trim(),
-      createdAt: new Date().toISOString(),
-    };
-
-    setPossessions((current) => [...current, possession]);
-    setPossessionStartQuarter(String(endQuarter));
-    setPossessionStartClock(normalizeClock(possessionEndClock));
-    setPossessionEndQuarter(String(endQuarter));
-    setPossessionEndClock("");
-    setPossessionResult("");
-    setMessage(`Possession saved: ${formatDuration(durationSeconds)}.`);
-  }
-
   function deletePossession(id: string) {
     setPossessions((current) =>
       current.filter((possession) => possession.id !== id),
     );
+  }
+
+  function getOpenPossession(gameId: string) {
+    const gamePossessions = possessions
+      .filter((possession) => possession.gameId === gameId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    return gamePossessions.find((possession) => !possession.endClock) ?? null;
   }
 
   function addGame() {
@@ -865,6 +906,108 @@ export default function AnalyticsPage() {
                 ))}
               </datalist>
 
+              <div style={possessionInlinePanelStyle}>
+                <div style={possessionInlineHeaderStyle}>
+                  <span>Possession</span>
+
+                  <div style={quarterLengthControlStyle}>
+                    <span>Quarter Length</span>
+                    <button
+                      type="button"
+                      style={{
+                        ...quarterLengthButtonStyle,
+                        ...(quarterLengthMinutes === 12
+                          ? quarterLengthButtonActiveStyle
+                          : {}),
+                      }}
+                      onClick={() => setQuarterLengthMinutes(12)}
+                    >
+                      12 Min
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...quarterLengthButtonStyle,
+                        ...(quarterLengthMinutes === 15
+                          ? quarterLengthButtonActiveStyle
+                          : {}),
+                      }}
+                      onClick={() => setQuarterLengthMinutes(15)}
+                    >
+                      15 Min
+                    </button>
+                  </div>
+                </div>
+
+                <div style={possessionInlineGridStyle}>
+                  <button
+                    type="button"
+                    style={{
+                      ...possessionToggleStyle,
+                      ...(entry.possessionStart
+                        ? possessionStartActiveStyle
+                        : {}),
+                    }}
+                    onClick={() =>
+                      setEntry((current) => ({
+                        ...current,
+                        possessionStart: !current.possessionStart,
+                        possessionEnd: false,
+                      }))
+                    }
+                  >
+                    {entry.possessionStart
+                      ? "START POSSESSION ✓"
+                      : "START POSSESSION"}
+                  </button>
+
+                  <button
+                    type="button"
+                    style={{
+                      ...possessionToggleStyle,
+                      ...(entry.possessionEnd ? possessionEndActiveStyle : {}),
+                    }}
+                    onClick={() =>
+                      setEntry((current) => ({
+                        ...current,
+                        possessionEnd: !current.possessionEnd,
+                        possessionStart: false,
+                      }))
+                    }
+                  >
+                    {entry.possessionEnd
+                      ? "END POSSESSION ✓"
+                      : "END POSSESSION"}
+                  </button>
+
+                  <label style={possessionFieldStyle}>
+                    <span>Game Clock</span>
+                    <input
+                      style={inputStyle}
+                      placeholder={
+                        quarterLengthMinutes === 12 ? "12:00" : "15:00"
+                      }
+                      value={entry.possessionClock}
+                      onChange={(event) =>
+                        updateEntry("possessionClock", event.target.value)
+                      }
+                    />
+                  </label>
+
+                  <label style={possessionFieldStyle}>
+                    <span>Drive Result</span>
+                    <input
+                      style={inputStyle}
+                      placeholder="TD / Punt / Turnover"
+                      value={entry.possessionResult}
+                      onChange={(event) =>
+                        updateEntry("possessionResult", event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div style={saveRowStyle}>
                 <button
                   type="button"
@@ -1080,73 +1223,10 @@ export default function AnalyticsPage() {
               />
             </div>
 
-            <div style={possessionEntryGridStyle}>
-              <label style={possessionFieldStyle}>
-                <span>Start Quarter</span>
-                <input
-                  style={inputStyle}
-                  type="number"
-                  min="1"
-                  value={possessionStartQuarter}
-                  onChange={(event) =>
-                    setPossessionStartQuarter(event.target.value)
-                  }
-                />
-              </label>
-
-              <label style={possessionFieldStyle}>
-                <span>Start Clock</span>
-                <input
-                  style={inputStyle}
-                  placeholder={quarterLengthMinutes === 12 ? "12:00" : "15:00"}
-                  value={possessionStartClock}
-                  onChange={(event) =>
-                    setPossessionStartClock(event.target.value)
-                  }
-                />
-              </label>
-
-              <label style={possessionFieldStyle}>
-                <span>End Quarter</span>
-                <input
-                  style={inputStyle}
-                  type="number"
-                  min="1"
-                  value={possessionEndQuarter}
-                  onChange={(event) =>
-                    setPossessionEndQuarter(event.target.value)
-                  }
-                />
-              </label>
-
-              <label style={possessionFieldStyle}>
-                <span>End Clock</span>
-                <input
-                  style={inputStyle}
-                  placeholder="8:34"
-                  value={possessionEndClock}
-                  onChange={(event) =>
-                    setPossessionEndClock(event.target.value)
-                  }
-                />
-              </label>
-
-              <label style={possessionFieldStyle}>
-                <span>Result</span>
-                <input
-                  style={inputStyle}
-                  placeholder="TD / Punt / Turnover"
-                  value={possessionResult}
-                  onChange={(event) =>
-                    setPossessionResult(event.target.value)
-                  }
-                />
-              </label>
-
-              <button style={possessionSaveButtonStyle} onClick={savePossession}>
-                SAVE POSSESSION
-              </button>
-            </div>
+            <p style={mutedTextStyle}>
+              Start and end possessions directly inside Play Entry. The completed
+              drive will appear below automatically.
+            </p>
 
             <div style={tableWrapStyle}>
               <table style={modernTableStyle}>
@@ -1177,10 +1257,14 @@ export default function AnalyticsPage() {
                         Q{possession.startQuarter} {possession.startClock}
                       </td>
                       <td style={modernTdStyle}>
-                        Q{possession.endQuarter} {possession.endClock}
+                        {possession.endQuarter
+                          ? `Q${possession.endQuarter} ${possession.endClock}`
+                          : "OPEN"}
                       </td>
                       <td style={modernTdStyle}>
-                        {formatDuration(possession.durationSeconds)}
+                        {possession.endClock
+                          ? formatDuration(possession.durationSeconds)
+                          : "In Progress"}
                       </td>
                       <td style={modernTdStyle}>{possession.result}</td>
                       <td style={modernTdStyle}>
@@ -1640,19 +1724,24 @@ function calculatePossessionDuration(
 }
 
 function calculatePossessionStats(possessions: Possession[]) {
-  const totalSeconds = possessions.reduce(
+  const completed = possessions.filter(
+    (possession) => Boolean(possession.endClock) && possession.durationSeconds > 0,
+  );
+
+  const totalSeconds = completed.reduce(
     (sum, possession) => sum + possession.durationSeconds,
     0,
   );
 
   return {
     count: possessions.length,
+    completedCount: completed.length,
     totalSeconds,
-    averageSeconds: possessions.length
-      ? Math.round(totalSeconds / possessions.length)
+    averageSeconds: completed.length
+      ? Math.round(totalSeconds / completed.length)
       : 0,
-    longestSeconds: possessions.length
-      ? Math.max(...possessions.map((possession) => possession.durationSeconds))
+    longestSeconds: completed.length
+      ? Math.max(...completed.map((possession) => possession.durationSeconds))
       : 0,
   };
 }
@@ -2364,10 +2453,14 @@ function PossessionAnalyticsReport({
                     Q{possession.startQuarter} {possession.startClock}
                   </td>
                   <td style={modernTdStyle}>
-                    Q{possession.endQuarter} {possession.endClock}
+                    {possession.endQuarter
+                      ? `Q${possession.endQuarter} ${possession.endClock}`
+                      : "OPEN"}
                   </td>
                   <td style={modernTdStyle}>
-                    {formatDuration(possession.durationSeconds)}
+                    {possession.endClock
+                      ? formatDuration(possession.durationSeconds)
+                      : "In Progress"}
                   </td>
                   <td style={modernTdStyle}>{possession.result}</td>
                 </tr>
@@ -3076,14 +3169,7 @@ const possessionMetricGridStyle: React.CSSProperties = {
   marginTop: 12,
 };
 
-const possessionEntryGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns:
-    "100px minmax(100px, 130px) 100px minmax(100px, 130px) minmax(180px, 1fr) minmax(160px, 220px)",
-  gap: 8,
-  alignItems: "end",
-  marginTop: 12,
-};
+
 
 const possessionFieldStyle: React.CSSProperties = {
   display: "grid",
@@ -3095,14 +3181,54 @@ const possessionFieldStyle: React.CSSProperties = {
   letterSpacing: ".05em",
 };
 
-const possessionSaveButtonStyle: React.CSSProperties = {
-  padding: "11px 14px",
+
+
+const possessionInlinePanelStyle: React.CSSProperties = {
+  marginTop: 10,
+  padding: 10,
+  borderRadius: 14,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+};
+
+const possessionInlineHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  marginBottom: 8,
+  color: "#0f172a",
+  fontWeight: 950,
+};
+
+const possessionInlineGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns:
+    "minmax(145px, 180px) minmax(145px, 180px) minmax(120px, 160px) minmax(180px, 1fr)",
+  gap: 8,
+  alignItems: "end",
+};
+
+const possessionToggleStyle: React.CSSProperties = {
+  padding: "11px 12px",
   borderRadius: 12,
-  border: "1px solid #991b1b",
-  background: "linear-gradient(180deg, #ef4444, #b91c1c)",
-  color: "white",
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  color: "#475569",
   fontWeight: 950,
   cursor: "pointer",
+};
+
+const possessionStartActiveStyle: React.CSSProperties = {
+  border: "1px solid #16a34a",
+  background: "#dcfce7",
+  color: "#166534",
+};
+
+const possessionEndActiveStyle: React.CSSProperties = {
+  border: "1px solid #dc2626",
+  background: "#fee2e2",
+  color: "#991b1b",
 };
 
 const saveRowStyle: React.CSSProperties = {
