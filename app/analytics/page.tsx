@@ -231,8 +231,8 @@ export default function AnalyticsPage() {
   );
 
   const playerReport = useMemo(
-    () => makePlayerReport(reportPlays),
-    [reportPlays],
+    () => makeGameCenterPlayerReport(currentGamePlays),
+    [currentGamePlays],
   );
 
   const rushingReport = useMemo(
@@ -775,13 +775,26 @@ export default function AnalyticsPage() {
                 {playerReport.length === 0 && (
                   <p style={mutedTextStyle}>Stats will appear after plays are entered.</p>
                 )}
-                {playerReport.slice(0, 8).map((player) => (
+
+                {playerReport.slice(0, 10).map((player) => (
                   <div key={player.id} style={compactPlayerRowStyle}>
                     <strong>{player.label}</strong>
-                    <span>
-                      {player.touches} touches • {player.yards} yds •{" "}
-                      {player.avg.toFixed(1)} avg • {player.tds} TD
-                    </span>
+
+                    <div style={individualStatGridStyle}>
+                      <span>
+                        <b>{player.rushes}</b> Rushes
+                      </span>
+                      <span>
+                        <b>{player.passAttempts}</b> Passes
+                      </span>
+                      <span>
+                        <b>{player.receptions}</b> Receptions
+                      </span>
+                    </div>
+
+                    <small style={individualStatDetailStyle}>
+                      {player.totalYards} total yards • {player.tds} TD
+                    </small>
                   </div>
                 ))}
               </div>
@@ -1298,6 +1311,108 @@ function makeReport(rows: ChartPlay[], keyGetter: (play: ChartPlay) => string): 
       };
     })
     .sort((a, b) => b.successRate - a.successRate || b.avg - a.avg || b.calls - a.calls);
+}
+
+function makeGameCenterPlayerReport(rows: ChartPlay[]) {
+  const players = new Map<
+    string,
+    {
+      id: string;
+      label: string;
+      rushes: number;
+      passAttempts: number;
+      receptions: number;
+      rushingYards: number;
+      passingYards: number;
+      receivingYards: number;
+      totalYards: number;
+      tds: number;
+    }
+  >();
+
+  function getPlayer(label: string) {
+    const clean = label.trim();
+    if (!clean) return null;
+
+    const existing = players.get(clean);
+    if (existing) return existing;
+
+    const created = {
+      id: clean,
+      label: clean,
+      rushes: 0,
+      passAttempts: 0,
+      receptions: 0,
+      rushingYards: 0,
+      passingYards: 0,
+      receivingYards: 0,
+      totalYards: 0,
+      tds: 0,
+    };
+
+    players.set(clean, created);
+    return created;
+  }
+
+  rows.forEach((play) => {
+    if (play.rusher.trim()) {
+      const player = getPlayer(play.rusher);
+
+      if (player) {
+        player.rushes += 1;
+        player.rushingYards += play.yards;
+        player.totalYards += play.yards;
+
+        if (play.touchdown) {
+          player.tds += 1;
+        }
+      }
+    }
+
+    if (play.passer.trim()) {
+      const player = getPlayer(play.passer);
+
+      if (player) {
+        player.passAttempts += 1;
+        player.passingYards += play.yards;
+
+        if (play.touchdown) {
+          player.tds += 1;
+        }
+      }
+    }
+
+    if (play.receiver.trim()) {
+      const result = play.result.toUpperCase();
+      const completed =
+        !result.includes("INC") &&
+        !result.includes("INT") &&
+        !result.includes("DROP");
+
+      const player = getPlayer(play.receiver);
+
+      if (player && completed) {
+        player.receptions += 1;
+        player.receivingYards += play.yards;
+        player.totalYards += play.yards;
+
+        if (play.touchdown) {
+          player.tds += 1;
+        }
+      }
+    }
+  });
+
+  return Array.from(players.values()).sort((a, b) => {
+    const involvementA = a.rushes + a.passAttempts + a.receptions;
+    const involvementB = b.rushes + b.passAttempts + b.receptions;
+
+    if (involvementB !== involvementA) {
+      return involvementB - involvementA;
+    }
+
+    return b.totalYards - a.totalYards;
+  });
 }
 
 function makePlayerReport(rows: ChartPlay[]) {
@@ -2436,6 +2551,19 @@ const recommendationCardStyle: React.CSSProperties = {
 const mutedTextStyle: React.CSSProperties = {
   color: "#64748b",
   fontWeight: 800,
+};
+
+const individualStatGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 6,
+  marginTop: 5,
+};
+
+const individualStatDetailStyle: React.CSSProperties = {
+  color: "#64748b",
+  fontWeight: 750,
+  marginTop: 3,
 };
 
 const compactPlayerRowStyle: React.CSSProperties = {
