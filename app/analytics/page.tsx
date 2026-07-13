@@ -1173,26 +1173,11 @@ function pillFor(grade: Grade): React.CSSProperties {
 type Decision = "call-more" | "neutral" | "stop";
 
 function getDecision(row: ReportRow): Decision {
-  if (row.avg < 0) return "stop";
-
-  if (row.calls >= 2 && row.successRate >= 60 && row.avg >= 4) {
-    return "call-more";
-  }
-
-  if (
-    row.calls >= 3 &&
-    row.successRate >= 50 &&
-    row.avg >= 3 &&
-    row.explosiveRate >= 10
-  ) {
-    return "call-more";
-  }
-
-  if (row.successRate < 35 || row.avg < 1.5) {
-    return "stop";
-  }
-
-  return "neutral";
+  // Recommendation is based only on average production.
+  // The number of times a play has been called does not affect the grade.
+  if (row.avg >= 4) return "call-more";
+  if (row.avg >= 2) return "neutral";
+  return "stop";
 }
 
 function decisionLabel(decision: Decision) {
@@ -1331,26 +1316,25 @@ function FormationPlaySuccessReport({ rows }: { rows: ReportRow[] }) {
       <h2 style={panelTitleStyle}>What Should I Call?</h2>
 
       <p style={reportDescriptionStyle}>
-        CoachBoard combines success rate, average yards, explosive rate, and sample size.
-        A negative average is always marked STOP CALLING.
+        CoachBoard grades each formation/play combination by average yards per call. Four or more yards is CALL MORE, two to 3.9 yards is NEUTRAL, and anything below two yards is STOP CALLING.
       </p>
 
       <div style={decisionGridStyle}>
         <DecisionColumn
           title="CALL MORE"
-          subtitle="Best-performing calls right now"
+          subtitle="Averaging 4.0+ yards per call"
           tone="green"
           rows={callMore}
         />
         <DecisionColumn
           title="NEUTRAL"
-          subtitle="Usable, but needs more proof"
+          subtitle="Averaging 2.0–3.9 yards per call"
           tone="yellow"
           rows={neutral}
         />
         <DecisionColumn
           title="STOP CALLING"
-          subtitle="Poor production or negative average"
+          subtitle="Averaging under 2.0 yards per call"
           tone="red"
           rows={stopCalling}
         />
