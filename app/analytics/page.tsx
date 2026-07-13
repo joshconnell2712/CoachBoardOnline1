@@ -1170,20 +1170,82 @@ function pillFor(grade: Grade): React.CSSProperties {
   return { color: "#475569", borderColor: "#cbd5e1", background: "#f8fafc" };
 }
 
-function successGradePill(grade: "great" | "good" | "okay" | "bad"): React.CSSProperties {
-  if (grade === "great") {
-    return { color: "#166534", borderColor: "#86efac", background: "#dcfce7" };
+type Decision = "call-more" | "neutral" | "stop";
+
+function getDecision(row: ReportRow): Decision {
+  if (row.avg < 0) return "stop";
+
+  if (row.calls >= 2 && row.successRate >= 60 && row.avg >= 4) {
+    return "call-more";
   }
 
-  if (grade === "good") {
-    return { color: "#1d4ed8", borderColor: "#bfdbfe", background: "#dbeafe" };
+  if (
+    row.calls >= 3 &&
+    row.successRate >= 50 &&
+    row.avg >= 3 &&
+    row.explosiveRate >= 10
+  ) {
+    return "call-more";
   }
 
-  if (grade === "okay") {
-    return { color: "#854d0e", borderColor: "#fde68a", background: "#fef3c7" };
+  if (row.successRate < 35 || row.avg < 1.5) {
+    return "stop";
   }
 
-  return { color: "#991b1b", borderColor: "#fecaca", background: "#fee2e2" };
+  return "neutral";
+}
+
+function decisionLabel(decision: Decision) {
+  if (decision === "call-more") return "CALL MORE";
+  if (decision === "stop") return "STOP CALLING";
+  return "NEUTRAL";
+}
+
+function decisionPill(decision: Decision): React.CSSProperties {
+  if (decision === "call-more") {
+    return {
+      color: "#166534",
+      borderColor: "#86efac",
+      background: "#dcfce7",
+    };
+  }
+
+  if (decision === "stop") {
+    return {
+      color: "#991b1b",
+      borderColor: "#fecaca",
+      background: "#fee2e2",
+    };
+  }
+
+  return {
+    color: "#854d0e",
+    borderColor: "#fde68a",
+    background: "#fef3c7",
+  };
+}
+
+function decisionColumnTone(
+  tone: "green" | "yellow" | "red",
+): React.CSSProperties {
+  if (tone === "green") {
+    return {
+      borderColor: "#86efac",
+      background: "#f0fdf4",
+    };
+  }
+
+  if (tone === "red") {
+    return {
+      borderColor: "#fecaca",
+      background: "#fff1f2",
+    };
+  }
+
+  return {
+    borderColor: "#fde68a",
+    background: "#fffbeb",
+  };
 }
 
 function NavButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
@@ -1259,15 +1321,45 @@ function Row({ children }: { children: React.ReactNode }) {
 }
 
 function FormationPlaySuccessReport({ rows }: { rows: ReportRow[] }) {
+  const callMore = rows.filter((row) => getDecision(row) === "call-more");
+  const neutral = rows.filter((row) => getDecision(row) === "neutral");
+  const stopCalling = rows.filter((row) => getDecision(row) === "stop");
+
   return (
     <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
-      <div style={smallRedStyle}>SUCCESS RATE</div>
-      <h2 style={panelTitleStyle}>Play Success by Formation</h2>
+      <div style={smallRedStyle}>DECISION ENGINE</div>
+      <h2 style={panelTitleStyle}>What Should I Call?</h2>
 
       <p style={reportDescriptionStyle}>
-        This shows every formation/play combination you have called, ranked by success rate.
-        Run success is 4+ yards. Pass success is 12+ yards. Zero or negative yards counts as negative.
+        CoachBoard combines success rate, average yards, explosive rate, and sample size.
+        A negative average is always marked STOP CALLING.
       </p>
+
+      <div style={decisionGridStyle}>
+        <DecisionColumn
+          title="CALL MORE"
+          subtitle="Best-performing calls right now"
+          tone="green"
+          rows={callMore}
+        />
+        <DecisionColumn
+          title="NEUTRAL"
+          subtitle="Usable, but needs more proof"
+          tone="yellow"
+          rows={neutral}
+        />
+        <DecisionColumn
+          title="STOP CALLING"
+          subtitle="Poor production or negative average"
+          tone="red"
+          rows={stopCalling}
+        />
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        <div style={smallRedStyle}>FULL BREAKDOWN</div>
+        <h2 style={{ ...panelTitleStyle, fontSize: 21 }}>Play Success by Formation</h2>
+      </div>
 
       <div style={tableWrapStyle}>
         <table style={modernTableStyle}>
@@ -1275,14 +1367,13 @@ function FormationPlaySuccessReport({ rows }: { rows: ReportRow[] }) {
             <tr>
               <th style={modernThStyle}>Formation + Play</th>
               <th style={modernThStyle}>Calls</th>
-              <th style={modernThStyle}>Success Rate</th>
-              <th style={modernThStyle}>Big Play Rate</th>
-              <th style={modernThStyle}>Total Yards</th>
+              <th style={modernThStyle}>Success</th>
+              <th style={modernThStyle}>Big Play</th>
+              <th style={modernThStyle}>Yards</th>
               <th style={modernThStyle}>Avg</th>
-              <th style={modernThStyle}>Grade</th>
+              <th style={modernThStyle}>Recommendation</th>
             </tr>
           </thead>
-
           <tbody>
             {rows.length === 0 && (
               <tr>
@@ -1293,14 +1384,7 @@ function FormationPlaySuccessReport({ rows }: { rows: ReportRow[] }) {
             )}
 
             {rows.map((row) => {
-              const grade =
-                row.successRate >= 70
-                  ? "great"
-                  : row.successRate >= 50
-                    ? "good"
-                    : row.successRate >= 35
-                      ? "okay"
-                      : "bad";
+              const decision = getDecision(row);
 
               return (
                 <tr key={row.id}>
@@ -1323,8 +1407,8 @@ function FormationPlaySuccessReport({ rows }: { rows: ReportRow[] }) {
                   <td style={modernTdStyle}>{row.yards}</td>
                   <td style={modernTdStyle}>{row.avg.toFixed(1)}</td>
                   <td style={modernTdStyle}>
-                    <span style={{ ...pillStyle, ...successGradePill(grade) }}>
-                      {grade.toUpperCase()}
+                    <span style={{ ...pillStyle, ...decisionPill(decision) }}>
+                      {decisionLabel(decision)}
                     </span>
                   </td>
                 </tr>
@@ -1332,6 +1416,43 @@ function FormationPlaySuccessReport({ rows }: { rows: ReportRow[] }) {
             })}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function DecisionColumn({
+  title,
+  subtitle,
+  tone,
+  rows,
+}: {
+  title: string;
+  subtitle: string;
+  tone: "green" | "yellow" | "red";
+  rows: ReportRow[];
+}) {
+  return (
+    <div style={{ ...decisionColumnStyle, ...decisionColumnTone(tone) }}>
+      <div style={decisionColumnHeaderStyle}>
+        <strong>{title}</strong>
+        <span>{subtitle}</span>
+      </div>
+
+      <div style={decisionListStyle}>
+        {rows.length === 0 && (
+          <div style={decisionEmptyStyle}>No calls in this category.</div>
+        )}
+
+        {rows.slice(0, 8).map((row) => (
+          <div key={row.id} style={decisionCardStyle}>
+            <strong>{row.label}</strong>
+            <span>
+              {row.calls} calls • {row.successRate}% success • {row.avg.toFixed(1)} avg
+            </span>
+            <small>{row.explosiveRate}% explosive</small>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1676,6 +1797,47 @@ const miniDeleteButtonStyle: React.CSSProperties = {
   color: "#991b1b",
   fontWeight: 950,
   cursor: "pointer",
+};
+
+const decisionGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 12,
+  marginTop: 16,
+};
+
+const decisionColumnStyle: React.CSSProperties = {
+  border: "1px solid",
+  borderRadius: 16,
+  padding: 12,
+};
+
+const decisionColumnHeaderStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 3,
+  marginBottom: 10,
+};
+
+const decisionListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 8,
+};
+
+const decisionCardStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 3,
+  padding: 10,
+  borderRadius: 12,
+  background: "rgba(255,255,255,.82)",
+  border: "1px solid rgba(15,23,42,.08)",
+};
+
+const decisionEmptyStyle: React.CSSProperties = {
+  color: "#64748b",
+  fontWeight: 750,
+  padding: 10,
+  borderRadius: 10,
+  background: "rgba(255,255,255,.55)",
 };
 
 const reportDescriptionStyle: React.CSSProperties = {
