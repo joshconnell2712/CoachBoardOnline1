@@ -52,6 +52,7 @@ type ChartPlay = {
   firstDown: boolean;
   turnover: boolean;
   penalty: boolean;
+  penaltyType: string;
   createdAt: string;
 };
 
@@ -64,6 +65,7 @@ type EntryState = {
   passer: string;
   receiver: string;
   result: string;
+  penalty: string;
   qtr: string;
 };
 
@@ -137,6 +139,7 @@ export default function AnalyticsPage() {
     passer: "",
     receiver: "",
     result: "",
+    penalty: "",
     qtr: "1",
   });
 
@@ -159,6 +162,7 @@ export default function AnalyticsPage() {
         rusher: resolvePlayerInput(play.rusher, savedPlayers),
         passer: resolvePlayerInput(play.passer, savedPlayers),
         receiver: resolvePlayerInput(play.receiver, savedPlayers),
+        penaltyType: play.penaltyType ?? "",
       }));
 
       setGames(savedGames);
@@ -251,6 +255,11 @@ export default function AnalyticsPage() {
   );
 
   const matrix = useMemo(() => buildMatrix(currentGamePlays), [currentGamePlays]);
+
+  const penaltyReport = useMemo(
+    () => makePenaltyReport(reportPlays),
+    [reportPlays],
+  );
 
   const gameBreakdown = useMemo(
     () =>
@@ -350,7 +359,15 @@ export default function AnalyticsPage() {
     const playName = addPlayCall(entry.play || "Unknown Play", playType);
 
     const parsed = parseDownDistance(entry.dd);
-    const result = entry.result.toUpperCase();
+    const result = entry.result.trim().toUpperCase();
+    const penaltyText = entry.penalty.trim();
+    const penaltyCode = penaltyText.toUpperCase();
+    const isInterception = result.includes("INT");
+    const isFumble = result.includes("FUM");
+    const isTurnover = isInterception || isFumble || result.includes("TO");
+    const isTouchdown = result.includes("TD");
+    const isPenalty = Boolean(penaltyText) || result.includes("PEN");
+
     const nextPlayNumber =
       currentGamePlays.length === 0
         ? 1
@@ -370,14 +387,20 @@ export default function AnalyticsPage() {
       rusher: resolvePlayerInput(entry.rusher, players),
       passer: resolvePlayerInput(entry.passer, players),
       receiver: resolvePlayerInput(entry.receiver, players),
-      result: result,
-      touchdown: result.includes("TD"),
-      firstDown: result.includes("FD") || yards >= parsed.distance,
-      turnover:
-        result.includes("INT") ||
-        result.includes("FUM") ||
-        result.includes("TO"),
-      penalty: result.includes("PEN"),
+      result:
+        [
+          isTouchdown ? "TD" : "",
+          isInterception ? "INT" : "",
+          isFumble ? "FUM" : "",
+          !isTouchdown && !isTurnover && result ? result : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      touchdown: isTouchdown,
+      firstDown: result.includes("FD") || (!isPenalty && yards >= parsed.distance),
+      turnover: isTurnover,
+      penalty: isPenalty,
+      penaltyType: penaltyText || (result.includes("PEN") ? "Penalty" : ""),
       createdAt: new Date().toISOString(),
     };
 
@@ -395,6 +418,7 @@ export default function AnalyticsPage() {
       passer: "",
       receiver: "",
       result: "",
+      penalty: "",
     }));
 
     setMessage(`Saved play #${nextPlayNumber}.`);
@@ -580,6 +604,7 @@ export default function AnalyticsPage() {
             <Metric label="Plays" value={stats.total} />
             <Metric label="TDs" value={stats.tds} />
             <Metric label="Turnovers" value={stats.turnovers} danger={stats.turnovers > 0} />
+            <Metric label="Penalties" value={stats.penalties} danger={stats.penalties > 0} />
             <Metric label="1st Downs" value={stats.firstDowns} />
             <Metric label="Success" value={`${stats.successRate}%`} />
             <Metric label="Explosive" value={`${stats.explosiveRate}%`} />
@@ -663,7 +688,14 @@ export default function AnalyticsPage() {
                   value={entry.result}
                   onChange={(value) => updateEntry("result", value)}
                   onKeyDown={handleEnterSave}
-                  placeholder="TD / INT"
+                  placeholder="TD / INT / FUM"
+                />
+                <SheetInput
+                  label="Penalty"
+                  value={entry.penalty}
+                  onChange={(value) => updateEntry("penalty", value)}
+                  onKeyDown={handleEnterSave}
+                  placeholder="Hold / False Start"
                 />
                 <SheetInput
                   label="Q"
@@ -708,6 +740,7 @@ export default function AnalyticsPage() {
                       <th style={modernThStyle}>Passer</th>
                       <th style={modernThStyle}>Receiver</th>
                       <th style={modernThStyle}>Result</th>
+                      <th style={modernThStyle}>Penalty</th>
                       <th style={modernThStyle}>Grade</th>
                       <th style={modernThStyle}></th>
                     </tr>
@@ -716,7 +749,7 @@ export default function AnalyticsPage() {
                   <tbody>
                     {currentGamePlays.length === 0 && (
                       <tr>
-                        <td style={emptyTdStyle} colSpan={11}>
+                        <td style={emptyTdStyle} colSpan={12}>
                           No plays entered yet. Type a play and press SAVE PLAY.
                         </td>
                       </tr>
@@ -737,7 +770,16 @@ export default function AnalyticsPage() {
                           <td style={modernTdStyle}>{row.rusher}</td>
                           <td style={modernTdStyle}>{row.passer}</td>
                           <td style={modernTdStyle}>{row.receiver}</td>
-                          <td style={modernTdStyle}>{row.result}</td>
+                          <td style={modernTdStyle}>
+                            {row.touchdown
+                              ? "TD"
+                              : row.result.includes("INT")
+                                ? "INT"
+                                : row.result.includes("FUM")
+                                  ? "FUM"
+                                  : row.result}
+                          </td>
+                          <td style={modernTdStyle}>{row.penaltyType}</td>
                           <td style={modernTdStyle}>
                             <span style={{ ...pillStyle, ...pillFor(grade) }}>
                               {gradeLabel(grade)}
@@ -1125,6 +1167,8 @@ export default function AnalyticsPage() {
               scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
             />
 
+            <PenaltyAnalyticsReport rows={penaltyReport} />
+
             <Report title="Play Rankings" rows={playReport} />
             <Report title="Formation Rankings" rows={formationReport} />
             <Report title="Formation + Play Rankings" rows={formationPlayReport} />
@@ -1265,21 +1309,32 @@ function isSuccess(play: ChartPlay) {
 }
 
 function calculateStats(rows: ChartPlay[]) {
-  const total = rows.length;
-  const yards = rows.reduce((sum, play) => sum + play.yards, 0);
-  const rushRows = rows.filter((play) => play.playType === "Run");
-  const passRows = rows.filter((play) => play.playType !== "Run");
-  const successCount = rows.filter(isSuccess).length;
-  const explosiveCount = rows.filter((play) => classify(play) === "explosive").length;
+  const statisticalRows = rows.filter((play) => !play.penalty);
+  const total = statisticalRows.length;
+  const yards = statisticalRows.reduce((sum, play) => sum + play.yards, 0);
+  const rushRows = statisticalRows.filter((play) => play.playType === "Run");
+  const passRows = statisticalRows.filter((play) => play.playType !== "Run");
+  const successCount = statisticalRows.filter(isSuccess).length;
+  const explosiveCount = statisticalRows.filter(
+    (play) => classify(play) === "explosive",
+  ).length;
 
   return {
     total,
+    chartedPlays: rows.length,
     yards,
     rushYards: rushRows.reduce((sum, play) => sum + play.yards, 0),
     passYards: passRows.reduce((sum, play) => sum + play.yards, 0),
-    tds: rows.filter((play) => play.touchdown).length,
-    turnovers: rows.filter((play) => play.turnover).length,
-    firstDowns: rows.filter((play) => play.firstDown).length,
+    tds: statisticalRows.filter((play) => play.touchdown).length,
+    interceptions: statisticalRows.filter((play) =>
+      play.result.toUpperCase().includes("INT"),
+    ).length,
+    fumbles: statisticalRows.filter((play) =>
+      play.result.toUpperCase().includes("FUM"),
+    ).length,
+    turnovers: statisticalRows.filter((play) => play.turnover).length,
+    penalties: rows.filter((play) => play.penalty).length,
+    firstDowns: statisticalRows.filter((play) => play.firstDown).length,
     successRate: total ? Math.round((successCount / total) * 100) : 0,
     explosiveRate: total ? Math.round((explosiveCount / total) * 100) : 0,
     averageYards: total ? (yards / total).toFixed(1) : "0.0",
@@ -1289,7 +1344,7 @@ function calculateStats(rows: ChartPlay[]) {
 function makeReport(rows: ChartPlay[], keyGetter: (play: ChartPlay) => string): ReportRow[] {
   const groups = new Map<string, ChartPlay[]>();
 
-  rows.forEach((play) => {
+  rows.filter((play) => !play.penalty).forEach((play) => {
     const key = keyGetter(play) || "Unknown";
     groups.set(key, [...(groups.get(key) ?? []), play]);
   });
@@ -1354,7 +1409,7 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
     return created;
   }
 
-  rows.forEach((play) => {
+  rows.filter((play) => !play.penalty).forEach((play) => {
     if (play.rusher.trim()) {
       const player = getPlayer(play.rusher);
 
@@ -1439,6 +1494,26 @@ function makePlayerReport(rows: ChartPlay[]) {
       };
     })
     .sort((a, b) => b.yards - a.yards);
+}
+
+function makePenaltyReport(rows: ChartPlay[]): PenaltyStatRow[] {
+  const penalties = rows.filter((play) => play.penalty);
+  const groups = new Map<string, number>();
+
+  penalties.forEach((play) => {
+    const label = play.penaltyType.trim() || "Penalty";
+    groups.set(label, (groups.get(label) ?? 0) + 1);
+  });
+
+  return Array.from(groups.entries())
+    .map(([label, count]) => ({
+      label,
+      count,
+      percentage: penalties.length
+        ? Math.round((count / penalties.length) * 100)
+        : 0,
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
 function makeRushingReport(rows: ChartPlay[]): RushingStatRow[] {
@@ -1776,6 +1851,56 @@ type ReceivingStatRow = {
   explosives: number;
   longest: number;
 };
+
+type PenaltyStatRow = {
+  label: string;
+  count: number;
+  percentage: number;
+};
+
+function PenaltyAnalyticsReport({ rows }: { rows: PenaltyStatRow[] }) {
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+
+  return (
+    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+      <div style={smallRedStyle}>DISCIPLINE</div>
+      <h2 style={panelTitleStyle}>Penalty Analytics</h2>
+
+      <div style={penaltySummaryStyle}>
+        <Metric label="Total Penalties" value={total} danger={total > 0} />
+      </div>
+
+      <div style={tableWrapStyle}>
+        <table style={modernTableStyle}>
+          <thead>
+            <tr>
+              <th style={modernThStyle}>Penalty</th>
+              <th style={modernThStyle}>Count</th>
+              <th style={modernThStyle}>Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td style={emptyTdStyle} colSpan={3}>
+                  No penalties recorded.
+                </td>
+              </tr>
+            )}
+
+            {rows.map((row) => (
+              <tr key={row.label}>
+                <td style={modernTdStyle}>{row.label}</td>
+                <td style={modernTdStyle}>{row.count}</td>
+                <td style={modernTdStyle}>{row.percentage}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function PlayerAnalyticsReport({
   rushing,
@@ -2361,7 +2486,7 @@ const gameSelectStyle: React.CSSProperties = {
 
 const entryBarStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "105px 150px 160px 85px 90px 90px 105px 120px 60px",
+  gridTemplateColumns: "105px 145px 155px 80px 85px 85px 100px 105px 145px 55px",
   gap: 8,
   overflowX: "auto",
   padding: 10,
@@ -2591,6 +2716,12 @@ const setupGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))",
   gap: 12,
+};
+
+const penaltySummaryStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(150px, 220px)",
+  marginTop: 12,
 };
 
 const playerReportGridStyle: React.CSSProperties = {
