@@ -83,7 +83,6 @@ type EntryState = {
   possessionStart: boolean;
   possessionEnd: boolean;
   possessionClock: string;
-  possessionResult: string;
   qtr: string;
 };
 
@@ -166,7 +165,6 @@ export default function AnalyticsPage() {
     possessionStart: false,
     possessionEnd: false,
     possessionClock: "",
-    possessionResult: "",
     qtr: "1",
   });
 
@@ -553,10 +551,7 @@ export default function AnalyticsPage() {
                 endQuarter: quarterNumber,
                 endClock: normalizedPossessionClock,
                 durationSeconds,
-                result:
-                  entry.possessionResult.trim() ||
-                  entry.result.trim() ||
-                  "Drive End",
+                result: entry.result.trim() || "Drive End",
               }
             : possession,
         ),
@@ -580,7 +575,6 @@ export default function AnalyticsPage() {
       possessionStart: false,
       possessionEnd: false,
       possessionClock: "",
-      possessionResult: "",
     }));
 
     setMessage(`Saved play #${nextPlayNumber}.`);
@@ -815,7 +809,7 @@ export default function AnalyticsPage() {
                 </select>
               </div>
 
-              <div style={entryBarStyle}>
+              <div className="analytics-entry-grid" style={entryBarStyle}>
                 <SheetInput
                   label="D & Dist"
                   value={entry.dd}
@@ -828,6 +822,7 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("formation", value)}
                   onKeyDown={handleEnterSave}
                   list="formation-options"
+                  wide
                 />
                 <SheetInput
                   label="Play"
@@ -835,6 +830,7 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("play", value)}
                   onKeyDown={handleEnterSave}
                   list="play-options"
+                  wide
                 />
                 <SheetInput
                   label="Yards"
@@ -871,7 +867,8 @@ export default function AnalyticsPage() {
                   value={entry.result}
                   onChange={(value) => updateEntry("result", value)}
                   onKeyDown={handleEnterSave}
-                  placeholder="TD / INT / FUM"
+                  placeholder="TD / INT / FUM / Punt"
+                  wide
                 />
                 <SheetInput
                   label="Penalty"
@@ -879,6 +876,7 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("penalty", value)}
                   onKeyDown={handleEnterSave}
                   placeholder="Hold / False Start"
+                  wide
                 />
                 <SheetInput
                   label="Q"
@@ -939,7 +937,7 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
 
-                <div style={possessionInlineGridStyle}>
+                <div className="analytics-possession-grid" style={possessionInlineGridStyle}>
                   <button
                     type="button"
                     style={{
@@ -994,17 +992,6 @@ export default function AnalyticsPage() {
                     />
                   </label>
 
-                  <label style={possessionFieldStyle}>
-                    <span>Drive Result</span>
-                    <input
-                      style={inputStyle}
-                      placeholder="TD / Punt / Turnover"
-                      value={entry.possessionResult}
-                      onChange={(event) =>
-                        updateEntry("possessionResult", event.target.value)
-                      }
-                    />
-                  </label>
                 </div>
               </div>
 
@@ -1666,6 +1653,38 @@ export default function AnalyticsPage() {
           `}</style>
         </section>
       )}
+      <style jsx global>{`
+        @media (max-width: 1200px) {
+          .analytics-entry-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+          }
+
+          .analytics-possession-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+          }
+        }
+
+        @media (max-width: 850px) {
+          .analytics-entry-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .analytics-possession-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+        }
+
+        @media (max-width: 560px) {
+          .analytics-entry-grid,
+          .analytics-possession-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          .analytics-entry-grid > label {
+            grid-column: span 1 !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
@@ -2300,6 +2319,7 @@ function SheetInput({
   onKeyDown,
   placeholder,
   list,
+  wide,
 }: {
   label: string;
   value: string;
@@ -2307,9 +2327,15 @@ function SheetInput({
   onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   placeholder?: string;
   list?: string;
+  wide?: boolean;
 }) {
   return (
-    <label style={sheetInputWrapStyle}>
+    <label
+      style={{
+        ...sheetInputWrapStyle,
+        ...(wide ? { gridColumn: "span 2" } : {}),
+      }}
+    >
       <span>{label}</span>
       <input
         style={sheetInputStyle}
@@ -3105,10 +3131,9 @@ const gameSelectStyle: React.CSSProperties = {
 
 const entryBarStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "105px 145px 155px 80px 85px 85px 100px 105px 145px 55px",
-  gap: 8,
-  overflowX: "auto",
-  padding: 10,
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 10,
+  padding: 12,
   borderRadius: 16,
   background: "#f8fafc",
   border: "1px solid #e2e8f0",
@@ -3203,9 +3228,8 @@ const possessionInlineHeaderStyle: React.CSSProperties = {
 
 const possessionInlineGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns:
-    "minmax(145px, 180px) minmax(145px, 180px) minmax(120px, 160px) minmax(180px, 1fr)",
-  gap: 8,
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 10,
   alignItems: "end",
 };
 
