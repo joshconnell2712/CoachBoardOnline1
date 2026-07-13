@@ -823,19 +823,27 @@ export default function AnalyticsPage() {
                     <strong>{player.label}</strong>
 
                     <div style={individualStatGridStyle}>
-                      <span>
-                        <b>{player.rushes}</b> Rushes
-                      </span>
-                      <span>
-                        <b>{player.passAttempts}</b> Passes
-                      </span>
-                      <span>
-                        <b>{player.receptions}</b> Receptions
-                      </span>
+                      <div style={individualStatBoxStyle}>
+                        <span>Rushing</span>
+                        <b>{player.rushes} rushes</b>
+                        <small>{player.rushingYards} yards</small>
+                      </div>
+
+                      <div style={individualStatBoxStyle}>
+                        <span>Passing</span>
+                        <b>{player.passAttempts} attempts</b>
+                        <small>{player.passingYards} yards</small>
+                      </div>
+
+                      <div style={individualStatBoxStyle}>
+                        <span>Receiving</span>
+                        <b>{player.receptions} receptions</b>
+                        <small>{player.receivingYards} yards</small>
+                      </div>
                     </div>
 
                     <small style={individualStatDetailStyle}>
-                      {player.totalYards} total yards • {player.tds} TD
+                      {player.totalYards} combined rushing/receiving yards • {player.tds} TD
                     </small>
                   </div>
                 ))}
@@ -2683,6 +2691,15 @@ const individualStatGridStyle: React.CSSProperties = {
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   gap: 6,
   marginTop: 5,
+};
+
+const individualStatBoxStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 2,
+  padding: "7px 8px",
+  borderRadius: 9,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
 };
 
 const individualStatDetailStyle: React.CSSProperties = {
