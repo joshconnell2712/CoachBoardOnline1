@@ -226,6 +226,21 @@ export default function AnalyticsPage() {
     [reportPlays],
   );
 
+  const rushingReport = useMemo(
+    () => makeRushingReport(reportPlays),
+    [reportPlays],
+  );
+
+  const passingReport = useMemo(
+    () => makePassingReport(reportPlays),
+    [reportPlays],
+  );
+
+  const receivingReport = useMemo(
+    () => makeReceivingReport(reportPlays),
+    [reportPlays],
+  );
+
   const matrix = useMemo(() => buildMatrix(currentGamePlays), [currentGamePlays]);
 
   const gameBreakdown = useMemo(
@@ -1077,6 +1092,14 @@ export default function AnalyticsPage() {
 
           <section style={reportsGridStyle}>
             <FormationPlaySuccessReport rows={formationPlayReport} />
+
+            <PlayerAnalyticsReport
+              rushing={rushingReport}
+              passing={passingReport}
+              receiving={receivingReport}
+              scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
+            />
+
             <Report title="Play Rankings" rows={playReport} />
             <Report title="Formation Rankings" rows={formationReport} />
             <Report title="Formation + Play Rankings" rows={formationPlayReport} />
@@ -1265,6 +1288,120 @@ function makePlayerReport(rows: ChartPlay[]) {
     .sort((a, b) => b.yards - a.yards);
 }
 
+function makeRushingReport(rows: ChartPlay[]): RushingStatRow[] {
+  const groups = new Map<string, ChartPlay[]>();
+
+  rows.forEach((play) => {
+    const player = play.rusher.trim();
+    if (!player) return;
+    groups.set(player, [...(groups.get(player) ?? []), play]);
+  });
+
+  return Array.from(groups.entries())
+    .map(([player, plays]) => {
+      const yards = plays.reduce((sum, play) => sum + play.yards, 0);
+      const successes = plays.filter(isSuccess).length;
+      const explosives = plays.filter((play) => classify(play) === "explosive").length;
+
+      return {
+        player,
+        carries: plays.length,
+        yards,
+        average: plays.length ? yards / plays.length : 0,
+        touchdowns: plays.filter((play) => play.touchdown).length,
+        firstDowns: plays.filter((play) => play.firstDown).length,
+        successes,
+        successRate: plays.length ? Math.round((successes / plays.length) * 100) : 0,
+        explosives,
+        explosiveRate: plays.length ? Math.round((explosives / plays.length) * 100) : 0,
+        longest: plays.length ? Math.max(...plays.map((play) => play.yards)) : 0,
+      };
+    })
+    .sort((a, b) => b.yards - a.yards || b.average - a.average);
+}
+
+function makePassingReport(rows: ChartPlay[]): PassingStatRow[] {
+  const groups = new Map<string, ChartPlay[]>();
+
+  rows.forEach((play) => {
+    const player = play.passer.trim();
+    if (!player) return;
+    groups.set(player, [...(groups.get(player) ?? []), play]);
+  });
+
+  return Array.from(groups.entries())
+    .map(([player, plays]) => {
+      const attempts = plays.length;
+      const completions = plays.filter((play) => {
+        const result = play.result.toUpperCase();
+        return Boolean(play.receiver.trim()) && !result.includes("INC") && !result.includes("INT");
+      }).length;
+      const yards = plays.reduce((sum, play) => sum + play.yards, 0);
+      const successes = plays.filter(isSuccess).length;
+      const explosives = plays.filter((play) => classify(play) === "explosive").length;
+
+      return {
+        player,
+        attempts,
+        completions,
+        completionRate: attempts ? Math.round((completions / attempts) * 100) : 0,
+        yards,
+        yardsPerAttempt: attempts ? yards / attempts : 0,
+        touchdowns: plays.filter((play) => play.touchdown).length,
+        interceptions: plays.filter((play) => play.result.toUpperCase().includes("INT")).length,
+        successes,
+        successRate: attempts ? Math.round((successes / attempts) * 100) : 0,
+        explosives,
+        longest: plays.length ? Math.max(...plays.map((play) => play.yards)) : 0,
+      };
+    })
+    .sort((a, b) => b.yards - a.yards || b.yardsPerAttempt - a.yardsPerAttempt);
+}
+
+function makeReceivingReport(rows: ChartPlay[]): ReceivingStatRow[] {
+  const groups = new Map<string, ChartPlay[]>();
+
+  rows.forEach((play) => {
+    const player = play.receiver.trim();
+    if (!player) return;
+    groups.set(player, [...(groups.get(player) ?? []), play]);
+  });
+
+  return Array.from(groups.entries())
+    .map(([player, plays]) => {
+      const targets = plays.length;
+      const receptions = plays.filter((play) => {
+        const result = play.result.toUpperCase();
+        return !result.includes("INC") && !result.includes("INT");
+      }).length;
+      const completedPlays = plays.filter((play) => {
+        const result = play.result.toUpperCase();
+        return !result.includes("INC") && !result.includes("INT");
+      });
+      const yards = completedPlays.reduce((sum, play) => sum + play.yards, 0);
+      const successes = completedPlays.filter(isSuccess).length;
+      const explosives = completedPlays.filter((play) => classify(play) === "explosive").length;
+
+      return {
+        player,
+        targets,
+        receptions,
+        catchRate: targets ? Math.round((receptions / targets) * 100) : 0,
+        yards,
+        average: receptions ? yards / receptions : 0,
+        touchdowns: completedPlays.filter((play) => play.touchdown).length,
+        firstDowns: completedPlays.filter((play) => play.firstDown).length,
+        successes,
+        successRate: receptions ? Math.round((successes / receptions) * 100) : 0,
+        explosives,
+        longest: completedPlays.length
+          ? Math.max(...completedPlays.map((play) => play.yards))
+          : 0,
+      };
+    })
+    .sort((a, b) => b.yards - a.yards || b.average - a.average);
+}
+
 function buildMatrix(rows: ChartPlay[]) {
   const formations = Array.from(new Set(rows.map((play) => play.formation).filter(Boolean)));
   const plays = Array.from(new Set(rows.map((play) => play.play).filter(Boolean)));
@@ -1441,6 +1578,203 @@ function List({ children }: { children: React.ReactNode }) {
 
 function Row({ children }: { children: React.ReactNode }) {
   return <div style={listRowStyle}>{children}</div>;
+}
+
+type RushingStatRow = {
+  player: string;
+  carries: number;
+  yards: number;
+  average: number;
+  touchdowns: number;
+  firstDowns: number;
+  successes: number;
+  successRate: number;
+  explosives: number;
+  explosiveRate: number;
+  longest: number;
+};
+
+type PassingStatRow = {
+  player: string;
+  attempts: number;
+  completions: number;
+  completionRate: number;
+  yards: number;
+  yardsPerAttempt: number;
+  touchdowns: number;
+  interceptions: number;
+  successes: number;
+  successRate: number;
+  explosives: number;
+  longest: number;
+};
+
+type ReceivingStatRow = {
+  player: string;
+  targets: number;
+  receptions: number;
+  catchRate: number;
+  yards: number;
+  average: number;
+  touchdowns: number;
+  firstDowns: number;
+  successes: number;
+  successRate: number;
+  explosives: number;
+  longest: number;
+};
+
+function PlayerAnalyticsReport({
+  rushing,
+  passing,
+  receiving,
+  scopeLabel,
+}: {
+  rushing: RushingStatRow[];
+  passing: PassingStatRow[];
+  receiving: ReceivingStatRow[];
+  scopeLabel: string;
+}) {
+  return (
+    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+      <div style={smallRedStyle}>PLAYER PRODUCTION</div>
+      <h2 style={panelTitleStyle}>{scopeLabel} Player Analytics</h2>
+
+      <div style={playerReportGridStyle}>
+        <PlayerStatTable
+          title="Rushing"
+          headers={[
+            "Player",
+            "Carries",
+            "Yards",
+            "Avg",
+            "TD",
+            "1st",
+            "Success",
+            "Big",
+            "Long",
+          ]}
+          rows={rushing.map((row) => [
+            row.player,
+            row.carries,
+            row.yards,
+            row.average.toFixed(1),
+            row.touchdowns,
+            row.firstDowns,
+            `${row.successRate}%`,
+            `${row.explosiveRate}%`,
+            row.longest,
+          ])}
+        />
+
+        <PlayerStatTable
+          title="Passing"
+          headers={[
+            "Player",
+            "Comp/Att",
+            "Comp %",
+            "Yards",
+            "Y/A",
+            "TD",
+            "INT",
+            "Success",
+            "Big",
+            "Long",
+          ]}
+          rows={passing.map((row) => [
+            row.player,
+            `${row.completions}/${row.attempts}`,
+            `${row.completionRate}%`,
+            row.yards,
+            row.yardsPerAttempt.toFixed(1),
+            row.touchdowns,
+            row.interceptions,
+            `${row.successRate}%`,
+            row.explosives,
+            row.longest,
+          ])}
+        />
+
+        <PlayerStatTable
+          title="Receiving"
+          headers={[
+            "Player",
+            "Rec/Tgt",
+            "Catch %",
+            "Yards",
+            "Avg",
+            "TD",
+            "1st",
+            "Success",
+            "Big",
+            "Long",
+          ]}
+          rows={receiving.map((row) => [
+            row.player,
+            `${row.receptions}/${row.targets}`,
+            `${row.catchRate}%`,
+            row.yards,
+            row.average.toFixed(1),
+            row.touchdowns,
+            row.firstDowns,
+            `${row.successRate}%`,
+            row.explosives,
+            row.longest,
+          ])}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PlayerStatTable({
+  title,
+  headers,
+  rows,
+}: {
+  title: string;
+  headers: string[];
+  rows: Array<Array<string | number>>;
+}) {
+  return (
+    <div style={playerStatPanelStyle}>
+      <h3 style={playerStatTitleStyle}>{title}</h3>
+
+      <div style={tableWrapStyle}>
+        <table style={modernTableStyle}>
+          <thead>
+            <tr>
+              {headers.map((header) => (
+                <th key={header} style={modernThStyle}>
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td style={emptyTdStyle} colSpan={headers.length}>
+                  No {title.toLowerCase()} data yet.
+                </td>
+              </tr>
+            )}
+
+            {rows.map((row, rowIndex) => (
+              <tr key={`${title}-${rowIndex}`}>
+                {row.map((cell, cellIndex) => (
+                  <td key={`${title}-${rowIndex}-${cellIndex}`} style={modernTdStyle}>
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 function GameBreakdownReport({
@@ -2091,6 +2425,27 @@ const setupGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))",
   gap: 12,
+};
+
+const playerReportGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: 14,
+  marginTop: 14,
+};
+
+const playerStatPanelStyle: React.CSSProperties = {
+  borderRadius: 14,
+  padding: 12,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+};
+
+const playerStatTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: 18,
+  fontWeight: 950,
 };
 
 const reportToolbarStyle: React.CSSProperties = {
