@@ -1506,7 +1506,7 @@ export default function AnalyticsPage() {
             <Metric label="Plays" value={reportStats.total} />
             <Metric label="TDs" value={reportStats.tds} />
             <Metric label="Turnovers" value={reportStats.turnovers} danger={reportStats.turnovers > 0} />
-            <Metric label="1st Downs" value={reportStats.firstDowns} />
+            <Metric label="1st Downs" value={reportStats.firstDownsEarned} />
             <Metric label="Success" value={`${reportStats.successRate}%`} />
             <Metric label="Explosive" value={`${reportStats.explosiveRate}%`} />
             <Metric label="Average" value={reportStats.averageYards} />
