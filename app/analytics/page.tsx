@@ -50,6 +50,7 @@ type ChartPlay = {
   result: string;
   touchdown: boolean;
   firstDown: boolean;
+  seriesStart: boolean;
   turnover: boolean;
   penalty: boolean;
   penaltyType: string;
@@ -66,6 +67,7 @@ type EntryState = {
   receiver: string;
   result: string;
   penalty: string;
+  seriesStart: boolean;
   qtr: string;
 };
 
@@ -140,6 +142,7 @@ export default function AnalyticsPage() {
     receiver: "",
     result: "",
     penalty: "",
+    seriesStart: false,
     qtr: "1",
   });
 
@@ -163,6 +166,7 @@ export default function AnalyticsPage() {
         passer: resolvePlayerInput(play.passer, savedPlayers),
         receiver: resolvePlayerInput(play.receiver, savedPlayers),
         penaltyType: play.penaltyType ?? "",
+        seriesStart: play.seriesStart ?? false,
       }));
 
       setGames(savedGames);
@@ -397,7 +401,10 @@ export default function AnalyticsPage() {
           .filter(Boolean)
           .join(" "),
       touchdown: isTouchdown,
-      firstDown: result.includes("FD") || (!isPenalty && yards >= parsed.distance),
+      firstDown:
+        !entry.seriesStart &&
+        (result.includes("FD") || (!isPenalty && yards >= parsed.distance)),
+      seriesStart: entry.seriesStart,
       turnover: isTurnover,
       penalty: isPenalty,
       penaltyType: penaltyText || (result.includes("PEN") ? "Penalty" : ""),
@@ -419,6 +426,7 @@ export default function AnalyticsPage() {
       receiver: "",
       result: "",
       penalty: "",
+      seriesStart: false,
     }));
 
     setMessage(`Saved play #${nextPlayNumber}.`);
@@ -605,7 +613,8 @@ export default function AnalyticsPage() {
             <Metric label="TDs" value={stats.tds} />
             <Metric label="Turnovers" value={stats.turnovers} danger={stats.turnovers > 0} />
             <Metric label="Penalties" value={stats.penalties} danger={stats.penalties > 0} />
-            <Metric label="1st Downs" value={stats.firstDowns} />
+            <Metric label="1st Downs Earned" value={stats.firstDownsEarned} />
+            <Metric label="Series Starts" value={stats.seriesStarts} />
             <Metric label="Success" value={`${stats.successRate}%`} />
             <Metric label="Explosive" value={`${stats.explosiveRate}%`} />
             <Metric label="Average" value={stats.averageYards} />
@@ -723,9 +732,27 @@ export default function AnalyticsPage() {
                 ))}
               </datalist>
 
-              <button style={saveButtonStyle} onClick={savePlay} disabled={saving}>
-                {saving ? "SAVED" : "SAVE PLAY"}
-              </button>
+              <div style={saveRowStyle}>
+                <button
+                  type="button"
+                  style={{
+                    ...seriesStartButtonStyle,
+                    ...(entry.seriesStart ? seriesStartButtonActiveStyle : {}),
+                  }}
+                  onClick={() =>
+                    setEntry((current) => ({
+                      ...current,
+                      seriesStart: !current.seriesStart,
+                    }))
+                  }
+                >
+                  {entry.seriesStart ? "START OF SERIES ✓" : "MARK START OF SERIES"}
+                </button>
+
+                <button style={saveButtonStyle} onClick={savePlay} disabled={saving}>
+                  {saving ? "SAVED" : "SAVE PLAY"}
+                </button>
+              </div>
 
               <div style={tableWrapStyle}>
                 <table style={modernTableStyle}>
@@ -739,6 +766,8 @@ export default function AnalyticsPage() {
                       <th style={modernThStyle}>Rusher</th>
                       <th style={modernThStyle}>Passer</th>
                       <th style={modernThStyle}>Receiver</th>
+                      <th style={modernThStyle}>Series</th>
+                      <th style={modernThStyle}>1st Down</th>
                       <th style={modernThStyle}>Result</th>
                       <th style={modernThStyle}>Penalty</th>
                       <th style={modernThStyle}>Grade</th>
@@ -749,7 +778,7 @@ export default function AnalyticsPage() {
                   <tbody>
                     {currentGamePlays.length === 0 && (
                       <tr>
-                        <td style={emptyTdStyle} colSpan={12}>
+                        <td style={emptyTdStyle} colSpan={14}>
                           No plays entered yet. Type a play and press SAVE PLAY.
                         </td>
                       </tr>
@@ -770,6 +799,20 @@ export default function AnalyticsPage() {
                           <td style={modernTdStyle}>{row.rusher}</td>
                           <td style={modernTdStyle}>{row.passer}</td>
                           <td style={modernTdStyle}>{row.receiver}</td>
+                          <td style={modernTdStyle}>
+                            {row.seriesStart ? (
+                              <span style={seriesPillStyle}>START</span>
+                            ) : (
+                              ""
+                            )}
+                          </td>
+                          <td style={modernTdStyle}>
+                            {row.firstDown ? (
+                              <span style={earnedFirstDownPillStyle}>EARNED</span>
+                            ) : (
+                              ""
+                            )}
+                          </td>
                           <td style={modernTdStyle}>
                             {row.touchdown
                               ? "TD"
@@ -1342,7 +1385,8 @@ function calculateStats(rows: ChartPlay[]) {
     ).length,
     turnovers: statisticalRows.filter((play) => play.turnover).length,
     penalties: rows.filter((play) => play.penalty).length,
-    firstDowns: statisticalRows.filter((play) => play.firstDown).length,
+    firstDownsEarned: statisticalRows.filter((play) => play.firstDown).length,
+    seriesStarts: rows.filter((play) => play.seriesStart).length,
     successRate: total ? Math.round((successCount / total) * 100) : 0,
     explosiveRate: total ? Math.round((explosiveCount / total) * 100) : 0,
     averageYards: total ? (yards / total).toFixed(1) : "0.0",
@@ -2089,6 +2133,8 @@ function GameBreakdownReport({
               <th style={modernThStyle}>Avg</th>
               <th style={modernThStyle}>Success</th>
               <th style={modernThStyle}>Explosive</th>
+              <th style={modernThStyle}>1st Downs Earned</th>
+              <th style={modernThStyle}>Series Starts</th>
               <th style={modernThStyle}>TDs</th>
               <th style={modernThStyle}>Turnovers</th>
             </tr>
@@ -2097,7 +2143,7 @@ function GameBreakdownReport({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td style={emptyTdStyle} colSpan={11}>
+                <td style={emptyTdStyle} colSpan={13}>
                   No season game data yet.
                 </td>
               </tr>
@@ -2114,6 +2160,8 @@ function GameBreakdownReport({
                 <td style={modernTdStyle}>{stats.averageYards}</td>
                 <td style={modernTdStyle}>{stats.successRate}%</td>
                 <td style={modernTdStyle}>{stats.explosiveRate}%</td>
+                <td style={modernTdStyle}>{stats.firstDownsEarned}</td>
+                <td style={modernTdStyle}>{stats.seriesStarts}</td>
                 <td style={modernTdStyle}>{stats.tds}</td>
                 <td style={modernTdStyle}>{stats.turnovers}</td>
               </tr>
@@ -2403,7 +2451,7 @@ const navButtonActiveStyle: React.CSSProperties = {
 
 const topMetricGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(10, minmax(115px, 1fr))",
+  gridTemplateColumns: "repeat(12, minmax(115px, 1fr))",
   gap: 10,
   marginBottom: 14,
   overflowX: "auto",
@@ -2524,6 +2572,51 @@ const sheetInputStyle: React.CSSProperties = {
   color: "#0f172a",
   background: "#ffffff",
   outline: "none",
+};
+
+const saveRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(180px, .45fr) minmax(240px, 1fr)",
+  gap: 10,
+  marginTop: 10,
+};
+
+const seriesStartButtonStyle: React.CSSProperties = {
+  padding: "13px 14px",
+  borderRadius: 14,
+  border: "1px solid #cbd5e1",
+  background: "#f8fafc",
+  color: "#475569",
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const seriesStartButtonActiveStyle: React.CSSProperties = {
+  border: "1px solid #2563eb",
+  background: "#dbeafe",
+  color: "#1d4ed8",
+};
+
+const seriesPillStyle: React.CSSProperties = {
+  display: "inline-flex",
+  borderRadius: 999,
+  padding: "3px 8px",
+  background: "#dbeafe",
+  color: "#1d4ed8",
+  border: "1px solid #bfdbfe",
+  fontSize: 10,
+  fontWeight: 950,
+};
+
+const earnedFirstDownPillStyle: React.CSSProperties = {
+  display: "inline-flex",
+  borderRadius: 999,
+  padding: "3px 8px",
+  background: "#dcfce7",
+  color: "#166534",
+  border: "1px solid #bbf7d0",
+  fontSize: 10,
+  fontWeight: 950,
 };
 
 const saveButtonStyle: React.CSSProperties = {
@@ -2837,7 +2930,7 @@ const printDateStyle: React.CSSProperties = {
 
 const reportMetricGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(10, minmax(110px, 1fr))",
+  gridTemplateColumns: "repeat(12, minmax(110px, 1fr))",
   gap: 8,
   marginBottom: 12,
   overflowX: "auto",
