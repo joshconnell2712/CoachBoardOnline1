@@ -104,6 +104,7 @@ const defaultGames: Game[] = [
 
 export default function AnalyticsPage() {
   const [activeSection, setActiveSection] = useState<Section>("command");
+  const [reportScope, setReportScope] = useState<"game" | "season">("game");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -186,29 +187,61 @@ export default function AnalyticsPage() {
     [chartPlays, selectedGameId],
   );
 
+  const seasonPlays = useMemo(
+    () =>
+      [...chartPlays].sort((a, b) => {
+        const gameA = games.find((game) => game.id === a.gameId);
+        const gameB = games.find((game) => game.id === b.gameId);
+        const weekA = Number(gameA?.week ?? 0);
+        const weekB = Number(gameB?.week ?? 0);
+
+        if (weekA !== weekB) return weekA - weekB;
+        return a.playNumber - b.playNumber;
+      }),
+    [chartPlays, games],
+  );
+
+  const reportPlays = reportScope === "season" ? seasonPlays : currentGamePlays;
+
   const stats = useMemo(() => calculateStats(currentGamePlays), [currentGamePlays]);
+  const reportStats = useMemo(() => calculateStats(reportPlays), [reportPlays]);
 
   const playReport = useMemo(
-    () => makeReport(currentGamePlays, (row) => row.play),
-    [currentGamePlays],
+    () => makeReport(reportPlays, (row) => row.play),
+    [reportPlays],
   );
 
   const formationReport = useMemo(
-    () => makeReport(currentGamePlays, (row) => row.formation),
-    [currentGamePlays],
+    () => makeReport(reportPlays, (row) => row.formation),
+    [reportPlays],
   );
 
   const formationPlayReport = useMemo(
-    () => makeReport(currentGamePlays, (row) => `${row.formation} — ${row.play}`),
-    [currentGamePlays],
+    () => makeReport(reportPlays, (row) => `${row.formation} — ${row.play}`),
+    [reportPlays],
   );
 
   const playerReport = useMemo(
-    () => makePlayerReport(currentGamePlays),
-    [currentGamePlays],
+    () => makePlayerReport(reportPlays),
+    [reportPlays],
   );
 
   const matrix = useMemo(() => buildMatrix(currentGamePlays), [currentGamePlays]);
+
+  const gameBreakdown = useMemo(
+    () =>
+      games
+        .map((game) => {
+          const rows = chartPlays.filter((play) => play.gameId === game.id);
+          return {
+            game,
+            stats: calculateStats(rows),
+          };
+        })
+        .filter((item) => item.stats.total > 0)
+        .sort((a, b) => Number(a.game.week || 0) - Number(b.game.week || 0)),
+    [games, chartPlays],
+  );
 
   function updateEntry(key: keyof EntryState, value: string) {
     setEntry((current) => ({ ...current, [key]: value }));
@@ -976,11 +1009,116 @@ export default function AnalyticsPage() {
       )}
 
       {activeSection === "reports" && (
-        <section style={reportsGridStyle}>
-          <FormationPlaySuccessReport rows={formationPlayReport} />
-          <Report title="Best Plays" rows={playReport} />
-          <Report title="Best Formations" rows={formationReport} />
-          <Report title="Best Formation + Play" rows={formationPlayReport} />
+        <section id="analytics-print-area">
+          <div className="no-print" style={reportToolbarStyle}>
+            <div>
+              <div style={smallRedStyle}>REPORT VIEW</div>
+              <h2 style={panelTitleStyle}>
+                {reportScope === "season" ? "Season Analytics" : "Current Game Analytics"}
+              </h2>
+            </div>
+
+            <div style={reportToolbarActionsStyle}>
+              <div style={scopeToggleStyle}>
+                <button
+                  style={{
+                    ...scopeButtonStyle,
+                    ...(reportScope === "game" ? scopeButtonActiveStyle : {}),
+                  }}
+                  onClick={() => setReportScope("game")}
+                >
+                  Current Game
+                </button>
+
+                <button
+                  style={{
+                    ...scopeButtonStyle,
+                    ...(reportScope === "season" ? scopeButtonActiveStyle : {}),
+                  }}
+                  onClick={() => setReportScope("season")}
+                >
+                  Full Season
+                </button>
+              </div>
+
+              <button style={printButtonStyle} onClick={() => window.print()}>
+                Print Report
+              </button>
+            </div>
+          </div>
+
+          <div style={printHeaderStyle}>
+            <div>
+              <div style={eyebrowStyle}>COACHBOARD ANALYTICS</div>
+              <h1 style={{ ...titleStyle, fontSize: 30 }}>
+                {reportScope === "season"
+                  ? "Season Offensive Analytics Report"
+                  : `Week ${selectedGame?.week ?? "-"} vs ${selectedGame?.opponent ?? "Opponent"}`}
+              </h1>
+            </div>
+
+            <div style={printDateStyle}>
+              {new Date().toLocaleDateString()}
+            </div>
+          </div>
+
+          <section style={reportMetricGridStyle}>
+            <Metric label="Total Yards" value={reportStats.yards} />
+            <Metric label="Rush Yards" value={reportStats.rushYards} />
+            <Metric label="Pass Yards" value={reportStats.passYards} />
+            <Metric label="Plays" value={reportStats.total} />
+            <Metric label="TDs" value={reportStats.tds} />
+            <Metric label="Turnovers" value={reportStats.turnovers} danger={reportStats.turnovers > 0} />
+            <Metric label="1st Downs" value={reportStats.firstDowns} />
+            <Metric label="Success" value={`${reportStats.successRate}%`} />
+            <Metric label="Explosive" value={`${reportStats.explosiveRate}%`} />
+            <Metric label="Average" value={reportStats.averageYards} />
+          </section>
+
+          <section style={reportsGridStyle}>
+            <FormationPlaySuccessReport rows={formationPlayReport} />
+            <Report title="Play Rankings" rows={playReport} />
+            <Report title="Formation Rankings" rows={formationReport} />
+            <Report title="Formation + Play Rankings" rows={formationPlayReport} />
+
+            {reportScope === "season" && (
+              <GameBreakdownReport rows={gameBreakdown} />
+            )}
+          </section>
+
+          <style jsx global>{`
+            @media print {
+              body {
+                background: white !important;
+              }
+
+              body * {
+                visibility: hidden !important;
+              }
+
+              #analytics-print-area,
+              #analytics-print-area * {
+                visibility: visible !important;
+              }
+
+              #analytics-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 0;
+              }
+
+              .no-print {
+                display: none !important;
+              }
+
+              @page {
+                size: landscape;
+                margin: 0.35in;
+              }
+            }
+          `}</style>
         </section>
       )}
     </main>
@@ -1303,6 +1441,68 @@ function List({ children }: { children: React.ReactNode }) {
 
 function Row({ children }: { children: React.ReactNode }) {
   return <div style={listRowStyle}>{children}</div>;
+}
+
+function GameBreakdownReport({
+  rows,
+}: {
+  rows: Array<{
+    game: Game;
+    stats: ReturnType<typeof calculateStats>;
+  }>;
+}) {
+  return (
+    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+      <div style={smallRedStyle}>SEASON BY GAME</div>
+      <h2 style={panelTitleStyle}>Game-by-Game Breakdown</h2>
+
+      <div style={tableWrapStyle}>
+        <table style={modernTableStyle}>
+          <thead>
+            <tr>
+              <th style={modernThStyle}>Week</th>
+              <th style={modernThStyle}>Opponent</th>
+              <th style={modernThStyle}>Plays</th>
+              <th style={modernThStyle}>Total Yards</th>
+              <th style={modernThStyle}>Rush</th>
+              <th style={modernThStyle}>Pass</th>
+              <th style={modernThStyle}>Avg</th>
+              <th style={modernThStyle}>Success</th>
+              <th style={modernThStyle}>Explosive</th>
+              <th style={modernThStyle}>TDs</th>
+              <th style={modernThStyle}>Turnovers</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td style={emptyTdStyle} colSpan={11}>
+                  No season game data yet.
+                </td>
+              </tr>
+            )}
+
+            {rows.map(({ game, stats }) => (
+              <tr key={game.id}>
+                <td style={modernTdStyle}>{game.week}</td>
+                <td style={modernTdStyle}>{game.opponent}</td>
+                <td style={modernTdStyle}>{stats.total}</td>
+                <td style={modernTdStyle}>{stats.yards}</td>
+                <td style={modernTdStyle}>{stats.rushYards}</td>
+                <td style={modernTdStyle}>{stats.passYards}</td>
+                <td style={modernTdStyle}>{stats.averageYards}</td>
+                <td style={modernTdStyle}>{stats.successRate}%</td>
+                <td style={modernTdStyle}>{stats.explosiveRate}%</td>
+                <td style={modernTdStyle}>{stats.tds}</td>
+                <td style={modernTdStyle}>{stats.turnovers}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 function FormationPlaySuccessReport({ rows }: { rows: ReportRow[] }) {
@@ -1891,6 +2091,87 @@ const setupGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))",
   gap: 12,
+};
+
+const reportToolbarStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 16,
+  marginBottom: 14,
+  padding: 14,
+  borderRadius: 16,
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 8px 22px rgba(15,23,42,.05)",
+};
+
+const reportToolbarActionsStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const scopeToggleStyle: React.CSSProperties = {
+  display: "flex",
+  padding: 4,
+  gap: 4,
+  borderRadius: 12,
+  background: "#f1f5f9",
+  border: "1px solid #e2e8f0",
+};
+
+const scopeButtonStyle: React.CSSProperties = {
+  border: "none",
+  borderRadius: 9,
+  padding: "9px 12px",
+  background: "transparent",
+  color: "#475569",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const scopeButtonActiveStyle: React.CSSProperties = {
+  background: "#ffffff",
+  color: "#0f172a",
+  boxShadow: "0 4px 12px rgba(15,23,42,.08)",
+};
+
+const printButtonStyle: React.CSSProperties = {
+  border: "1px solid #991b1b",
+  borderRadius: 11,
+  padding: "10px 14px",
+  background: "linear-gradient(180deg, #ef4444, #b91c1c)",
+  color: "white",
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const printHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 18,
+  marginBottom: 12,
+  padding: "16px 18px",
+  borderRadius: 16,
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+};
+
+const printDateStyle: React.CSSProperties = {
+  color: "#64748b",
+  fontWeight: 800,
+  fontSize: 13,
+};
+
+const reportMetricGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(10, minmax(110px, 1fr))",
+  gap: 8,
+  marginBottom: 12,
+  overflowX: "auto",
 };
 
 const reportsGridStyle: React.CSSProperties = {
