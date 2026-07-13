@@ -33,6 +33,18 @@ type Game = {
   date: string;
 };
 
+type Possession = {
+  id: string;
+  gameId: string;
+  startQuarter: number;
+  startClock: string;
+  endQuarter: number;
+  endClock: string;
+  durationSeconds: number;
+  result: string;
+  createdAt: string;
+};
+
 type ChartPlay = {
   id: string;
   gameId: string;
@@ -77,7 +89,9 @@ type SavedState = {
   plays: PlayCall[];
   games: Game[];
   chartPlays: ChartPlay[];
+  possessions: Possession[];
   selectedGameId: string;
+  quarterLengthMinutes: number;
 };
 
 type ReportRow = {
@@ -117,7 +131,15 @@ export default function AnalyticsPage() {
   const [plays, setPlays] = useState<PlayCall[]>([]);
   const [games, setGames] = useState<Game[]>(defaultGames);
   const [chartPlays, setChartPlays] = useState<ChartPlay[]>([]);
+  const [possessions, setPossessions] = useState<Possession[]>([]);
   const [selectedGameId, setSelectedGameId] = useState(defaultGames[0].id);
+  const [quarterLengthMinutes, setQuarterLengthMinutes] = useState(12);
+
+  const [possessionStartQuarter, setPossessionStartQuarter] = useState("1");
+  const [possessionStartClock, setPossessionStartClock] = useState("12:00");
+  const [possessionEndQuarter, setPossessionEndQuarter] = useState("1");
+  const [possessionEndClock, setPossessionEndClock] = useState("");
+  const [possessionResult, setPossessionResult] = useState("");
 
   const [newWeek, setNewWeek] = useState("");
   const [newOpponent, setNewOpponent] = useState("");
@@ -171,6 +193,8 @@ export default function AnalyticsPage() {
 
       setGames(savedGames);
       setChartPlays(savedChartPlays);
+      setPossessions(saved.possessions ?? []);
+      setQuarterLengthMinutes(saved.quarterLengthMinutes === 15 ? 15 : 12);
       setSelectedGameId(saved.selectedGameId || savedGames[0].id);
     } catch {
       setMessage("Could not load saved analytics data.");
@@ -184,7 +208,9 @@ export default function AnalyticsPage() {
       plays,
       games,
       chartPlays,
+      possessions,
       selectedGameId,
+      quarterLengthMinutes,
     };
 
     try {
@@ -192,7 +218,16 @@ export default function AnalyticsPage() {
     } catch {
       setMessage("Could not save analytics data in this browser.");
     }
-  }, [players, formations, plays, games, chartPlays, selectedGameId]);
+  }, [
+    players,
+    formations,
+    plays,
+    games,
+    chartPlays,
+    possessions,
+    selectedGameId,
+    quarterLengthMinutes,
+  ]);
 
   const selectedGame = games.find((game) => game.id === selectedGameId) ?? games[0];
 
@@ -202,6 +237,19 @@ export default function AnalyticsPage() {
         .filter((play) => play.gameId === selectedGameId)
         .sort((a, b) => a.playNumber - b.playNumber),
     [chartPlays, selectedGameId],
+  );
+
+  const currentGamePossessions = useMemo(
+    () =>
+      possessions
+        .filter((possession) => possession.gameId === selectedGameId)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    [possessions, selectedGameId],
+  );
+
+  const seasonPossessions = useMemo(
+    () => possessions,
+    [possessions],
   );
 
   const seasonPlays = useMemo(
@@ -222,6 +270,19 @@ export default function AnalyticsPage() {
 
   const stats = useMemo(() => calculateStats(currentGamePlays), [currentGamePlays]);
   const reportStats = useMemo(() => calculateStats(reportPlays), [reportPlays]);
+
+  const gamePossessionStats = useMemo(
+    () => calculatePossessionStats(currentGamePossessions),
+    [currentGamePossessions],
+  );
+
+  const reportPossessions =
+    reportScope === "season" ? seasonPossessions : currentGamePossessions;
+
+  const reportPossessionStats = useMemo(
+    () => calculatePossessionStats(reportPossessions),
+    [reportPossessions],
+  );
 
   const playReport = useMemo(
     () => makeReport(reportPlays, (row) => row.play),
@@ -433,6 +494,72 @@ export default function AnalyticsPage() {
     window.setTimeout(() => setSaving(false), 150);
   }
 
+  function savePossession() {
+    setMessage("");
+
+    if (!selectedGameId) {
+      setMessage("Select a game first.");
+      return;
+    }
+
+    const startQuarter = Number(possessionStartQuarter);
+    const endQuarter = Number(possessionEndQuarter);
+
+    if (
+      !Number.isInteger(startQuarter) ||
+      !Number.isInteger(endQuarter) ||
+      startQuarter < 1 ||
+      endQuarter < startQuarter
+    ) {
+      setMessage("Enter valid start and end quarters.");
+      return;
+    }
+
+    const durationSeconds = calculatePossessionDuration(
+      startQuarter,
+      possessionStartClock,
+      endQuarter,
+      possessionEndClock,
+      quarterLengthMinutes,
+    );
+
+    if (durationSeconds === null) {
+      setMessage("Enter valid game-clock times such as 12:00 and 8:34.");
+      return;
+    }
+
+    if (durationSeconds <= 0) {
+      setMessage("The possession end must occur after the possession start.");
+      return;
+    }
+
+    const possession: Possession = {
+      id: createId(),
+      gameId: selectedGameId,
+      startQuarter,
+      startClock: normalizeClock(possessionStartClock),
+      endQuarter,
+      endClock: normalizeClock(possessionEndClock),
+      durationSeconds,
+      result: possessionResult.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    setPossessions((current) => [...current, possession]);
+    setPossessionStartQuarter(String(endQuarter));
+    setPossessionStartClock(normalizeClock(possessionEndClock));
+    setPossessionEndQuarter(String(endQuarter));
+    setPossessionEndClock("");
+    setPossessionResult("");
+    setMessage(`Possession saved: ${formatDuration(durationSeconds)}.`);
+  }
+
+  function deletePossession(id: string) {
+    setPossessions((current) =>
+      current.filter((possession) => possession.id !== id),
+    );
+  }
+
   function addGame() {
     if (!newOpponent.trim()) {
       setMessage("Type an opponent.");
@@ -515,6 +642,9 @@ export default function AnalyticsPage() {
 
     setGames(nextGames);
     setChartPlays((current) => current.filter((play) => play.gameId !== id));
+    setPossessions((current) =>
+      current.filter((possession) => possession.gameId !== id),
+    );
     setSelectedGameId(nextGames[0].id);
   }
 
@@ -556,6 +686,8 @@ export default function AnalyticsPage() {
     setPlays([]);
     setGames(defaultGames);
     setChartPlays([]);
+    setPossessions([]);
+    setQuarterLengthMinutes(12);
     setSelectedGameId(defaultGames[0].id);
     setMessage("Analytics data cleared.");
   }
@@ -618,6 +750,7 @@ export default function AnalyticsPage() {
             <Metric label="Success" value={`${stats.successRate}%`} />
             <Metric label="Explosive" value={`${stats.explosiveRate}%`} />
             <Metric label="Average" value={stats.averageYards} />
+            <Metric label="Time of Possession" value={formatDuration(gamePossessionStats.totalSeconds)} />
           </section>
 
           <section style={mainGridStyle}>
@@ -892,6 +1025,177 @@ export default function AnalyticsPage() {
                 ))}
               </div>
             </aside>
+          </section>
+
+          <section style={panelStyle}>
+            <div style={panelHeaderRowStyle}>
+              <div>
+                <div style={smallRedStyle}>POSSESSION TRACKER</div>
+                <h2 style={panelTitleStyle}>Time of Possession</h2>
+              </div>
+
+              <div style={quarterLengthControlStyle}>
+                <span>Quarter Length</span>
+                <button
+                  style={{
+                    ...quarterLengthButtonStyle,
+                    ...(quarterLengthMinutes === 12
+                      ? quarterLengthButtonActiveStyle
+                      : {}),
+                  }}
+                  onClick={() => setQuarterLengthMinutes(12)}
+                >
+                  12 Min
+                </button>
+                <button
+                  style={{
+                    ...quarterLengthButtonStyle,
+                    ...(quarterLengthMinutes === 15
+                      ? quarterLengthButtonActiveStyle
+                      : {}),
+                  }}
+                  onClick={() => setQuarterLengthMinutes(15)}
+                >
+                  15 Min
+                </button>
+              </div>
+            </div>
+
+            <div style={possessionMetricGridStyle}>
+              <Metric
+                label="Total Possession"
+                value={formatDuration(gamePossessionStats.totalSeconds)}
+              />
+              <Metric
+                label="Possessions"
+                value={gamePossessionStats.count}
+              />
+              <Metric
+                label="Average Drive"
+                value={formatDuration(gamePossessionStats.averageSeconds)}
+              />
+              <Metric
+                label="Longest Drive"
+                value={formatDuration(gamePossessionStats.longestSeconds)}
+              />
+            </div>
+
+            <div style={possessionEntryGridStyle}>
+              <label style={possessionFieldStyle}>
+                <span>Start Quarter</span>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  min="1"
+                  value={possessionStartQuarter}
+                  onChange={(event) =>
+                    setPossessionStartQuarter(event.target.value)
+                  }
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Start Clock</span>
+                <input
+                  style={inputStyle}
+                  placeholder={quarterLengthMinutes === 12 ? "12:00" : "15:00"}
+                  value={possessionStartClock}
+                  onChange={(event) =>
+                    setPossessionStartClock(event.target.value)
+                  }
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>End Quarter</span>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  min="1"
+                  value={possessionEndQuarter}
+                  onChange={(event) =>
+                    setPossessionEndQuarter(event.target.value)
+                  }
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>End Clock</span>
+                <input
+                  style={inputStyle}
+                  placeholder="8:34"
+                  value={possessionEndClock}
+                  onChange={(event) =>
+                    setPossessionEndClock(event.target.value)
+                  }
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Result</span>
+                <input
+                  style={inputStyle}
+                  placeholder="TD / Punt / Turnover"
+                  value={possessionResult}
+                  onChange={(event) =>
+                    setPossessionResult(event.target.value)
+                  }
+                />
+              </label>
+
+              <button style={possessionSaveButtonStyle} onClick={savePossession}>
+                SAVE POSSESSION
+              </button>
+            </div>
+
+            <div style={tableWrapStyle}>
+              <table style={modernTableStyle}>
+                <thead>
+                  <tr>
+                    <th style={modernThStyle}>#</th>
+                    <th style={modernThStyle}>Start</th>
+                    <th style={modernThStyle}>End</th>
+                    <th style={modernThStyle}>Duration</th>
+                    <th style={modernThStyle}>Result</th>
+                    <th style={modernThStyle}></th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {currentGamePossessions.length === 0 && (
+                    <tr>
+                      <td style={emptyTdStyle} colSpan={6}>
+                        No possessions recorded yet.
+                      </td>
+                    </tr>
+                  )}
+
+                  {currentGamePossessions.map((possession, index) => (
+                    <tr key={possession.id}>
+                      <td style={modernTdStyle}>{index + 1}</td>
+                      <td style={modernTdStyle}>
+                        Q{possession.startQuarter} {possession.startClock}
+                      </td>
+                      <td style={modernTdStyle}>
+                        Q{possession.endQuarter} {possession.endClock}
+                      </td>
+                      <td style={modernTdStyle}>
+                        {formatDuration(possession.durationSeconds)}
+                      </td>
+                      <td style={modernTdStyle}>{possession.result}</td>
+                      <td style={modernTdStyle}>
+                        <button
+                          style={miniDeleteButtonStyle}
+                          onClick={() => deletePossession(possession.id)}
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
 
           <section style={panelStyle}>
@@ -1206,6 +1510,14 @@ export default function AnalyticsPage() {
             <Metric label="Success" value={`${reportStats.successRate}%`} />
             <Metric label="Explosive" value={`${reportStats.explosiveRate}%`} />
             <Metric label="Average" value={reportStats.averageYards} />
+            <Metric
+              label="Time of Possession"
+              value={formatDuration(reportPossessionStats.totalSeconds)}
+            />
+            <Metric
+              label="Avg Possession"
+              value={formatDuration(reportPossessionStats.averageSeconds)}
+            />
           </section>
 
           <section style={reportsGridStyle}>
@@ -1219,6 +1531,12 @@ export default function AnalyticsPage() {
             />
 
             <PenaltyAnalyticsReport rows={penaltyReport} />
+
+            <PossessionAnalyticsReport
+              possessions={reportPossessions}
+              games={games}
+              scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
+            />
 
             <Report title="Play Rankings" rows={playReport} />
             <Report title="Formation Rankings" rows={formationReport} />
@@ -1266,6 +1584,85 @@ export default function AnalyticsPage() {
       )}
     </main>
   );
+}
+
+function parseClockToSeconds(value: string) {
+  const clean = value.trim();
+  const match = clean.match(/^(\d{1,2}):([0-5]\d)$/);
+
+  if (!match) return null;
+
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+
+  return minutes * 60 + seconds;
+}
+
+function normalizeClock(value: string) {
+  const seconds = parseClockToSeconds(value);
+
+  if (seconds === null) return value.trim();
+
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
+function calculatePossessionDuration(
+  startQuarter: number,
+  startClock: string,
+  endQuarter: number,
+  endClock: string,
+  quarterLengthMinutes: number,
+) {
+  const startSeconds = parseClockToSeconds(startClock);
+  const endSeconds = parseClockToSeconds(endClock);
+  const quarterSeconds = quarterLengthMinutes * 60;
+
+  if (startSeconds === null || endSeconds === null) return null;
+  if (startSeconds > quarterSeconds || endSeconds > quarterSeconds) return null;
+  if (endQuarter < startQuarter) return null;
+
+  if (startQuarter === endQuarter) {
+    return startSeconds - endSeconds;
+  }
+
+  const remainingInStartQuarter = startSeconds;
+  const fullQuartersBetween = Math.max(0, endQuarter - startQuarter - 1);
+  const elapsedInEndQuarter = quarterSeconds - endSeconds;
+
+  return (
+    remainingInStartQuarter +
+    fullQuartersBetween * quarterSeconds +
+    elapsedInEndQuarter
+  );
+}
+
+function calculatePossessionStats(possessions: Possession[]) {
+  const totalSeconds = possessions.reduce(
+    (sum, possession) => sum + possession.durationSeconds,
+    0,
+  );
+
+  return {
+    count: possessions.length,
+    totalSeconds,
+    averageSeconds: possessions.length
+      ? Math.round(totalSeconds / possessions.length)
+      : 0,
+    longestSeconds: possessions.length
+      ? Math.max(...possessions.map((possession) => possession.durationSeconds))
+      : 0,
+  };
+}
+
+function formatDuration(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.round(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function createId() {
@@ -1910,6 +2307,79 @@ type PenaltyStatRow = {
   percentage: number;
 };
 
+function PossessionAnalyticsReport({
+  possessions,
+  games,
+  scopeLabel,
+}: {
+  possessions: Possession[];
+  games: Game[];
+  scopeLabel: string;
+}) {
+  const stats = calculatePossessionStats(possessions);
+
+  return (
+    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+      <div style={smallRedStyle}>CLOCK CONTROL</div>
+      <h2 style={panelTitleStyle}>{scopeLabel} Time of Possession</h2>
+
+      <div style={possessionMetricGridStyle}>
+        <Metric label="Total Possession" value={formatDuration(stats.totalSeconds)} />
+        <Metric label="Possessions" value={stats.count} />
+        <Metric label="Average Drive" value={formatDuration(stats.averageSeconds)} />
+        <Metric label="Longest Drive" value={formatDuration(stats.longestSeconds)} />
+      </div>
+
+      <div style={tableWrapStyle}>
+        <table style={modernTableStyle}>
+          <thead>
+            <tr>
+              <th style={modernThStyle}>Game</th>
+              <th style={modernThStyle}>Start</th>
+              <th style={modernThStyle}>End</th>
+              <th style={modernThStyle}>Duration</th>
+              <th style={modernThStyle}>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {possessions.length === 0 && (
+              <tr>
+                <td style={emptyTdStyle} colSpan={5}>
+                  No possession data recorded.
+                </td>
+              </tr>
+            )}
+
+            {possessions.map((possession) => {
+              const game = games.find((item) => item.id === possession.gameId);
+
+              return (
+                <tr key={possession.id}>
+                  <td style={modernTdStyle}>
+                    {game
+                      ? `Week ${game.week} vs ${game.opponent}`
+                      : "Unknown Game"}
+                  </td>
+                  <td style={modernTdStyle}>
+                    Q{possession.startQuarter} {possession.startClock}
+                  </td>
+                  <td style={modernTdStyle}>
+                    Q{possession.endQuarter} {possession.endClock}
+                  </td>
+                  <td style={modernTdStyle}>
+                    {formatDuration(possession.durationSeconds)}
+                  </td>
+                  <td style={modernTdStyle}>{possession.result}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function PenaltyAnalyticsReport({ rows }: { rows: PenaltyStatRow[] }) {
   const total = rows.reduce((sum, row) => sum + row.count, 0);
 
@@ -2451,7 +2921,7 @@ const navButtonActiveStyle: React.CSSProperties = {
 
 const topMetricGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(12, minmax(115px, 1fr))",
+  gridTemplateColumns: "repeat(13, minmax(115px, 1fr))",
   gap: 10,
   marginBottom: 14,
   overflowX: "auto",
@@ -2572,6 +3042,67 @@ const sheetInputStyle: React.CSSProperties = {
   color: "#0f172a",
   background: "#ffffff",
   outline: "none",
+};
+
+const quarterLengthControlStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  color: "#475569",
+  fontSize: 12,
+  fontWeight: 900,
+};
+
+const quarterLengthButtonStyle: React.CSSProperties = {
+  border: "1px solid #cbd5e1",
+  borderRadius: 9,
+  padding: "7px 10px",
+  background: "#f8fafc",
+  color: "#475569",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const quarterLengthButtonActiveStyle: React.CSSProperties = {
+  border: "1px solid #dc2626",
+  background: "#fee2e2",
+  color: "#991b1b",
+};
+
+const possessionMetricGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(130px, 1fr))",
+  gap: 8,
+  marginTop: 12,
+};
+
+const possessionEntryGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns:
+    "100px minmax(100px, 130px) 100px minmax(100px, 130px) minmax(180px, 1fr) minmax(160px, 220px)",
+  gap: 8,
+  alignItems: "end",
+  marginTop: 12,
+};
+
+const possessionFieldStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 5,
+  color: "#475569",
+  fontSize: 11,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: ".05em",
+};
+
+const possessionSaveButtonStyle: React.CSSProperties = {
+  padding: "11px 14px",
+  borderRadius: 12,
+  border: "1px solid #991b1b",
+  background: "linear-gradient(180deg, #ef4444, #b91c1c)",
+  color: "white",
+  fontWeight: 950,
+  cursor: "pointer",
 };
 
 const saveRowStyle: React.CSSProperties = {
@@ -2930,7 +3461,7 @@ const printDateStyle: React.CSSProperties = {
 
 const reportMetricGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(12, minmax(110px, 1fr))",
+  gridTemplateColumns: "repeat(14, minmax(110px, 1fr))",
   gap: 8,
   marginBottom: 12,
   overflowX: "auto",
