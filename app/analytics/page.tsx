@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Section = "command" | "specialTeams" | "defense" | "setup" | "games" | "reports";
-type PlayType = "Run" | "Pass" | "RPO" | "Screen" | "Other";
+type PlayType = "Run" | "Pass" | "Punt" | "RPO" | "Screen" | "Other";
 type Grade = "negative" | "normal" | "success" | "explosive";
 
 type Player = {
