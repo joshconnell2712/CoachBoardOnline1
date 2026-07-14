@@ -1777,6 +1777,14 @@ type RoomCoach = {
   joinedAt: string;
 };
 
+type CoachBoardOrganization = {
+  team_id: string;
+  team_name: string;
+  season: number;
+  invite_code: string | null;
+  role: "owner" | "admin" | "coach" | "viewer";
+};
+
 function generateTeamCode(length = 6) {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const values = new Uint32Array(length);
@@ -1834,6 +1842,19 @@ function CoachBoardWebApp() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+
+  const [organization, setOrganization] =
+    useState<CoachBoardOrganization | null>(null);
+  const [organizationChecked, setOrganizationChecked] = useState(false);
+  const [organizationMode, setOrganizationMode] =
+    useState<"choose" | "create" | "join">("choose");
+  const [organizationName, setOrganizationName] = useState("");
+  const [organizationSeason, setOrganizationSeason] = useState(
+    String(new Date().getFullYear()),
+  );
+  const [organizationInviteCode, setOrganizationInviteCode] = useState("");
+  const [organizationSaving, setOrganizationSaving] = useState(false);
+  const [organizationError, setOrganizationError] = useState("");
 
   const ROOM_ID = teamCode ? `coachboard-gameday-${teamCode}` : "";
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
@@ -2208,21 +2229,59 @@ function CoachBoardWebApp() {
   }, []);
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUser(data.user);
-      }
+      setUser(data.user ?? null);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setOrganizationChecked(false);
+      setOrganization(null);
     });
 
     return () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOrganization() {
+      if (!user) {
+        setOrganization(null);
+        setOrganizationChecked(true);
+        return;
+      }
+
+      setOrganizationChecked(false);
+      setOrganizationError("");
+
+      const { data, error } = await supabase.rpc(
+        "get_my_coachboard_organization",
+      );
+
+      if (cancelled) return;
+
+      if (error) {
+        setOrganizationError(error.message);
+        setOrganization(null);
+        setOrganizationChecked(true);
+        return;
+      }
+
+      const row = Array.isArray(data) ? data[0] : data;
+      setOrganization((row as CoachBoardOrganization | undefined) ?? null);
+      setOrganizationChecked(true);
+    }
+
+    void loadOrganization();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
   const selectedZone = selectedZoneId
     ? (zoneAssignments.find((zone) => zone.id === selectedZoneId) ?? null)
     : null;
@@ -6930,6 +6989,97 @@ function CoachBoardWebApp() {
   const fieldNumberColor = fieldBlackWhiteMode
     ? "rgba(0,0,0,.88)"
     : "rgba(255,255,255,.88)";
+  async function refreshOrganization() {
+    if (!user) return;
+
+    const { data, error } = await supabase.rpc(
+      "get_my_coachboard_organization",
+    );
+
+    if (error) {
+      setOrganizationError(error.message);
+      return;
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    setOrganization((row as CoachBoardOrganization | undefined) ?? null);
+    setOrganizationChecked(true);
+  }
+
+  async function createOrganization() {
+    if (!user) return;
+
+    const cleanName = organizationName.trim();
+    const seasonNumber = Number(organizationSeason);
+
+    if (cleanName.length < 2) {
+      setOrganizationError("Enter your organization or team name.");
+      return;
+    }
+
+    if (
+      !Number.isInteger(seasonNumber) ||
+      seasonNumber < 2000 ||
+      seasonNumber > 2100
+    ) {
+      setOrganizationError("Enter a valid season.");
+      return;
+    }
+
+    setOrganizationSaving(true);
+    setOrganizationError("");
+
+    const { error } = await supabase.rpc(
+      "create_coachboard_organization",
+      {
+        organization_name: cleanName,
+        organization_season: seasonNumber,
+      },
+    );
+
+    if (error) {
+      setOrganizationError(error.message);
+      setOrganizationSaving(false);
+      return;
+    }
+
+    await refreshOrganization();
+    setOrganizationSaving(false);
+  }
+
+  async function joinOrganization() {
+    if (!user) return;
+
+    const cleanCode = organizationInviteCode
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+
+    if (cleanCode.length < 4) {
+      setOrganizationError("Enter the organization invite code.");
+      return;
+    }
+
+    setOrganizationSaving(true);
+    setOrganizationError("");
+
+    const { error } = await supabase.rpc(
+      "join_coachboard_organization",
+      {
+        entered_invite_code: cleanCode,
+      },
+    );
+
+    if (error) {
+      setOrganizationError(error.message);
+      setOrganizationSaving(false);
+      return;
+    }
+
+    await refreshOrganization();
+    setOrganizationSaving(false);
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut();
 
@@ -6940,12 +7090,331 @@ function CoachBoardWebApp() {
     setTeamCodeInput("");
     setRoomCoaches([]);
     setUser(null);
+    setOrganization(null);
+    setOrganizationChecked(false);
+    setOrganizationMode("choose");
+    setOrganizationName("");
+    setOrganizationInviteCode("");
+    setOrganizationError("");
     setEmail("");
     setPassword("");
     setAuthMode("login");
 
     window.location.reload();
   }
+  if (user && !organizationChecked) {
+    return (
+      <div
+        className="coachboard-login-page"
+        style={{
+          minHeight: "100svh",
+          display: "grid",
+          placeItems: "center",
+          background:
+            "radial-gradient(circle at top, rgba(220,38,38,.18), transparent 38%), #050505",
+          color: "white",
+          padding: 24,
+          fontFamily: "Arial",
+        }}
+      >
+        <div
+          style={{
+            ...cardStyle,
+            width: "min(520px, 100%)",
+            padding: 28,
+            textAlign: "center",
+          }}
+        >
+          <div style={panelHeaderStyle}>COACHBOARD</div>
+          <h1 style={{ margin: "10px 0 8px", fontSize: 32 }}>
+            Loading Your Organization
+          </h1>
+          <p style={{ color: "#cbd5e1", margin: 0 }}>
+            Checking your team membership...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user && organizationChecked && !organization) {
+    return (
+      <div
+        className="coachboard-login-page"
+        style={{
+          minHeight: "100svh",
+          display: "grid",
+          placeItems: "center",
+          background:
+            "radial-gradient(circle at top, rgba(220,38,38,.20), transparent 40%), #050505",
+          color: "white",
+          padding: 24,
+          fontFamily: "Arial",
+        }}
+      >
+        <section
+          style={{
+            ...cardStyle,
+            width: "min(640px, 100%)",
+            padding: 28,
+            display: "grid",
+            gap: 18,
+          }}
+        >
+          <div>
+            <div style={panelHeaderStyle}>COACHBOARD ORGANIZATION</div>
+            <h1
+              style={{
+                margin: "8px 0 6px",
+                fontSize: 34,
+                letterSpacing: "-.03em",
+              }}
+            >
+              Connect Your Program
+            </h1>
+            <p style={{ color: "#cbd5e1", lineHeight: 1.6, margin: 0 }}>
+              Create your organization if you are the first coach from your
+              program, or enter the code provided by another coach.
+            </p>
+          </div>
+
+          {organizationError && (
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 12,
+                background: "rgba(127,29,29,.55)",
+                border: "1px solid rgba(248,113,113,.55)",
+                color: "#fecaca",
+                fontWeight: 800,
+              }}
+            >
+              {organizationError}
+            </div>
+          )}
+
+          {organizationMode === "choose" && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 14,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setOrganizationMode("create");
+                  setOrganizationError("");
+                }}
+                style={{
+                  ...buttonBase,
+                  minHeight: 130,
+                  padding: 20,
+                  textAlign: "left",
+                  background:
+                    "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)",
+                  color: "white",
+                }}
+              >
+                <strong style={{ display: "block", fontSize: 21 }}>
+                  Create Organization
+                </strong>
+                <span
+                  style={{
+                    display: "block",
+                    marginTop: 8,
+                    color: "#fee2e2",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  Choose this if you are the first person from your program.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOrganizationMode("join");
+                  setOrganizationError("");
+                }}
+                style={{
+                  ...buttonBase,
+                  minHeight: 130,
+                  padding: 20,
+                  textAlign: "left",
+                  background:
+                    "linear-gradient(180deg, #1f2937 0%, #0f172a 100%)",
+                  color: "white",
+                }}
+              >
+                <strong style={{ display: "block", fontSize: 21 }}>
+                  Join With Code
+                </strong>
+                <span
+                  style={{
+                    display: "block",
+                    marginTop: 8,
+                    color: "#cbd5e1",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  Choose this when another coach has given you the organization
+                  invite code.
+                </span>
+              </button>
+            </div>
+          )}
+
+          {organizationMode === "create" && (
+            <div style={{ display: "grid", gap: 12 }}>
+              <label style={{ fontWeight: 900 }}>Organization or Team Name</label>
+              <input
+                value={organizationName}
+                onChange={(event) =>
+                  setOrganizationName(event.target.value)
+                }
+                placeholder="Hershey Football"
+                style={{
+                  padding: 14,
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,.18)",
+                  fontSize: 16,
+                  fontWeight: 800,
+                }}
+              />
+
+              <label style={{ fontWeight: 900 }}>Season</label>
+              <input
+                type="number"
+                min="2000"
+                max="2100"
+                value={organizationSeason}
+                onChange={(event) =>
+                  setOrganizationSeason(event.target.value)
+                }
+                style={{
+                  padding: 14,
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,.18)",
+                  fontSize: 16,
+                  fontWeight: 800,
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={createOrganization}
+                disabled={organizationSaving}
+                style={{
+                  ...buttonBase,
+                  marginTop: 4,
+                  background:
+                    "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)",
+                  color: "white",
+                }}
+              >
+                {organizationSaving
+                  ? "CREATING ORGANIZATION..."
+                  : "CREATE ORGANIZATION"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOrganizationMode("choose");
+                  setOrganizationError("");
+                }}
+                style={{
+                  ...buttonBase,
+                  background: "#111827",
+                  color: "white",
+                }}
+              >
+                Back
+              </button>
+            </div>
+          )}
+
+          {organizationMode === "join" && (
+            <div style={{ display: "grid", gap: 12 }}>
+              <label style={{ fontWeight: 900 }}>
+                Organization Invite Code
+              </label>
+              <input
+                value={organizationInviteCode}
+                onChange={(event) =>
+                  setOrganizationInviteCode(
+                    event.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]/g, "")
+                      .slice(0, 12),
+                  )
+                }
+                placeholder="Enter code"
+                style={{
+                  padding: 14,
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,.18)",
+                  fontSize: 20,
+                  fontWeight: 950,
+                  letterSpacing: ".12em",
+                  textTransform: "uppercase",
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={joinOrganization}
+                disabled={organizationSaving}
+                style={{
+                  ...buttonBase,
+                  marginTop: 4,
+                  background:
+                    "linear-gradient(180deg, #22c55e 0%, #15803d 100%)",
+                  color: "white",
+                }}
+              >
+                {organizationSaving
+                  ? "JOINING ORGANIZATION..."
+                  : "JOIN ORGANIZATION"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOrganizationMode("choose");
+                  setOrganizationError("");
+                }}
+                style={{
+                  ...buttonBase,
+                  background: "#111827",
+                  color: "white",
+                }}
+              >
+                Back
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "#94a3b8",
+              cursor: "pointer",
+              fontWeight: 800,
+            }}
+          >
+            Sign out and use a different account
+          </button>
+        </section>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div
@@ -7629,6 +8098,59 @@ function CoachBoardWebApp() {
           >
             Team Setup
           </button>
+          {organization && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: 12,
+                borderRadius: 14,
+                background: "rgba(255,255,255,.05)",
+                border: "1px solid rgba(255,255,255,.10)",
+              }}
+            >
+              <div
+                style={{
+                  color: "#f87171",
+                  fontSize: 10,
+                  fontWeight: 950,
+                  letterSpacing: ".12em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Organization
+              </div>
+              <div
+                style={{
+                  marginTop: 5,
+                  color: "white",
+                  fontWeight: 950,
+                  lineHeight: 1.25,
+                }}
+              >
+                {organization.team_name}
+              </div>
+              <div style={{ color: "#9ca3af", fontSize: 12 }}>
+                {organization.season} • {organization.role}
+              </div>
+              {organization.invite_code && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: "7px 8px",
+                    borderRadius: 9,
+                    background: "rgba(220,38,38,.18)",
+                    color: "#fecaca",
+                    fontSize: 12,
+                    fontWeight: 950,
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  Invite: {organization.invite_code}
+                </div>
+              )}
+            </div>
+          )}
+
           <div
             style={{
               marginTop: "auto",
