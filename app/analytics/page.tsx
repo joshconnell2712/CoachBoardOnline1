@@ -3,7 +3,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-type Section = "command" | "specialTeams" | "defense" | "setup" | "games" | "reports";
+type Section = "command" | "setup" | "games" | "reports";
+type GameCenterSection = "offense" | "defense" | "specialTeams";
 type PlayType = "Run" | "Pass" | "Punt" | "RPO" | "Screen" | "Other";
 type Grade = "negative" | "normal" | "success" | "explosive";
 
@@ -166,6 +167,7 @@ const defaultGames: Game[] = [
 
 export default function AnalyticsPage() {
   const [activeSection, setActiveSection] = useState<Section>("command");
+  const [gameCenterSection, setGameCenterSection] = useState<GameCenterSection>("offense");
   const [reportScope, setReportScope] = useState<"game" | "season">("game");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -991,22 +993,15 @@ export default function AnalyticsPage() {
         <NavButton
           label="Game Center"
           active={activeSection === "command"}
-          onClick={() => setActiveSection("command")}
+          onClick={() => {
+            setActiveSection("command");
+            setGameCenterSection("offense");
+          }}
         />
         <NavButton
           label="Setup"
           active={activeSection === "setup"}
           onClick={() => setActiveSection("setup")}
-        />
-        <NavButton
-          label="Special Teams"
-          active={activeSection === "specialTeams"}
-          onClick={() => setActiveSection("specialTeams")}
-        />
-        <NavButton
-          label="Defense"
-          active={activeSection === "defense"}
-          onClick={() => setActiveSection("defense")}
         />
         <NavButton
           label="Games"
@@ -1021,6 +1016,46 @@ export default function AnalyticsPage() {
       </nav>
 
       {activeSection === "command" && (
+        <div style={gameCenterSubnavStyle}>
+          <button
+            style={{
+              ...gameCenterSubnavButtonStyle,
+              ...(gameCenterSection === "offense"
+                ? gameCenterSubnavButtonActiveStyle
+                : {}),
+            }}
+            onClick={() => setGameCenterSection("offense")}
+          >
+            Offense
+          </button>
+
+          <button
+            style={{
+              ...gameCenterSubnavButtonStyle,
+              ...(gameCenterSection === "defense"
+                ? gameCenterSubnavButtonActiveStyle
+                : {}),
+            }}
+            onClick={() => setGameCenterSection("defense")}
+          >
+            Defense
+          </button>
+
+          <button
+            style={{
+              ...gameCenterSubnavButtonStyle,
+              ...(gameCenterSection === "specialTeams"
+                ? gameCenterSubnavButtonActiveStyle
+                : {}),
+            }}
+            onClick={() => setGameCenterSection("specialTeams")}
+          >
+            Special Teams
+          </button>
+        </div>
+      )}
+
+      {activeSection === "command" && gameCenterSection === "offense" && (
         <>
           <section style={topMetricGridStyle}>
             <Metric label="Total Yards" value={stats.yards} />
@@ -1639,7 +1674,7 @@ export default function AnalyticsPage() {
         </section>
       )}
 
-      {activeSection === "specialTeams" && (
+      {activeSection === "command" && gameCenterSection === "specialTeams" && (
         <section style={panelStyle}>
           <div style={panelHeaderRowStyle}>
             <div>
@@ -1829,7 +1864,7 @@ export default function AnalyticsPage() {
         </section>
       )}
 
-      {activeSection === "defense" && (
+      {activeSection === "command" && gameCenterSection === "defense" && (
         <section style={panelStyle}>
           <div style={panelHeaderRowStyle}>
             <div>
@@ -3776,6 +3811,35 @@ const navButtonActiveStyle: React.CSSProperties = {
   background: "#dc2626",
   color: "white",
   border: "1px solid #b91c1c",
+};
+
+const gameCenterSubnavStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 6,
+  width: "fit-content",
+  marginBottom: 10,
+  padding: 4,
+  borderRadius: 12,
+  background: "#e2e8f0",
+  border: "1px solid #cbd5e1",
+};
+
+const gameCenterSubnavButtonStyle: React.CSSProperties = {
+  border: "1px solid transparent",
+  borderRadius: 9,
+  padding: "8px 14px",
+  background: "transparent",
+  color: "#475569",
+  fontSize: 13,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const gameCenterSubnavButtonActiveStyle: React.CSSProperties = {
+  background: "#ffffff",
+  color: "#dc2626",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 4px 12px rgba(15,23,42,.08)",
 };
 
 const topMetricGridStyle: React.CSSProperties = {
