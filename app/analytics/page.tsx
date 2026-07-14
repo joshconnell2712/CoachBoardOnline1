@@ -157,14 +157,7 @@ const PASS_SUCCESS = 12;
 const RUN_EXPLOSIVE = 10;
 const PASS_EXPLOSIVE = 25;
 
-const defaultGames: Game[] = [
-  {
-    id: createId(),
-    week: "1",
-    opponent: "Live Game",
-    date: "",
-  },
-];
+const defaultGames: Game[] = [];
 
 export default function AnalyticsPage() {
   const [activeSection, setActiveSection] = useState<Section>("command");
@@ -177,12 +170,12 @@ export default function AnalyticsPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [formations, setFormations] = useState<Formation[]>([]);
   const [plays, setPlays] = useState<PlayCall[]>([]);
-  const [games, setGames] = useState<Game[]>(defaultGames);
+  const [games, setGames] = useState<Game[]>([]);
   const [chartPlays, setChartPlays] = useState<ChartPlay[]>([]);
   const [possessions, setPossessions] = useState<Possession[]>([]);
   const [specialTeamsEvents, setSpecialTeamsEvents] = useState<SpecialTeamsEvent[]>([]);
   const [defensiveEvents, setDefensiveEvents] = useState<DefensiveEvent[]>([]);
-  const [selectedGameId, setSelectedGameId] = useState(defaultGames[0].id);
+  const [selectedGameId, setSelectedGameId] = useState("");
   const [quarterLengthMinutes, setQuarterLengthMinutes] = useState(12);
 
   const [newWeek, setNewWeek] = useState("");
@@ -251,7 +244,7 @@ export default function AnalyticsPage() {
       setFormations(saved.formations ?? []);
       setPlays(saved.plays ?? []);
 
-      const savedGames = saved.games?.length ? saved.games : defaultGames;
+      const savedGames = saved.games ?? [];
       const savedChartPlays = (saved.chartPlays ?? []).map((play) => ({
         ...play,
         rusher: resolvePlayerInput(play.rusher, savedPlayers),
@@ -267,7 +260,15 @@ export default function AnalyticsPage() {
       setSpecialTeamsEvents(saved.specialTeamsEvents ?? []);
       setDefensiveEvents(saved.defensiveEvents ?? []);
       setQuarterLengthMinutes(saved.quarterLengthMinutes === 15 ? 15 : 12);
-      setSelectedGameId(saved.selectedGameId || savedGames[0].id);
+      const savedSelectionIsValid = savedGames.some(
+        (game) => game.id === saved.selectedGameId,
+      );
+
+      setSelectedGameId(
+        savedSelectionIsValid
+          ? saved.selectedGameId
+          : savedGames[0]?.id ?? "",
+      );
     } catch {
       setMessage("Could not load saved analytics data.");
     }
@@ -503,15 +504,8 @@ export default function AnalyticsPage() {
     setMessage("");
 
     if (!selectedGameId) {
-      const newGame: Game = {
-        id: createId(),
-        week: `${games.length + 1}`,
-        opponent: "Live Game",
-        date: "",
-      };
-
-      setGames((current) => [...current, newGame]);
-      setSelectedGameId(newGame.id);
+      setMessage("Add and open a game before entering plays.");
+      return;
     }
 
     const resultUpper = entry.result.trim().toUpperCase();
@@ -927,9 +921,8 @@ export default function AnalyticsPage() {
 
   function deleteGame(id: string) {
     const remaining = games.filter((game) => game.id !== id);
-    const nextGames = remaining.length ? remaining : defaultGames;
 
-    setGames(nextGames);
+    setGames(remaining);
     setChartPlays((current) => current.filter((play) => play.gameId !== id));
     setPossessions((current) =>
       current.filter((possession) => possession.gameId !== id),
@@ -940,7 +933,13 @@ export default function AnalyticsPage() {
     setDefensiveEvents((current) =>
       current.filter((event) => event.gameId !== id),
     );
-    setSelectedGameId(nextGames[0].id);
+
+    setSelectedGameId((current) => {
+      if (current !== id) return current;
+      return remaining[0]?.id ?? "";
+    });
+
+    setMessage("Game deleted.");
   }
 
   function deletePlayer(id: string) {
@@ -979,13 +978,13 @@ export default function AnalyticsPage() {
     setPlayers([]);
     setFormations([]);
     setPlays([]);
-    setGames(defaultGames);
+    setGames([]);
     setChartPlays([]);
     setPossessions([]);
     setSpecialTeamsEvents([]);
     setDefensiveEvents([]);
     setQuarterLengthMinutes(12);
-    setSelectedGameId(defaultGames[0].id);
+    setSelectedGameId("");
     setMessage("Analytics data cleared.");
   }
 
@@ -998,7 +997,7 @@ export default function AnalyticsPage() {
           <p style={subTitleStyle}>
             {selectedGame
               ? `Week ${selectedGame.week} vs ${selectedGame.opponent}`
-              : "Live Game"}
+              : "No game selected"}
           </p>
         </div>
 
@@ -1111,6 +1110,9 @@ export default function AnalyticsPage() {
                   value={selectedGameId}
                   onChange={(event) => setSelectedGameId(event.target.value)}
                 >
+                  {games.length === 0 && (
+                    <option value="">Add a game first</option>
+                  )}
                   {games.map((game) => (
                     <option key={game.id} value={game.id}>
                       Week {game.week} vs {game.opponent}
@@ -1675,6 +1677,12 @@ export default function AnalyticsPage() {
           </button>
 
           <List>
+            {games.length === 0 && (
+              <Row>
+                <span>No games have been added yet.</span>
+              </Row>
+            )}
+
             {games.map((game) => (
               <Row key={game.id}>
                 <span>
