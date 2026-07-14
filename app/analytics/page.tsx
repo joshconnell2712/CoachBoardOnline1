@@ -1193,7 +1193,7 @@ export default function AnalyticsPage() {
                   value={entry.result}
                   onChange={(value) => updateEntry("result", value)}
                   onKeyDown={handleEnterSave}
-                  placeholder="PUNT can be entered by itself"
+                  placeholder=""
                   wide
                 />
                 <SheetInput
@@ -1201,7 +1201,7 @@ export default function AnalyticsPage() {
                   value={entry.penalty}
                   onChange={(value) => updateEntry("penalty", value)}
                   onKeyDown={handleEnterSave}
-                  placeholder="Hold / False Start"
+                  placeholder=""
                   wide
                 />
 
