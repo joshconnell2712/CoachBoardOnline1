@@ -514,7 +514,15 @@ export default function AnalyticsPage() {
 
     const resultUpper = entry.result.trim().toUpperCase();
     const isPunt = resultUpper.includes("PUNT");
-    const yards = entry.yards.trim() === "" && isPunt ? 0 : Number(entry.yards);
+    const isTwoPointAttempt =
+      resultUpper.includes("2PT") ||
+      resultUpper.includes("2 PT") ||
+      resultUpper.includes("TWO POINT");
+    const optionalYardagePlay = isPunt || isTwoPointAttempt;
+    const yards =
+      entry.yards.trim() === "" && optionalYardagePlay
+        ? 0
+        : Number(entry.yards);
 
     if ((entry.possessionStart || entry.possessionEnd) && !entry.possessionClock.trim()) {
       setMessage("Enter the game clock for the possession action.");
@@ -533,8 +541,13 @@ export default function AnalyticsPage() {
       }
     }
 
-    if (Number.isNaN(yards) || (entry.yards.trim() === "" && !isPunt)) {
-      setMessage("Type yards before saving. Punt yards may be left blank.");
+    if (
+      Number.isNaN(yards) ||
+      (entry.yards.trim() === "" && !optionalYardagePlay)
+    ) {
+      setMessage(
+        "Type yards before saving. Punt and 2-point conversion yards may be left blank.",
+      );
       return;
     }
 
@@ -546,10 +559,17 @@ export default function AnalyticsPage() {
     const result = entry.result.trim().toUpperCase();
     const penaltyText = entry.penalty.trim();
     const penaltyCode = penaltyText.toUpperCase();
+    const isIncomplete =
+      result.includes("INC") || result.includes("INCOMPLETE");
+    const isTwoPointGood =
+      isTwoPointAttempt &&
+      (result.includes("GOOD") ||
+        result.includes("MADE") ||
+        result.includes("SUCCESS"));
     const isInterception = result.includes("INT");
     const isFumble = result.includes("FUM");
     const isTurnover = isInterception || isFumble || result.includes("TO");
-    const isTouchdown = result.includes("TD");
+    const isTouchdown = result.includes("TD") && !isTwoPointAttempt;
     const isPenalty = Boolean(penaltyText) || result.includes("PEN");
 
     const nextPlayNumber =
@@ -574,14 +594,25 @@ export default function AnalyticsPage() {
       result:
         [
           isTouchdown ? "TD" : "",
+          isIncomplete ? "INC" : "",
           isInterception ? "INT" : "",
           isFumble ? "FUM" : "",
-          !isTouchdown && !isTurnover && result ? result : "",
+          isPunt ? "PUNT" : "",
+          isTwoPointAttempt ? (isTwoPointGood ? "2PT GOOD" : "2PT NO") : "",
+          !isTouchdown &&
+          !isIncomplete &&
+          !isTurnover &&
+          !isPunt &&
+          !isTwoPointAttempt &&
+          result
+            ? result
+            : "",
         ]
           .filter(Boolean)
           .join(" "),
       touchdown: isTouchdown,
       firstDown:
+        !isTwoPointAttempt &&
         !entry.seriesStart &&
         (result.includes("FD") || (!isPenalty && yards >= parsed.distance)),
       seriesStart: entry.seriesStart,
@@ -1063,6 +1094,10 @@ export default function AnalyticsPage() {
             <Metric label="Pass" value={stats.passYards} />
             <Metric label="Plays" value={stats.total} />
             <Metric label="TDs" value={stats.tds} />
+            <Metric
+              label="2PT"
+              value={`${stats.twoPointMade}/${stats.twoPointAttempts}`}
+            />
             <Metric label="Turnovers" value={stats.turnovers} danger={stats.turnovers > 0} />
             <Metric label="Penalties" value={stats.penalties} danger={stats.penalties > 0} />
             <Metric label="1st Downs Earned" value={stats.firstDownsEarned} />
@@ -1168,7 +1203,7 @@ export default function AnalyticsPage() {
                   value={entry.result}
                   onChange={(value) => updateEntry("result", value)}
                   onKeyDown={handleEnterSave}
-                  placeholder="TD / INT / FUM / Punt"
+                  placeholder="TD / INC / INT / FUM / PUNT / 2PT GOOD / 2PT NO"
                   wide
                 />
                 <SheetInput
@@ -1433,13 +1468,17 @@ export default function AnalyticsPage() {
 
                       <div style={individualStatBoxStyle}>
                         <span>Passing</span>
-                        <b>{player.passAttempts} attempts</b>
+                        <b>
+                          {player.completions}/{player.passAttempts}
+                        </b>
                         <small>{player.passingYards} yards</small>
                       </div>
 
                       <div style={individualStatBoxStyle}>
                         <span>Receiving</span>
-                        <b>{player.receptions} receptions</b>
+                        <b>
+                          {player.receptions}/{player.targets}
+                        </b>
                         <small>{player.receivingYards} yards</small>
                       </div>
                     </div>
@@ -2197,6 +2236,10 @@ export default function AnalyticsPage() {
             <Metric label="Pass Yards" value={reportStats.passYards} />
             <Metric label="Plays" value={reportStats.total} />
             <Metric label="TDs" value={reportStats.tds} />
+            <Metric
+              label="2PT"
+              value={`${reportStats.twoPointMade}/${reportStats.twoPointAttempts}`}
+            />
             <Metric label="Turnovers" value={reportStats.turnovers} danger={reportStats.turnovers > 0} />
             <Metric label="1st Downs" value={reportStats.firstDownsEarned} />
             <Metric label="Success" value={`${reportStats.successRate}%`} />
@@ -2551,8 +2594,18 @@ function isSuccess(play: ChartPlay) {
 }
 
 function calculateStats(rows: ChartPlay[]) {
+  const twoPointAttempts = rows.filter((play) =>
+    play.result.toUpperCase().includes("2PT"),
+  );
+  const twoPointMade = twoPointAttempts.filter((play) =>
+    play.result.toUpperCase().includes("2PT GOOD"),
+  );
+
   const statisticalRows = rows.filter(
-    (play) => !play.penalty && play.playType !== "Punt",
+    (play) =>
+      !play.penalty &&
+      play.playType !== "Punt" &&
+      !play.result.toUpperCase().includes("2PT"),
   );
   const total = statisticalRows.length;
   const yards = statisticalRows.reduce((sum, play) => sum + play.yards, 0);
@@ -2577,6 +2630,8 @@ function calculateStats(rows: ChartPlay[]) {
       play.result.toUpperCase().includes("FUM"),
     ).length,
     turnovers: statisticalRows.filter((play) => play.turnover).length,
+    twoPointAttempts: twoPointAttempts.length,
+    twoPointMade: twoPointMade.length,
     penalties: rows.filter((play) => play.penalty).length,
     firstDownsEarned: statisticalRows.filter((play) => play.firstDown).length,
     seriesStarts: rows.filter((play) => play.seriesStart).length,
@@ -2589,7 +2644,14 @@ function calculateStats(rows: ChartPlay[]) {
 function makeReport(rows: ChartPlay[], keyGetter: (play: ChartPlay) => string): ReportRow[] {
   const groups = new Map<string, ChartPlay[]>();
 
-  rows.filter((play) => !play.penalty).forEach((play) => {
+  rows
+    .filter(
+      (play) =>
+        !play.penalty &&
+        play.playType !== "Punt" &&
+        !play.result.toUpperCase().includes("2PT"),
+    )
+    .forEach((play) => {
     const key = keyGetter(play) || "Unknown";
     groups.set(key, [...(groups.get(key) ?? []), play]);
   });
@@ -2621,6 +2683,8 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
       label: string;
       rushes: number;
       passAttempts: number;
+      completions: number;
+      targets: number;
       receptions: number;
       rushingYards: number;
       passingYards: number;
@@ -2642,6 +2706,8 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
       label: clean,
       rushes: 0,
       passAttempts: 0,
+      completions: 0,
+      targets: 0,
       receptions: 0,
       rushingYards: 0,
       passingYards: 0,
@@ -2671,10 +2737,21 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
 
     if (play.passer.trim()) {
       const player = getPlayer(play.passer);
+      const result = play.result.toUpperCase();
+      const completed =
+        Boolean(play.receiver.trim()) &&
+        !result.includes("INC") &&
+        !result.includes("INT");
 
       if (player) {
         player.passAttempts += 1;
-        player.passingYards += play.yards;
+
+        if (completed) {
+          player.completions += 1;
+          if (!result.includes("2PT")) {
+            player.passingYards += play.yards;
+          }
+        }
 
         if (play.touchdown) {
           player.tds += 1;
@@ -2691,13 +2768,20 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
 
       const player = getPlayer(play.receiver);
 
-      if (player && completed) {
-        player.receptions += 1;
-        player.receivingYards += play.yards;
-        player.totalYards += play.yards;
+      if (player) {
+        player.targets += 1;
 
-        if (play.touchdown) {
-          player.tds += 1;
+        if (completed) {
+          player.receptions += 1;
+
+          if (!result.includes("2PT")) {
+            player.receivingYards += play.yards;
+            player.totalYards += play.yards;
+          }
+
+          if (play.touchdown) {
+            player.tds += 1;
+          }
         }
       }
     }
@@ -2727,7 +2811,9 @@ function makePlayerReport(rows: ChartPlay[]) {
 
   return Array.from(groups.entries())
     .map(([label, plays]) => {
-      const yards = plays.reduce((sum, play) => sum + play.yards, 0);
+      const yards = plays
+        .filter((play) => !play.result.toUpperCase().includes("2PT"))
+        .reduce((sum, play) => sum + play.yards, 0);
 
       return {
         id: label,
@@ -2807,7 +2893,12 @@ function makePassingReport(rows: ChartPlay[]): PassingStatRow[] {
       const attempts = plays.length;
       const completions = plays.filter((play) => {
         const result = play.result.toUpperCase();
-        return Boolean(play.receiver.trim()) && !result.includes("INC") && !result.includes("INT");
+        return (
+          Boolean(play.receiver.trim()) &&
+          !result.includes("INC") &&
+          !result.includes("INCOMPLETE") &&
+          !result.includes("INT")
+        );
       }).length;
       const yards = plays.reduce((sum, play) => sum + play.yards, 0);
       const successes = plays.filter(isSuccess).length;
@@ -2845,13 +2936,23 @@ function makeReceivingReport(rows: ChartPlay[]): ReceivingStatRow[] {
       const targets = plays.length;
       const receptions = plays.filter((play) => {
         const result = play.result.toUpperCase();
-        return !result.includes("INC") && !result.includes("INT");
+        return (
+          !result.includes("INC") &&
+          !result.includes("INCOMPLETE") &&
+          !result.includes("INT")
+        );
       }).length;
       const completedPlays = plays.filter((play) => {
         const result = play.result.toUpperCase();
-        return !result.includes("INC") && !result.includes("INT");
+        return (
+          !result.includes("INC") &&
+          !result.includes("INCOMPLETE") &&
+          !result.includes("INT")
+        );
       });
-      const yards = completedPlays.reduce((sum, play) => sum + play.yards, 0);
+      const yards = completedPlays
+        .filter((play) => !play.result.toUpperCase().includes("2PT"))
+        .reduce((sum, play) => sum + play.yards, 0);
       const successes = completedPlays.filter(isSuccess).length;
       const explosives = completedPlays.filter((play) => classify(play) === "explosive").length;
 
@@ -3500,6 +3601,7 @@ function GameBreakdownReport({
               <th style={modernThStyle}>1st Downs Earned</th>
               <th style={modernThStyle}>Series Starts</th>
               <th style={modernThStyle}>TDs</th>
+              <th style={modernThStyle}>2PT</th>
               <th style={modernThStyle}>Turnovers</th>
             </tr>
           </thead>
@@ -3507,7 +3609,7 @@ function GameBreakdownReport({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td style={emptyTdStyle} colSpan={13}>
+                <td style={emptyTdStyle} colSpan={14}>
                   No season game data yet.
                 </td>
               </tr>
@@ -3527,6 +3629,9 @@ function GameBreakdownReport({
                 <td style={modernTdStyle}>{stats.firstDownsEarned}</td>
                 <td style={modernTdStyle}>{stats.seriesStarts}</td>
                 <td style={modernTdStyle}>{stats.tds}</td>
+                <td style={modernTdStyle}>
+                  {stats.twoPointMade}/{stats.twoPointAttempts}
+                </td>
                 <td style={modernTdStyle}>{stats.turnovers}</td>
               </tr>
             ))}
