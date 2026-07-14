@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Section = "command" | "setup" | "games" | "reports";
-type PlayType = "Run" | "Pass" | "RPO" | "Screen" | "Other";
+type PlayType = "Run" | "Pass" | "Punt" | "RPO" | "Screen" | "Other";
 type Grade = "negative" | "normal" | "success" | "explosive";
 
 type Player = {
@@ -59,6 +59,7 @@ type ChartPlay = {
   rusher: string;
   passer: string;
   receiver: string;
+  punter: string;
   result: string;
   touchdown: boolean;
   firstDown: boolean;
@@ -77,6 +78,7 @@ type EntryState = {
   rusher: string;
   passer: string;
   receiver: string;
+  punter: string;
   result: string;
   penalty: string;
   seriesStart: boolean;
@@ -159,6 +161,7 @@ export default function AnalyticsPage() {
     rusher: "",
     passer: "",
     receiver: "",
+    punter: "",
     result: "",
     penalty: "",
     seriesStart: false,
@@ -187,6 +190,7 @@ export default function AnalyticsPage() {
         rusher: resolvePlayerInput(play.rusher, savedPlayers),
         passer: resolvePlayerInput(play.passer, savedPlayers),
         receiver: resolvePlayerInput(play.receiver, savedPlayers),
+        punter: resolvePlayerInput(play.punter ?? "", savedPlayers),
         penaltyType: play.penaltyType ?? "",
         seriesStart: play.seriesStart ?? false,
       }));
@@ -444,6 +448,7 @@ export default function AnalyticsPage() {
     const result = entry.result.trim().toUpperCase();
     const penaltyText = entry.penalty.trim();
     const penaltyCode = penaltyText.toUpperCase();
+    const isPunt = result.includes("PUNT") || Boolean(entry.punter.trim());
     const isInterception = result.includes("INT");
     const isFumble = result.includes("FUM");
     const isTurnover = isInterception || isFumble || result.includes("TO");
@@ -464,22 +469,25 @@ export default function AnalyticsPage() {
       distance: parsed.distance,
       formation: formationName,
       play: playName,
-      playType,
+      playType: isPunt ? "Punt" : playType,
       yards,
-      rusher: resolvePlayerInput(entry.rusher, players),
-      passer: resolvePlayerInput(entry.passer, players),
-      receiver: resolvePlayerInput(entry.receiver, players),
+      rusher: isPunt ? "" : resolvePlayerInput(entry.rusher, players),
+      passer: isPunt ? "" : resolvePlayerInput(entry.passer, players),
+      receiver: isPunt ? "" : resolvePlayerInput(entry.receiver, players),
+      punter: resolvePlayerInput(entry.punter, players),
       result:
         [
           isTouchdown ? "TD" : "",
           isInterception ? "INT" : "",
           isFumble ? "FUM" : "",
-          !isTouchdown && !isTurnover && result ? result : "",
+          isPunt ? "PUNT" : "",
+          !isTouchdown && !isTurnover && !isPunt && result ? result : "",
         ]
           .filter(Boolean)
           .join(" "),
       touchdown: isTouchdown,
       firstDown:
+        !isPunt &&
         !entry.seriesStart &&
         (result.includes("FD") || (!isPenalty && yards >= parsed.distance)),
       seriesStart: entry.seriesStart,
@@ -569,6 +577,7 @@ export default function AnalyticsPage() {
       rusher: "",
       passer: "",
       receiver: "",
+      punter: "",
       result: "",
       penalty: "",
       seriesStart: false,
@@ -779,6 +788,8 @@ export default function AnalyticsPage() {
             <Metric label="Plays" value={stats.total} />
             <Metric label="TDs" value={stats.tds} />
             <Metric label="Turnovers" value={stats.turnovers} danger={stats.turnovers > 0} />
+            <Metric label="Punts" value={stats.punts} />
+            <Metric label="Punt Yards" value={stats.puntYards} />
             <Metric label="Penalties" value={stats.penalties} danger={stats.penalties > 0} />
             <Metric label="1st Downs Earned" value={stats.firstDownsEarned} />
             <Metric label="Series Starts" value={stats.seriesStarts} />
@@ -874,6 +885,14 @@ export default function AnalyticsPage() {
                   label="Receiver"
                   value={entry.receiver}
                   onChange={(value) => updateEntry("receiver", value)}
+                  onKeyDown={handleEnterSave}
+                  list="player-options"
+                  placeholder="#"
+                />
+                <SheetInput
+                  label="Punter"
+                  value={entry.punter}
+                  onChange={(value) => updateEntry("punter", value)}
                   onKeyDown={handleEnterSave}
                   list="player-options"
                   placeholder="#"
@@ -1038,6 +1057,7 @@ export default function AnalyticsPage() {
                       <th style={modernThStyle}>Rusher</th>
                       <th style={modernThStyle}>Passer</th>
                       <th style={modernThStyle}>Receiver</th>
+                      <th style={modernThStyle}>Punter</th>
                       <th style={modernThStyle}>Series</th>
                       <th style={modernThStyle}>1st Down</th>
                       <th style={modernThStyle}>Result</th>
@@ -1050,7 +1070,7 @@ export default function AnalyticsPage() {
                   <tbody>
                     {currentGamePlays.length === 0 && (
                       <tr>
-                        <td style={emptyTdStyle} colSpan={14}>
+                        <td style={emptyTdStyle} colSpan={15}>
                           No plays entered yet. Type a play and press SAVE PLAY.
                         </td>
                       </tr>
@@ -1071,6 +1091,7 @@ export default function AnalyticsPage() {
                           <td style={modernTdStyle}>{row.rusher}</td>
                           <td style={modernTdStyle}>{row.passer}</td>
                           <td style={modernTdStyle}>{row.receiver}</td>
+                          <td style={modernTdStyle}>{row.punter}</td>
                           <td style={modernTdStyle}>
                             {row.seriesStart ? (
                               <span style={seriesPillStyle}>START</span>
@@ -1086,8 +1107,10 @@ export default function AnalyticsPage() {
                             )}
                           </td>
                           <td style={modernTdStyle}>
-                            {row.touchdown
-                              ? "TD"
+                            {row.playType === "Punt" || row.result.includes("PUNT")
+                              ? "PUNT"
+                              : row.touchdown
+                                ? "TD"
                               : row.result.includes("INT")
                                 ? "INT"
                                 : row.result.includes("FUM")
@@ -1154,6 +1177,11 @@ export default function AnalyticsPage() {
                         <span>Receiving</span>
                         <b>{player.receptions} receptions</b>
                         <small>{player.receivingYards} yards</small>
+                      </div>
+                      <div style={individualStatBoxStyle}>
+                        <span>Punting</span>
+                        <b>{player.punts} punts</b>
+                        <small>{player.puntYards} yards</small>
                       </div>
                     </div>
 
@@ -1842,7 +1870,9 @@ function isSuccess(play: ChartPlay) {
 }
 
 function calculateStats(rows: ChartPlay[]) {
-  const statisticalRows = rows.filter((play) => !play.penalty);
+  const statisticalRows = rows.filter(
+    (play) => !play.penalty && play.playType !== "Punt",
+  );
   const total = statisticalRows.length;
   const yards = statisticalRows.reduce((sum, play) => sum + play.yards, 0);
   const rushRows = statisticalRows.filter((play) => play.playType === "Run");
@@ -1866,6 +1896,10 @@ function calculateStats(rows: ChartPlay[]) {
       play.result.toUpperCase().includes("FUM"),
     ).length,
     turnovers: statisticalRows.filter((play) => play.turnover).length,
+    punts: rows.filter((play) => play.playType === "Punt").length,
+    puntYards: rows
+      .filter((play) => play.playType === "Punt")
+      .reduce((sum, play) => sum + Math.max(0, play.yards), 0),
     penalties: rows.filter((play) => play.penalty).length,
     firstDownsEarned: statisticalRows.filter((play) => play.firstDown).length,
     seriesStarts: rows.filter((play) => play.seriesStart).length,
@@ -1914,6 +1948,8 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
       rushingYards: number;
       passingYards: number;
       receivingYards: number;
+      punts: number;
+      puntYards: number;
       totalYards: number;
       tds: number;
     }
@@ -1935,6 +1971,8 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
       rushingYards: 0,
       passingYards: 0,
       receivingYards: 0,
+      punts: 0,
+      puntYards: 0,
       totalYards: 0,
       tds: 0,
     };
@@ -1968,6 +2006,15 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
         if (play.touchdown) {
           player.tds += 1;
         }
+      }
+    }
+
+    if (play.punter.trim()) {
+      const player = getPlayer(play.punter);
+
+      if (player) {
+        player.punts += 1;
+        player.puntYards += Math.max(0, play.yards);
       }
     }
 
@@ -3369,7 +3416,7 @@ const miniDeleteButtonStyle: React.CSSProperties = {
 
 const decisionGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 12,
   marginTop: 16,
 };
