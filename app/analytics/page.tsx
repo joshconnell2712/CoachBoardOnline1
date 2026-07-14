@@ -810,12 +810,28 @@ export default function AnalyticsPage() {
               </div>
 
               <div className="analytics-entry-grid" style={entryBarStyle}>
-                <SheetInput
-                  label="D & Dist"
-                  value={entry.dd}
-                  onChange={(value) => updateEntry("dd", value)}
-                  onKeyDown={handleEnterSave}
-                />
+                <div style={downDistanceGroupStyle}>
+                  <label style={seriesCheckboxStyle}>
+                    <input
+                      type="checkbox"
+                      checked={entry.seriesStart}
+                      onChange={(event) =>
+                        setEntry((current) => ({
+                          ...current,
+                          seriesStart: event.target.checked,
+                        }))
+                      }
+                    />
+                    <span>Start</span>
+                  </label>
+
+                  <SheetInput
+                    label="D & Dist"
+                    value={entry.dd}
+                    onChange={(value) => updateEntry("dd", value)}
+                    onKeyDown={handleEnterSave}
+                  />
+                </div>
                 <SheetInput
                   label="Formation"
                   value={entry.formation}
@@ -996,22 +1012,6 @@ export default function AnalyticsPage() {
               </div>
 
               <div style={saveRowStyle}>
-                <button
-                  type="button"
-                  style={{
-                    ...seriesStartButtonStyle,
-                    ...(entry.seriesStart ? seriesStartButtonActiveStyle : {}),
-                  }}
-                  onClick={() =>
-                    setEntry((current) => ({
-                      ...current,
-                      seriesStart: !current.seriesStart,
-                    }))
-                  }
-                >
-                  {entry.seriesStart ? "START OF SERIES ✓" : "MARK START OF SERIES"}
-                </button>
-
                 <button style={saveButtonStyle} onClick={savePlay} disabled={saving}>
                   {saving ? "SAVED" : "SAVE PLAY"}
                 </button>
@@ -3107,6 +3107,26 @@ const entryBarStyle: React.CSSProperties = {
   border: "1px solid #e2e8f0",
 };
 
+const downDistanceGroupStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "54px minmax(0, 1fr)",
+  gap: 8,
+  alignItems: "end",
+};
+
+const seriesCheckboxStyle: React.CSSProperties = {
+  display: "grid",
+  justifyItems: "center",
+  alignContent: "end",
+  gap: 5,
+  color: "#475569",
+  fontSize: 10,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: ".05em",
+  cursor: "pointer",
+};
+
 const sheetInputWrapStyle: React.CSSProperties = {
   display: "grid",
   gap: 5,
@@ -3225,26 +3245,14 @@ const possessionEndActiveStyle: React.CSSProperties = {
 
 const saveRowStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(180px, .45fr) minmax(240px, 1fr)",
+  gridTemplateColumns: "1fr",
   gap: 10,
   marginTop: 10,
 };
 
-const seriesStartButtonStyle: React.CSSProperties = {
-  padding: "13px 14px",
-  borderRadius: 14,
-  border: "1px solid #cbd5e1",
-  background: "#f8fafc",
-  color: "#475569",
-  fontWeight: 950,
-  cursor: "pointer",
-};
 
-const seriesStartButtonActiveStyle: React.CSSProperties = {
-  border: "1px solid #2563eb",
-  background: "#dbeafe",
-  color: "#1d4ed8",
-};
+
+
 
 const seriesPillStyle: React.CSSProperties = {
   display: "inline-flex",
