@@ -553,9 +553,14 @@ export default function AnalyticsPage() {
       return;
     }
 
-    const formationName = addFormation(entry.formation || "Base");
-    const playType = detectPlayType(entry);
-    const playName = addPlayCall(entry.play || "Unknown Play", playType);
+    const detectedPlayType = detectPlayType(entry);
+    const playType: PlayType = isPunt ? "Punt" : detectedPlayType;
+    const formationName = isPunt
+      ? "Special Teams"
+      : addFormation(entry.formation || "Base");
+    const playName = isPunt
+      ? "Punt"
+      : addPlayCall(entry.play || "Unknown Play", playType);
 
     const parsed = parseDownDistance(entry.dd);
     const result = entry.result.trim().toUpperCase();
@@ -590,9 +595,9 @@ export default function AnalyticsPage() {
       play: playName,
       playType,
       yards,
-      rusher: resolvePlayerInput(entry.rusher, players),
-      passer: resolvePlayerInput(entry.passer, players),
-      receiver: resolvePlayerInput(entry.receiver, players),
+      rusher: isPunt ? "" : resolvePlayerInput(entry.rusher, players),
+      passer: isPunt ? "" : resolvePlayerInput(entry.passer, players),
+      receiver: isPunt ? "" : resolvePlayerInput(entry.receiver, players),
       result:
         [
           isTouchdown ? "TD" : "",
@@ -614,6 +619,7 @@ export default function AnalyticsPage() {
           .join(" "),
       touchdown: isTouchdown,
       firstDown:
+        !isPunt &&
         !isTwoPointAttempt &&
         !entry.seriesStart &&
         (result.includes("FD") || (!isPenalty && yards >= parsed.distance)),
@@ -695,29 +701,10 @@ export default function AnalyticsPage() {
 
     setChartPlays((current) => [...current, savedPlay]);
 
-    if (isPunt) {
-      const puntEvent: SpecialTeamsEvent = {
-        id: createId(),
-        gameId: selectedGameId,
-        type: "Punt",
-        player: "",
-        yards: entry.yards.trim() === "" ? null : yards,
-        made: null,
-        touchback: false,
-        touchdown: false,
-        quarter: entry.qtr || "1",
-        clock: entry.possessionClock.trim(),
-        notes: "Recorded from offensive drive",
-        createdAt: new Date().toISOString(),
-      };
-
-      setSpecialTeamsEvents((current) => [...current, puntEvent]);
-    }
-
     setEntry((current) => ({
       ...current,
       formation: formationName,
-      dd: nextDownDistance(current.dd, yards),
+      dd: isPunt ? "1 and 10" : nextDownDistance(current.dd, yards),
       play: "",
       yards: "",
       rusher: "",
@@ -1096,6 +1083,7 @@ export default function AnalyticsPage() {
             <Metric label="Pass" value={stats.passYards} />
             <Metric label="Plays" value={stats.total} />
             <Metric label="TDs" value={stats.tds} />
+            <Metric label="Punts" value={stats.punts} />
             <Metric
               label="2PT"
               value={`${stats.twoPointMade}/${stats.twoPointAttempts}`}
@@ -1205,7 +1193,7 @@ export default function AnalyticsPage() {
                   value={entry.result}
                   onChange={(value) => updateEntry("result", value)}
                   onKeyDown={handleEnterSave}
-                  placeholder="TD / INC / INT / FUM / PUNT / 2PT GOOD / 2PT NO"
+                  placeholder="PUNT can be entered by itself"
                   wide
                 />
                 <SheetInput
@@ -1372,7 +1360,7 @@ export default function AnalyticsPage() {
                   <tbody>
                     {currentGamePlays.length === 0 && (
                       <tr>
-                        <td style={emptyTdStyle} colSpan={14}>
+                        <td style={emptyTdStyle} colSpan={15}>
                           No plays entered yet. Type a play and press SAVE PLAY.
                         </td>
                       </tr>
@@ -2278,6 +2266,7 @@ export default function AnalyticsPage() {
                 <Metric label="Pass Yards" value={reportStats.passYards} />
                 <Metric label="Plays" value={reportStats.total} />
                 <Metric label="TDs" value={reportStats.tds} />
+                <Metric label="Punts" value={reportStats.punts} />
                 <Metric
                   label="2PT"
                   value={`${reportStats.twoPointMade}/${reportStats.twoPointAttempts}`}
@@ -2684,6 +2673,11 @@ function calculateStats(rows: ChartPlay[]) {
       play.result.toUpperCase().includes("FUM"),
     ).length,
     turnovers: statisticalRows.filter((play) => play.turnover).length,
+    punts: rows.filter(
+      (play) =>
+        play.playType === "Punt" ||
+        play.result.toUpperCase().includes("PUNT"),
+    ).length,
     twoPointAttempts: twoPointAttempts.length,
     twoPointMade: twoPointMade.length,
     penalties: rows.filter((play) => play.penalty).length,
@@ -3702,6 +3696,7 @@ function GameBreakdownReport({
               <th style={modernThStyle}>1st Downs Earned</th>
               <th style={modernThStyle}>Series Starts</th>
               <th style={modernThStyle}>TDs</th>
+              <th style={modernThStyle}>Punts</th>
               <th style={modernThStyle}>2PT</th>
               <th style={modernThStyle}>Turnovers</th>
             </tr>
@@ -3730,6 +3725,7 @@ function GameBreakdownReport({
                 <td style={modernTdStyle}>{stats.firstDownsEarned}</td>
                 <td style={modernTdStyle}>{stats.seriesStarts}</td>
                 <td style={modernTdStyle}>{stats.tds}</td>
+                <td style={modernTdStyle}>{stats.punts}</td>
                 <td style={modernTdStyle}>
                   {stats.twoPointMade}/{stats.twoPointAttempts}
                 </td>
