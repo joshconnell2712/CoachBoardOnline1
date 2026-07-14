@@ -1653,38 +1653,6 @@ export default function AnalyticsPage() {
           `}</style>
         </section>
       )}
-      <style jsx global>{`
-        @media (max-width: 1200px) {
-          .analytics-entry-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-          }
-
-          .analytics-possession-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-          }
-        }
-
-        @media (max-width: 850px) {
-          .analytics-entry-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-          }
-
-          .analytics-possession-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-          }
-        }
-
-        @media (max-width: 560px) {
-          .analytics-entry-grid,
-          .analytics-possession-grid {
-            grid-template-columns: 1fr !important;
-          }
-
-          .analytics-entry-grid > label {
-            grid-column: span 1 !important;
-          }
-        }
-      `}</style>
     </main>
   );
 }
