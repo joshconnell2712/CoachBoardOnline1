@@ -822,7 +822,7 @@ export default function AnalyticsPage() {
                         }))
                       }
                     />
-                    <span>Start</span>
+                    <span style={{ textAlign: "center", lineHeight: 1.1 }}>Start<br />Series</span>
                   </label>
 
                   <SheetInput
