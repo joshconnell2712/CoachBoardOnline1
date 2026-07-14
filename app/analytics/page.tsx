@@ -822,7 +822,7 @@ export default function AnalyticsPage() {
                         }))
                       }
                     />
-                    <span style={{ textAlign: "center", lineHeight: 1.1 }}>Start<br />Series</span>
+                    <span style={{ textAlign: "left" }}>Start of Series</span>
                   </label>
 
                   <SheetInput
@@ -2925,7 +2925,7 @@ const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
   background: "#f4f6f8",
   color: "#0f172a",
-  padding: 18,
+  padding: 12,
   fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 
@@ -2933,10 +2933,10 @@ const topBarStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: 18,
-  marginBottom: 14,
-  padding: "16px 18px",
-  borderRadius: 20,
+  gap: 14,
+  marginBottom: 10,
+  padding: "11px 14px",
+  borderRadius: 16,
   background: "#ffffff",
   border: "1px solid #e2e8f0",
   boxShadow: "0 10px 30px rgba(15, 23, 42, .07)",
@@ -2951,7 +2951,7 @@ const eyebrowStyle: React.CSSProperties = {
 };
 
 const titleStyle: React.CSSProperties = {
-  fontSize: 38,
+  fontSize: 30,
   lineHeight: 1,
   margin: "7px 0 4px",
   fontWeight: 950,
@@ -2988,9 +2988,9 @@ const messageStyle: React.CSSProperties = {
 const navStyle: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: 6,
-  marginBottom: 14,
-  padding: 6,
+  gap: 4,
+  marginBottom: 10,
+  padding: 4,
   width: "fit-content",
   borderRadius: 14,
   background: "#ffffff",
@@ -3000,8 +3000,8 @@ const navStyle: React.CSSProperties = {
 
 const navButtonStyle: React.CSSProperties = {
   border: "1px solid transparent",
-  borderRadius: 10,
-  padding: "9px 13px",
+  borderRadius: 9,
+  padding: "7px 11px",
   background: "transparent",
   color: "#475569",
   fontWeight: 950,
@@ -3017,17 +3017,17 @@ const navButtonActiveStyle: React.CSSProperties = {
 
 const topMetricGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(13, minmax(115px, 1fr))",
-  gap: 10,
-  marginBottom: 14,
+  gridTemplateColumns: "repeat(13, minmax(92px, 1fr))",
+  gap: 7,
+  marginBottom: 10,
   overflowX: "auto",
 };
 
 const metricStyle: React.CSSProperties = {
   background: "#ffffff",
   border: "1px solid #e2e8f0",
-  borderRadius: 16,
-  padding: "12px 13px",
+  borderRadius: 13,
+  padding: "9px 10px",
   boxShadow: "0 8px 22px rgba(15,23,42,.06)",
 };
 
@@ -3041,7 +3041,7 @@ const metricLabelStyle: React.CSSProperties = {
 
 const metricValueStyle: React.CSSProperties = {
   color: "#0f172a",
-  fontSize: 26,
+  fontSize: 21,
   fontWeight: 950,
   marginTop: 4,
   letterSpacing: "-.03em",
@@ -3049,31 +3049,31 @@ const metricValueStyle: React.CSSProperties = {
 
 const mainGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 2fr) minmax(330px, .75fr)",
-  gap: 14,
-  marginBottom: 14,
+  gridTemplateColumns: "minmax(0, 2.25fr) minmax(300px, .72fr)",
+  gap: 10,
+  marginBottom: 10,
 };
 
 const rightRailStyle: React.CSSProperties = {
   display: "grid",
-  gap: 14,
+  gap: 10,
   alignContent: "start",
 };
 
 const panelStyle: React.CSSProperties = {
   background: "#ffffff",
   border: "1px solid #e2e8f0",
-  borderRadius: 18,
-  padding: 16,
+  borderRadius: 15,
+  padding: 12,
   boxShadow: "0 10px 30px rgba(15,23,42,.07)",
 };
 
 const panelHeaderRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 14,
+  gap: 10,
   alignItems: "center",
-  marginBottom: 12,
+  marginBottom: 8,
 };
 
 const smallRedStyle: React.CSSProperties = {
@@ -3085,7 +3085,7 @@ const smallRedStyle: React.CSSProperties = {
 };
 
 const panelTitleStyle: React.CSSProperties = {
-  fontSize: 24,
+  fontSize: 20,
   margin: "4px 0 0",
   fontWeight: 950,
   letterSpacing: "-.035em",
@@ -3094,7 +3094,7 @@ const panelTitleStyle: React.CSSProperties = {
 
 const gameSelectStyle: React.CSSProperties = {
   width: "100%",
-  maxWidth: 280,
+  maxWidth: 235,
   boxSizing: "border-box",
   padding: "10px 11px",
   borderRadius: 12,
@@ -3109,36 +3109,41 @@ const gameSelectStyle: React.CSSProperties = {
 const entryBarStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 10,
-  padding: 12,
-  borderRadius: 16,
+  gap: 7,
+  padding: 9,
+  borderRadius: 13,
   background: "#f8fafc",
   border: "1px solid #e2e8f0",
 };
 
 const downDistanceGroupStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "54px minmax(0, 1fr)",
-  gap: 8,
+  gridTemplateColumns: "88px minmax(0, 1fr)",
+  gap: 7,
   alignItems: "end",
 };
 
 const seriesCheckboxStyle: React.CSSProperties = {
-  display: "grid",
-  justifyItems: "center",
-  alignContent: "end",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   gap: 5,
+  minHeight: 36,
+  padding: "0 6px",
+  borderRadius: 9,
+  background: "#ffffff",
+  border: "1px solid #cbd5e1",
   color: "#475569",
-  fontSize: 10,
+  fontSize: 9,
   fontWeight: 950,
   textTransform: "uppercase",
-  letterSpacing: ".05em",
+  lineHeight: 1.05,
   cursor: "pointer",
 };
 
 const sheetInputWrapStyle: React.CSSProperties = {
   display: "grid",
-  gap: 5,
+  gap: 3,
   color: "#475569",
   fontWeight: 950,
   fontSize: 11,
@@ -3150,9 +3155,9 @@ const sheetInputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   border: "1px solid #cbd5e1",
-  borderRadius: 11,
-  padding: "10px 9px",
-  fontSize: 15,
+  borderRadius: 9,
+  padding: "8px 8px",
+  fontSize: 14,
   fontWeight: 800,
   color: "#0f172a",
   background: "#ffffff",
@@ -3206,9 +3211,9 @@ const possessionFieldStyle: React.CSSProperties = {
 
 
 const possessionInlinePanelStyle: React.CSSProperties = {
-  marginTop: 10,
-  padding: 10,
-  borderRadius: 14,
+  marginTop: 8,
+  padding: 8,
+  borderRadius: 12,
   background: "#f8fafc",
   border: "1px solid #e2e8f0",
 };
@@ -3217,8 +3222,8 @@ const possessionInlineHeaderStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: 12,
-  marginBottom: 8,
+  gap: 8,
+  marginBottom: 6,
   color: "#0f172a",
   fontWeight: 950,
 };
@@ -3226,13 +3231,13 @@ const possessionInlineHeaderStyle: React.CSSProperties = {
 const possessionInlineGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 10,
+  gap: 7,
   alignItems: "end",
 };
 
 const possessionToggleStyle: React.CSSProperties = {
-  padding: "11px 12px",
-  borderRadius: 12,
+  padding: "9px 10px",
+  borderRadius: 10,
   border: "1px solid #cbd5e1",
   background: "#ffffff",
   color: "#475569",
@@ -3287,9 +3292,9 @@ const earnedFirstDownPillStyle: React.CSSProperties = {
 
 const saveButtonStyle: React.CSSProperties = {
   width: "100%",
-  marginTop: 10,
-  padding: "14px 16px",
-  borderRadius: 14,
+  marginTop: 8,
+  padding: "11px 14px",
+  borderRadius: 11,
   border: "1px solid #991b1b",
   background: "linear-gradient(180deg, #ef4444, #b91c1c)",
   color: "white",
@@ -3432,10 +3437,10 @@ const barFillStyle: React.CSSProperties = {
 
 const recommendationCardStyle: React.CSSProperties = {
   display: "grid",
-  gap: 4,
-  padding: 12,
-  marginTop: 10,
-  borderRadius: 14,
+  gap: 3,
+  padding: 9,
+  marginTop: 7,
+  borderRadius: 11,
   background: "#f8fafc",
   border: "1px solid #e2e8f0",
 };
@@ -3448,15 +3453,15 @@ const mutedTextStyle: React.CSSProperties = {
 const individualStatGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 6,
-  marginTop: 5,
+  gap: 4,
+  marginTop: 4,
 };
 
 const individualStatBoxStyle: React.CSSProperties = {
   display: "grid",
-  gap: 2,
-  padding: "7px 8px",
-  borderRadius: 9,
+  gap: 1,
+  padding: "5px 6px",
+  borderRadius: 8,
   background: "#f8fafc",
   border: "1px solid #e2e8f0",
 };
@@ -3469,8 +3474,8 @@ const individualStatDetailStyle: React.CSSProperties = {
 
 const compactPlayerRowStyle: React.CSSProperties = {
   display: "grid",
-  gap: 3,
-  padding: "9px 0",
+  gap: 2,
+  padding: "6px 0",
   borderBottom: "1px solid #e2e8f0",
   color: "#0f172a",
 };
