@@ -894,12 +894,7 @@ export default function AnalyticsPage() {
                   placeholder="Hold / False Start"
                   wide
                 />
-                <SheetInput
-                  label="Q"
-                  value={entry.qtr}
-                  onChange={(value) => updateEntry("qtr", value)}
-                  onKeyDown={handleEnterSave}
-                />
+
               </div>
 
               <datalist id="formation-options">
@@ -993,6 +988,20 @@ export default function AnalyticsPage() {
                       ? "END POSSESSION ✓"
                       : "END POSSESSION"}
                   </button>
+
+                  <label style={possessionFieldStyle}>
+                    <span>Quarter</span>
+                    <input
+                      style={inputStyle}
+                      type="number"
+                      min="1"
+                      max="4"
+                      value={entry.qtr}
+                      onChange={(event) =>
+                        updateEntry("qtr", event.target.value)
+                      }
+                    />
+                  </label>
 
                   <label style={possessionFieldStyle}>
                     <span>Game Clock</span>
@@ -3216,7 +3225,7 @@ const possessionInlineHeaderStyle: React.CSSProperties = {
 
 const possessionInlineGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 10,
   alignItems: "end",
 };
