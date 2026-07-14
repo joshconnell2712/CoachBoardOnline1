@@ -3,8 +3,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-type Section = "command" | "setup" | "games" | "reports";
-type PlayType = "Run" | "Pass" | "Punt" | "RPO" | "Screen" | "Other";
+type Section = "command" | "specialTeams" | "defense" | "setup" | "games" | "reports";
+type PlayType = "Run" | "Pass" | "RPO" | "Screen" | "Other";
 type Grade = "negative" | "normal" | "success" | "explosive";
 
 type Player = {
@@ -45,6 +45,45 @@ type Possession = {
   createdAt: string;
 };
 
+type SpecialTeamsType =
+  | "Punt"
+  | "Field Goal"
+  | "Kickoff"
+  | "Kick Return"
+  | "Punt Return"
+  | "Extra Point";
+
+type SpecialTeamsEvent = {
+  id: string;
+  gameId: string;
+  type: SpecialTeamsType;
+  player: string;
+  yards: number | null;
+  made: boolean | null;
+  touchback: boolean;
+  touchdown: boolean;
+  quarter: string;
+  clock: string;
+  notes: string;
+  createdAt: string;
+};
+
+type DefensiveEvent = {
+  id: string;
+  gameId: string;
+  player: string;
+  soloTackles: number;
+  assistedTackles: number;
+  tacklesForLoss: number;
+  sacks: number;
+  interceptions: number;
+  passBreakups: number;
+  forcedFumbles: number;
+  fumbleRecoveries: number;
+  defensiveTouchdowns: number;
+  createdAt: string;
+};
+
 type ChartPlay = {
   id: string;
   gameId: string;
@@ -59,7 +98,6 @@ type ChartPlay = {
   rusher: string;
   passer: string;
   receiver: string;
-  punter: string;
   result: string;
   touchdown: boolean;
   firstDown: boolean;
@@ -78,7 +116,6 @@ type EntryState = {
   rusher: string;
   passer: string;
   receiver: string;
-  punter: string;
   result: string;
   penalty: string;
   seriesStart: boolean;
@@ -95,6 +132,8 @@ type SavedState = {
   games: Game[];
   chartPlays: ChartPlay[];
   possessions: Possession[];
+  specialTeamsEvents: SpecialTeamsEvent[];
+  defensiveEvents: DefensiveEvent[];
   selectedGameId: string;
   quarterLengthMinutes: number;
 };
@@ -137,6 +176,8 @@ export default function AnalyticsPage() {
   const [games, setGames] = useState<Game[]>(defaultGames);
   const [chartPlays, setChartPlays] = useState<ChartPlay[]>([]);
   const [possessions, setPossessions] = useState<Possession[]>([]);
+  const [specialTeamsEvents, setSpecialTeamsEvents] = useState<SpecialTeamsEvent[]>([]);
+  const [defensiveEvents, setDefensiveEvents] = useState<DefensiveEvent[]>([]);
   const [selectedGameId, setSelectedGameId] = useState(defaultGames[0].id);
   const [quarterLengthMinutes, setQuarterLengthMinutes] = useState(12);
 
@@ -153,6 +194,29 @@ export default function AnalyticsPage() {
   const [playSetup, setPlaySetup] = useState("");
   const [playSetupType, setPlaySetupType] = useState<PlayType>("Run");
 
+  const [specialTeamsEntry, setSpecialTeamsEntry] = useState({
+    type: "Punt" as SpecialTeamsType,
+    player: "",
+    yards: "",
+    result: "",
+    quarter: "1",
+    clock: "",
+    notes: "",
+  });
+
+  const [defenseEntry, setDefenseEntry] = useState({
+    player: "",
+    soloTackles: "",
+    assistedTackles: "",
+    tacklesForLoss: "",
+    sacks: "",
+    interceptions: "",
+    passBreakups: "",
+    forcedFumbles: "",
+    fumbleRecoveries: "",
+    defensiveTouchdowns: "",
+  });
+
   const [entry, setEntry] = useState<EntryState>({
     dd: "1 and 10",
     formation: "",
@@ -161,7 +225,6 @@ export default function AnalyticsPage() {
     rusher: "",
     passer: "",
     receiver: "",
-    punter: "",
     result: "",
     penalty: "",
     seriesStart: false,
@@ -190,7 +253,6 @@ export default function AnalyticsPage() {
         rusher: resolvePlayerInput(play.rusher, savedPlayers),
         passer: resolvePlayerInput(play.passer, savedPlayers),
         receiver: resolvePlayerInput(play.receiver, savedPlayers),
-        punter: resolvePlayerInput(play.punter ?? "", savedPlayers),
         penaltyType: play.penaltyType ?? "",
         seriesStart: play.seriesStart ?? false,
       }));
@@ -198,6 +260,8 @@ export default function AnalyticsPage() {
       setGames(savedGames);
       setChartPlays(savedChartPlays);
       setPossessions(saved.possessions ?? []);
+      setSpecialTeamsEvents(saved.specialTeamsEvents ?? []);
+      setDefensiveEvents(saved.defensiveEvents ?? []);
       setQuarterLengthMinutes(saved.quarterLengthMinutes === 15 ? 15 : 12);
       setSelectedGameId(saved.selectedGameId || savedGames[0].id);
     } catch {
@@ -213,6 +277,8 @@ export default function AnalyticsPage() {
       games,
       chartPlays,
       possessions,
+      specialTeamsEvents,
+      defensiveEvents,
       selectedGameId,
       quarterLengthMinutes,
     };
@@ -229,6 +295,8 @@ export default function AnalyticsPage() {
     games,
     chartPlays,
     possessions,
+    specialTeamsEvents,
+    defensiveEvents,
     selectedGameId,
     quarterLengthMinutes,
   ]);
@@ -254,6 +322,32 @@ export default function AnalyticsPage() {
   const seasonPossessions = useMemo(
     () => possessions,
     [possessions],
+  );
+
+  const currentGameSpecialTeams = useMemo(
+    () => specialTeamsEvents.filter((event) => event.gameId === selectedGameId),
+    [specialTeamsEvents, selectedGameId],
+  );
+
+  const currentGameDefense = useMemo(
+    () => defensiveEvents.filter((event) => event.gameId === selectedGameId),
+    [defensiveEvents, selectedGameId],
+  );
+
+  const reportSpecialTeams =
+    reportScope === "season" ? specialTeamsEvents : currentGameSpecialTeams;
+
+  const reportDefense =
+    reportScope === "season" ? defensiveEvents : currentGameDefense;
+
+  const specialTeamsStats = useMemo(
+    () => calculateSpecialTeamsStats(currentGameSpecialTeams),
+    [currentGameSpecialTeams],
+  );
+
+  const defenseStats = useMemo(
+    () => calculateDefenseStats(currentGameDefense),
+    [currentGameDefense],
   );
 
   const seasonPlays = useMemo(
@@ -416,7 +510,9 @@ export default function AnalyticsPage() {
       setSelectedGameId(newGame.id);
     }
 
-    const yards = Number(entry.yards);
+    const resultUpper = entry.result.trim().toUpperCase();
+    const isPunt = resultUpper.includes("PUNT");
+    const yards = entry.yards.trim() === "" && isPunt ? 0 : Number(entry.yards);
 
     if ((entry.possessionStart || entry.possessionEnd) && !entry.possessionClock.trim()) {
       setMessage("Enter the game clock for the possession action.");
@@ -435,8 +531,8 @@ export default function AnalyticsPage() {
       }
     }
 
-    if (Number.isNaN(yards) || entry.yards.trim() === "") {
-      setMessage("Type yards before saving.");
+    if (Number.isNaN(yards) || (entry.yards.trim() === "" && !isPunt)) {
+      setMessage("Type yards before saving. Punt yards may be left blank.");
       return;
     }
 
@@ -448,7 +544,6 @@ export default function AnalyticsPage() {
     const result = entry.result.trim().toUpperCase();
     const penaltyText = entry.penalty.trim();
     const penaltyCode = penaltyText.toUpperCase();
-    const isPunt = result.includes("PUNT") || Boolean(entry.punter.trim());
     const isInterception = result.includes("INT");
     const isFumble = result.includes("FUM");
     const isTurnover = isInterception || isFumble || result.includes("TO");
@@ -469,25 +564,22 @@ export default function AnalyticsPage() {
       distance: parsed.distance,
       formation: formationName,
       play: playName,
-      playType: isPunt ? "Punt" : playType,
+      playType,
       yards,
-      rusher: isPunt ? "" : resolvePlayerInput(entry.rusher, players),
-      passer: isPunt ? "" : resolvePlayerInput(entry.passer, players),
-      receiver: isPunt ? "" : resolvePlayerInput(entry.receiver, players),
-      punter: resolvePlayerInput(entry.punter, players),
+      rusher: resolvePlayerInput(entry.rusher, players),
+      passer: resolvePlayerInput(entry.passer, players),
+      receiver: resolvePlayerInput(entry.receiver, players),
       result:
         [
           isTouchdown ? "TD" : "",
           isInterception ? "INT" : "",
           isFumble ? "FUM" : "",
-          isPunt ? "PUNT" : "",
-          !isTouchdown && !isTurnover && !isPunt && result ? result : "",
+          !isTouchdown && !isTurnover && result ? result : "",
         ]
           .filter(Boolean)
           .join(" "),
       touchdown: isTouchdown,
       firstDown:
-        !isPunt &&
         !entry.seriesStart &&
         (result.includes("FD") || (!isPenalty && yards >= parsed.distance)),
       seriesStart: entry.seriesStart,
@@ -568,6 +660,25 @@ export default function AnalyticsPage() {
 
     setChartPlays((current) => [...current, savedPlay]);
 
+    if (isPunt) {
+      const puntEvent: SpecialTeamsEvent = {
+        id: createId(),
+        gameId: selectedGameId,
+        type: "Punt",
+        player: "",
+        yards: entry.yards.trim() === "" ? null : yards,
+        made: null,
+        touchback: false,
+        touchdown: false,
+        quarter: entry.qtr || "1",
+        clock: entry.possessionClock.trim(),
+        notes: "Recorded from offensive drive",
+        createdAt: new Date().toISOString(),
+      };
+
+      setSpecialTeamsEvents((current) => [...current, puntEvent]);
+    }
+
     setEntry((current) => ({
       ...current,
       formation: formationName,
@@ -577,7 +688,6 @@ export default function AnalyticsPage() {
       rusher: "",
       passer: "",
       receiver: "",
-      punter: "",
       result: "",
       penalty: "",
       seriesStart: false,
@@ -602,6 +712,119 @@ export default function AnalyticsPage() {
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
     return gamePossessions.find((possession) => !possession.endClock) ?? null;
+  }
+
+  function saveSpecialTeamsEvent() {
+    if (!selectedGameId) {
+      setMessage("Select a game first.");
+      return;
+    }
+
+    const yards =
+      specialTeamsEntry.yards.trim() === ""
+        ? null
+        : Number(specialTeamsEntry.yards);
+
+    if (yards !== null && Number.isNaN(yards)) {
+      setMessage("Special teams yards must be a number or left blank.");
+      return;
+    }
+
+    const result = specialTeamsEntry.result.trim().toUpperCase();
+    const type = specialTeamsEntry.type;
+
+    const event: SpecialTeamsEvent = {
+      id: createId(),
+      gameId: selectedGameId,
+      type,
+      player: resolvePlayerInput(specialTeamsEntry.player, players),
+      yards,
+      made:
+        type === "Field Goal" || type === "Extra Point"
+          ? result.includes("GOOD") || result.includes("MADE")
+          : null,
+      touchback: result.includes("TB") || result.includes("TOUCHBACK"),
+      touchdown: result.includes("TD"),
+      quarter: specialTeamsEntry.quarter || "1",
+      clock: specialTeamsEntry.clock.trim(),
+      notes:
+        specialTeamsEntry.notes.trim() ||
+        specialTeamsEntry.result.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    setSpecialTeamsEvents((current) => [...current, event]);
+    setSpecialTeamsEntry((current) => ({
+      ...current,
+      player: "",
+      yards: "",
+      result: "",
+      clock: "",
+      notes: "",
+    }));
+    setMessage(`${type} recorded.`);
+  }
+
+  function deleteSpecialTeamsEvent(id: string) {
+    setSpecialTeamsEvents((current) =>
+      current.filter((event) => event.id !== id),
+    );
+  }
+
+  function saveDefensiveEvent() {
+    if (!selectedGameId) {
+      setMessage("Select a game first.");
+      return;
+    }
+
+    const player = resolvePlayerInput(defenseEntry.player, players);
+
+    if (!player) {
+      setMessage("Enter a defensive player's jersey number.");
+      return;
+    }
+
+    const numberValue = (value: string) => {
+      const parsed = Number(value || 0);
+      return Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+    };
+
+    const event: DefensiveEvent = {
+      id: createId(),
+      gameId: selectedGameId,
+      player,
+      soloTackles: numberValue(defenseEntry.soloTackles),
+      assistedTackles: numberValue(defenseEntry.assistedTackles),
+      tacklesForLoss: numberValue(defenseEntry.tacklesForLoss),
+      sacks: numberValue(defenseEntry.sacks),
+      interceptions: numberValue(defenseEntry.interceptions),
+      passBreakups: numberValue(defenseEntry.passBreakups),
+      forcedFumbles: numberValue(defenseEntry.forcedFumbles),
+      fumbleRecoveries: numberValue(defenseEntry.fumbleRecoveries),
+      defensiveTouchdowns: numberValue(defenseEntry.defensiveTouchdowns),
+      createdAt: new Date().toISOString(),
+    };
+
+    setDefensiveEvents((current) => [...current, event]);
+    setDefenseEntry({
+      player: "",
+      soloTackles: "",
+      assistedTackles: "",
+      tacklesForLoss: "",
+      sacks: "",
+      interceptions: "",
+      passBreakups: "",
+      forcedFumbles: "",
+      fumbleRecoveries: "",
+      defensiveTouchdowns: "",
+    });
+    setMessage("Defensive stats recorded.");
+  }
+
+  function deleteDefensiveEvent(id: string) {
+    setDefensiveEvents((current) =>
+      current.filter((event) => event.id !== id),
+    );
   }
 
   function addGame() {
@@ -689,6 +912,12 @@ export default function AnalyticsPage() {
     setPossessions((current) =>
       current.filter((possession) => possession.gameId !== id),
     );
+    setSpecialTeamsEvents((current) =>
+      current.filter((event) => event.gameId !== id),
+    );
+    setDefensiveEvents((current) =>
+      current.filter((event) => event.gameId !== id),
+    );
     setSelectedGameId(nextGames[0].id);
   }
 
@@ -731,6 +960,8 @@ export default function AnalyticsPage() {
     setGames(defaultGames);
     setChartPlays([]);
     setPossessions([]);
+    setSpecialTeamsEvents([]);
+    setDefensiveEvents([]);
     setQuarterLengthMinutes(12);
     setSelectedGameId(defaultGames[0].id);
     setMessage("Analytics data cleared.");
@@ -768,6 +999,16 @@ export default function AnalyticsPage() {
           onClick={() => setActiveSection("setup")}
         />
         <NavButton
+          label="Special Teams"
+          active={activeSection === "specialTeams"}
+          onClick={() => setActiveSection("specialTeams")}
+        />
+        <NavButton
+          label="Defense"
+          active={activeSection === "defense"}
+          onClick={() => setActiveSection("defense")}
+        />
+        <NavButton
           label="Games"
           active={activeSection === "games"}
           onClick={() => setActiveSection("games")}
@@ -788,8 +1029,6 @@ export default function AnalyticsPage() {
             <Metric label="Plays" value={stats.total} />
             <Metric label="TDs" value={stats.tds} />
             <Metric label="Turnovers" value={stats.turnovers} danger={stats.turnovers > 0} />
-            <Metric label="Punts" value={stats.punts} />
-            <Metric label="Punt Yards" value={stats.puntYards} />
             <Metric label="Penalties" value={stats.penalties} danger={stats.penalties > 0} />
             <Metric label="1st Downs Earned" value={stats.firstDownsEarned} />
             <Metric label="Series Starts" value={stats.seriesStarts} />
@@ -885,14 +1124,6 @@ export default function AnalyticsPage() {
                   label="Receiver"
                   value={entry.receiver}
                   onChange={(value) => updateEntry("receiver", value)}
-                  onKeyDown={handleEnterSave}
-                  list="player-options"
-                  placeholder="#"
-                />
-                <SheetInput
-                  label="Punter"
-                  value={entry.punter}
-                  onChange={(value) => updateEntry("punter", value)}
                   onKeyDown={handleEnterSave}
                   list="player-options"
                   placeholder="#"
@@ -1057,7 +1288,6 @@ export default function AnalyticsPage() {
                       <th style={modernThStyle}>Rusher</th>
                       <th style={modernThStyle}>Passer</th>
                       <th style={modernThStyle}>Receiver</th>
-                      <th style={modernThStyle}>Punter</th>
                       <th style={modernThStyle}>Series</th>
                       <th style={modernThStyle}>1st Down</th>
                       <th style={modernThStyle}>Result</th>
@@ -1070,7 +1300,7 @@ export default function AnalyticsPage() {
                   <tbody>
                     {currentGamePlays.length === 0 && (
                       <tr>
-                        <td style={emptyTdStyle} colSpan={15}>
+                        <td style={emptyTdStyle} colSpan={14}>
                           No plays entered yet. Type a play and press SAVE PLAY.
                         </td>
                       </tr>
@@ -1091,7 +1321,6 @@ export default function AnalyticsPage() {
                           <td style={modernTdStyle}>{row.rusher}</td>
                           <td style={modernTdStyle}>{row.passer}</td>
                           <td style={modernTdStyle}>{row.receiver}</td>
-                          <td style={modernTdStyle}>{row.punter}</td>
                           <td style={modernTdStyle}>
                             {row.seriesStart ? (
                               <span style={seriesPillStyle}>START</span>
@@ -1107,7 +1336,7 @@ export default function AnalyticsPage() {
                             )}
                           </td>
                           <td style={modernTdStyle}>
-                            {row.playType === "Punt" || row.result.includes("PUNT")
+                            {row.playType === "Punt"
                               ? "PUNT"
                               : row.touchdown
                                 ? "TD"
@@ -1177,11 +1406,6 @@ export default function AnalyticsPage() {
                         <span>Receiving</span>
                         <b>{player.receptions} receptions</b>
                         <small>{player.receivingYards} yards</small>
-                      </div>
-                      <div style={individualStatBoxStyle}>
-                        <span>Punting</span>
-                        <b>{player.punts} punts</b>
-                        <small>{player.puntYards} yards</small>
                       </div>
                     </div>
 
@@ -1415,6 +1639,331 @@ export default function AnalyticsPage() {
         </section>
       )}
 
+      {activeSection === "specialTeams" && (
+        <section style={panelStyle}>
+          <div style={panelHeaderRowStyle}>
+            <div>
+              <div style={smallRedStyle}>SPECIAL TEAMS</div>
+              <h2 style={panelTitleStyle}>Special Teams Entry</h2>
+            </div>
+
+            <select
+              style={gameSelectStyle}
+              value={selectedGameId}
+              onChange={(event) => setSelectedGameId(event.target.value)}
+            >
+              {games.map((game) => (
+                <option key={game.id} value={game.id}>
+                  Week {game.week} vs {game.opponent}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={specialTeamsMetricGridStyle}>
+            <Metric label="Punts" value={specialTeamsStats.punts} />
+            <Metric label="Punt Avg" value={specialTeamsStats.puntAverage} />
+            <Metric label="FG" value={`${specialTeamsStats.fieldGoalsMade}/${specialTeamsStats.fieldGoalsAttempted}`} />
+            <Metric label="Kickoffs" value={specialTeamsStats.kickoffs} />
+            <Metric label="Touchbacks" value={specialTeamsStats.touchbacks} />
+            <Metric label="Kick Return Avg" value={specialTeamsStats.kickReturnAverage} />
+            <Metric label="Punt Return Avg" value={specialTeamsStats.puntReturnAverage} />
+            <Metric label="ST Touchdowns" value={specialTeamsStats.touchdowns} />
+          </div>
+
+          <div style={specialTeamsEntryGridStyle}>
+            <label style={possessionFieldStyle}>
+              <span>Type</span>
+              <select
+                style={inputStyle}
+                value={specialTeamsEntry.type}
+                onChange={(event) =>
+                  setSpecialTeamsEntry((current) => ({
+                    ...current,
+                    type: event.target.value as SpecialTeamsType,
+                  }))
+                }
+              >
+                <option value="Punt">Punt</option>
+                <option value="Field Goal">Field Goal</option>
+                <option value="Kickoff">Kickoff</option>
+                <option value="Kick Return">Kick Return</option>
+                <option value="Punt Return">Punt Return</option>
+                <option value="Extra Point">Extra Point</option>
+              </select>
+            </label>
+
+            <label style={possessionFieldStyle}>
+              <span>Player #</span>
+              <input
+                style={inputStyle}
+                placeholder="#"
+                value={specialTeamsEntry.player}
+                onChange={(event) =>
+                  setSpecialTeamsEntry((current) => ({
+                    ...current,
+                    player: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            <label style={possessionFieldStyle}>
+              <span>Yards Optional</span>
+              <input
+                style={inputStyle}
+                placeholder="Optional"
+                value={specialTeamsEntry.yards}
+                onChange={(event) =>
+                  setSpecialTeamsEntry((current) => ({
+                    ...current,
+                    yards: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            <label style={possessionFieldStyle}>
+              <span>Result</span>
+              <input
+                style={inputStyle}
+                placeholder="Good / Miss / TB / TD"
+                value={specialTeamsEntry.result}
+                onChange={(event) =>
+                  setSpecialTeamsEntry((current) => ({
+                    ...current,
+                    result: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            <label style={possessionFieldStyle}>
+              <span>Quarter</span>
+              <input
+                style={inputStyle}
+                value={specialTeamsEntry.quarter}
+                onChange={(event) =>
+                  setSpecialTeamsEntry((current) => ({
+                    ...current,
+                    quarter: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            <label style={possessionFieldStyle}>
+              <span>Clock</span>
+              <input
+                style={inputStyle}
+                placeholder="8:34"
+                value={specialTeamsEntry.clock}
+                onChange={(event) =>
+                  setSpecialTeamsEntry((current) => ({
+                    ...current,
+                    clock: event.target.value,
+                  }))
+                }
+              />
+            </label>
+          </div>
+
+          <button style={saveButtonStyle} onClick={saveSpecialTeamsEvent}>
+            SAVE SPECIAL TEAMS EVENT
+          </button>
+
+          <div style={tableWrapStyle}>
+            <table style={modernTableStyle}>
+              <thead>
+                <tr>
+                  <th style={modernThStyle}>Type</th>
+                  <th style={modernThStyle}>Player</th>
+                  <th style={modernThStyle}>Yards</th>
+                  <th style={modernThStyle}>Result</th>
+                  <th style={modernThStyle}>Q / Clock</th>
+                  <th style={modernThStyle}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentGameSpecialTeams.length === 0 && (
+                  <tr>
+                    <td style={emptyTdStyle} colSpan={6}>
+                      No special teams events recorded.
+                    </td>
+                  </tr>
+                )}
+                {currentGameSpecialTeams.map((event) => (
+                  <tr key={event.id}>
+                    <td style={modernTdStyle}>{event.type}</td>
+                    <td style={modernTdStyle}>{event.player || "—"}</td>
+                    <td style={modernTdStyle}>
+                      {event.yards === null ? "—" : event.yards}
+                    </td>
+                    <td style={modernTdStyle}>
+                      {event.made === true
+                        ? "GOOD"
+                        : event.made === false
+                          ? "MISS"
+                          : event.touchback
+                            ? "TOUCHBACK"
+                            : event.touchdown
+                              ? "TD"
+                              : event.notes}
+                    </td>
+                    <td style={modernTdStyle}>
+                      Q{event.quarter} {event.clock}
+                    </td>
+                    <td style={modernTdStyle}>
+                      <button
+                        style={miniDeleteButtonStyle}
+                        onClick={() => deleteSpecialTeamsEvent(event.id)}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {activeSection === "defense" && (
+        <section style={panelStyle}>
+          <div style={panelHeaderRowStyle}>
+            <div>
+              <div style={smallRedStyle}>DEFENSE</div>
+              <h2 style={panelTitleStyle}>Defensive Stat Entry</h2>
+            </div>
+
+            <select
+              style={gameSelectStyle}
+              value={selectedGameId}
+              onChange={(event) => setSelectedGameId(event.target.value)}
+            >
+              {games.map((game) => (
+                <option key={game.id} value={game.id}>
+                  Week {game.week} vs {game.opponent}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={defenseMetricGridStyle}>
+            <Metric label="Tackles" value={defenseStats.totalTackles} />
+            <Metric label="TFL" value={defenseStats.tacklesForLoss} />
+            <Metric label="Sacks" value={defenseStats.sacks} />
+            <Metric label="INT" value={defenseStats.interceptions} />
+            <Metric label="PBU" value={defenseStats.passBreakups} />
+            <Metric label="Forced Fumbles" value={defenseStats.forcedFumbles} />
+            <Metric label="Recoveries" value={defenseStats.fumbleRecoveries} />
+            <Metric label="Defensive TD" value={defenseStats.defensiveTouchdowns} />
+          </div>
+
+          <div style={defenseEntryGridStyle}>
+            <label style={possessionFieldStyle}>
+              <span>Player #</span>
+              <input
+                style={inputStyle}
+                placeholder="#"
+                value={defenseEntry.player}
+                onChange={(event) =>
+                  setDefenseEntry((current) => ({
+                    ...current,
+                    player: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            {[
+              ["Solo", "soloTackles"],
+              ["Assists", "assistedTackles"],
+              ["TFL", "tacklesForLoss"],
+              ["Sacks", "sacks"],
+              ["INT", "interceptions"],
+              ["PBU", "passBreakups"],
+              ["FF", "forcedFumbles"],
+              ["FR", "fumbleRecoveries"],
+              ["TD", "defensiveTouchdowns"],
+            ].map(([label, key]) => (
+              <label key={key} style={possessionFieldStyle}>
+                <span>{label}</span>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={defenseEntry[key as keyof typeof defenseEntry]}
+                  onChange={(event) =>
+                    setDefenseEntry((current) => ({
+                      ...current,
+                      [key]: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            ))}
+          </div>
+
+          <button style={saveButtonStyle} onClick={saveDefensiveEvent}>
+            SAVE DEFENSIVE STATS
+          </button>
+
+          <div style={tableWrapStyle}>
+            <table style={modernTableStyle}>
+              <thead>
+                <tr>
+                  <th style={modernThStyle}>Player</th>
+                  <th style={modernThStyle}>Solo</th>
+                  <th style={modernThStyle}>Ast</th>
+                  <th style={modernThStyle}>TFL</th>
+                  <th style={modernThStyle}>Sack</th>
+                  <th style={modernThStyle}>INT</th>
+                  <th style={modernThStyle}>PBU</th>
+                  <th style={modernThStyle}>FF</th>
+                  <th style={modernThStyle}>FR</th>
+                  <th style={modernThStyle}>TD</th>
+                  <th style={modernThStyle}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentGameDefense.length === 0 && (
+                  <tr>
+                    <td style={emptyTdStyle} colSpan={11}>
+                      No defensive stats recorded.
+                    </td>
+                  </tr>
+                )}
+                {aggregateDefense(currentGameDefense).map((row) => (
+                  <tr key={row.player}>
+                    <td style={modernTdStyle}>{row.player}</td>
+                    <td style={modernTdStyle}>{row.soloTackles}</td>
+                    <td style={modernTdStyle}>{row.assistedTackles}</td>
+                    <td style={modernTdStyle}>{row.tacklesForLoss}</td>
+                    <td style={modernTdStyle}>{row.sacks}</td>
+                    <td style={modernTdStyle}>{row.interceptions}</td>
+                    <td style={modernTdStyle}>{row.passBreakups}</td>
+                    <td style={modernTdStyle}>{row.forcedFumbles}</td>
+                    <td style={modernTdStyle}>{row.fumbleRecoveries}</td>
+                    <td style={modernTdStyle}>{row.defensiveTouchdowns}</td>
+                    <td style={modernTdStyle}>
+                      <button
+                        style={miniDeleteButtonStyle}
+                        onClick={() => deleteDefensiveEvent(row.lastEventId)}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {activeSection === "setup" && (
         <section style={setupGridStyle}>
           <div style={panelStyle}>
@@ -1640,6 +2189,9 @@ export default function AnalyticsPage() {
 
             <PenaltyAnalyticsReport rows={penaltyReport} />
 
+            <SpecialTeamsReport events={reportSpecialTeams} />
+            <DefenseReport events={reportDefense} />
+
             <PossessionAnalyticsReport
               possessions={reportPossessions}
               games={games}
@@ -1692,6 +2244,100 @@ export default function AnalyticsPage() {
       )}
     </main>
   );
+}
+
+function calculateSpecialTeamsStats(events: SpecialTeamsEvent[]) {
+  const punts = events.filter((event) => event.type === "Punt");
+  const puntYards = punts
+    .filter((event) => event.yards !== null)
+    .reduce((sum, event) => sum + (event.yards ?? 0), 0);
+  const puntWithDistance = punts.filter((event) => event.yards !== null);
+
+  const fieldGoals = events.filter((event) => event.type === "Field Goal");
+  const kickReturns = events.filter((event) => event.type === "Kick Return");
+  const puntReturns = events.filter((event) => event.type === "Punt Return");
+
+  const average = (rows: SpecialTeamsEvent[]) => {
+    const withYards = rows.filter((event) => event.yards !== null);
+    if (!withYards.length) return "0.0";
+    return (
+      withYards.reduce((sum, event) => sum + (event.yards ?? 0), 0) /
+      withYards.length
+    ).toFixed(1);
+  };
+
+  return {
+    punts: punts.length,
+    puntAverage: puntWithDistance.length
+      ? (puntYards / puntWithDistance.length).toFixed(1)
+      : "0.0",
+    fieldGoalsAttempted: fieldGoals.length,
+    fieldGoalsMade: fieldGoals.filter((event) => event.made).length,
+    kickoffs: events.filter((event) => event.type === "Kickoff").length,
+    touchbacks: events.filter((event) => event.touchback).length,
+    kickReturnAverage: average(kickReturns),
+    puntReturnAverage: average(puntReturns),
+    touchdowns: events.filter((event) => event.touchdown).length,
+  };
+}
+
+function aggregateDefense(events: DefensiveEvent[]) {
+  const groups = new Map<string, DefensiveEvent & { lastEventId: string }>();
+
+  events.forEach((event) => {
+    const current = groups.get(event.player);
+
+    if (!current) {
+      groups.set(event.player, { ...event, lastEventId: event.id });
+      return;
+    }
+
+    groups.set(event.player, {
+      ...current,
+      soloTackles: current.soloTackles + event.soloTackles,
+      assistedTackles: current.assistedTackles + event.assistedTackles,
+      tacklesForLoss: current.tacklesForLoss + event.tacklesForLoss,
+      sacks: current.sacks + event.sacks,
+      interceptions: current.interceptions + event.interceptions,
+      passBreakups: current.passBreakups + event.passBreakups,
+      forcedFumbles: current.forcedFumbles + event.forcedFumbles,
+      fumbleRecoveries: current.fumbleRecoveries + event.fumbleRecoveries,
+      defensiveTouchdowns:
+        current.defensiveTouchdowns + event.defensiveTouchdowns,
+      lastEventId: event.id,
+    });
+  });
+
+  return Array.from(groups.values()).sort(
+    (a, b) =>
+      b.soloTackles +
+      b.assistedTackles -
+      (a.soloTackles + a.assistedTackles),
+  );
+}
+
+function calculateDefenseStats(events: DefensiveEvent[]) {
+  const players = aggregateDefense(events);
+
+  return {
+    totalTackles: players.reduce(
+      (sum, row) => sum + row.soloTackles + row.assistedTackles,
+      0,
+    ),
+    tacklesForLoss: players.reduce((sum, row) => sum + row.tacklesForLoss, 0),
+    sacks: players.reduce((sum, row) => sum + row.sacks, 0),
+    interceptions: players.reduce((sum, row) => sum + row.interceptions, 0),
+    passBreakups: players.reduce((sum, row) => sum + row.passBreakups, 0),
+    forcedFumbles: players.reduce((sum, row) => sum + row.forcedFumbles, 0),
+    fumbleRecoveries: players.reduce(
+      (sum, row) => sum + row.fumbleRecoveries,
+      0,
+    ),
+    defensiveTouchdowns: players.reduce(
+      (sum, row) => sum + row.defensiveTouchdowns,
+      0,
+    ),
+  };
 }
 
 function parseClockToSeconds(value: string) {
@@ -1896,10 +2542,6 @@ function calculateStats(rows: ChartPlay[]) {
       play.result.toUpperCase().includes("FUM"),
     ).length,
     turnovers: statisticalRows.filter((play) => play.turnover).length,
-    punts: rows.filter((play) => play.playType === "Punt").length,
-    puntYards: rows
-      .filter((play) => play.playType === "Punt")
-      .reduce((sum, play) => sum + Math.max(0, play.yards), 0),
     penalties: rows.filter((play) => play.penalty).length,
     firstDownsEarned: statisticalRows.filter((play) => play.firstDown).length,
     seriesStarts: rows.filter((play) => play.seriesStart).length,
@@ -1948,8 +2590,6 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
       rushingYards: number;
       passingYards: number;
       receivingYards: number;
-      punts: number;
-      puntYards: number;
       totalYards: number;
       tds: number;
     }
@@ -1971,8 +2611,6 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
       rushingYards: 0,
       passingYards: 0,
       receivingYards: 0,
-      punts: 0,
-      puntYards: 0,
       totalYards: 0,
       tds: 0,
     };
@@ -2006,15 +2644,6 @@ function makeGameCenterPlayerReport(rows: ChartPlay[]) {
         if (play.touchdown) {
           player.tds += 1;
         }
-      }
-    }
-
-    if (play.punter.trim()) {
-      const player = getPlayer(play.punter);
-
-      if (player) {
-        player.punts += 1;
-        player.puntYards += Math.max(0, play.yards);
       }
     }
 
@@ -2445,6 +3074,93 @@ type PenaltyStatRow = {
   count: number;
   percentage: number;
 };
+
+function SpecialTeamsReport({
+  events,
+}: {
+  events: SpecialTeamsEvent[];
+}) {
+  const stats = calculateSpecialTeamsStats(events);
+
+  return (
+    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+      <div style={smallRedStyle}>SPECIAL TEAMS</div>
+      <h2 style={panelTitleStyle}>Special Teams Analytics</h2>
+
+      <div style={specialTeamsMetricGridStyle}>
+        <Metric label="Punt Avg" value={stats.puntAverage} />
+        <Metric label="FG" value={`${stats.fieldGoalsMade}/${stats.fieldGoalsAttempted}`} />
+        <Metric label="Kickoffs" value={stats.kickoffs} />
+        <Metric label="Touchbacks" value={stats.touchbacks} />
+        <Metric label="Kick Return Avg" value={stats.kickReturnAverage} />
+        <Metric label="Punt Return Avg" value={stats.puntReturnAverage} />
+        <Metric label="ST TD" value={stats.touchdowns} />
+      </div>
+    </div>
+  );
+}
+
+function DefenseReport({
+  events,
+}: {
+  events: DefensiveEvent[];
+}) {
+  const stats = calculateDefenseStats(events);
+  const players = aggregateDefense(events);
+
+  return (
+    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+      <div style={smallRedStyle}>DEFENSE</div>
+      <h2 style={panelTitleStyle}>Defensive Analytics</h2>
+
+      <div style={defenseMetricGridStyle}>
+        <Metric label="Tackles" value={stats.totalTackles} />
+        <Metric label="TFL" value={stats.tacklesForLoss} />
+        <Metric label="Sacks" value={stats.sacks} />
+        <Metric label="INT" value={stats.interceptions} />
+        <Metric label="PBU" value={stats.passBreakups} />
+        <Metric label="FF" value={stats.forcedFumbles} />
+        <Metric label="FR" value={stats.fumbleRecoveries} />
+        <Metric label="Def TD" value={stats.defensiveTouchdowns} />
+      </div>
+
+      <div style={tableWrapStyle}>
+        <table style={modernTableStyle}>
+          <thead>
+            <tr>
+              <th style={modernThStyle}>Player</th>
+              <th style={modernThStyle}>Total Tackles</th>
+              <th style={modernThStyle}>TFL</th>
+              <th style={modernThStyle}>Sacks</th>
+              <th style={modernThStyle}>INT</th>
+              <th style={modernThStyle}>PBU</th>
+              <th style={modernThStyle}>FF</th>
+              <th style={modernThStyle}>FR</th>
+              <th style={modernThStyle}>TD</th>
+            </tr>
+          </thead>
+          <tbody>
+            {players.map((row) => (
+              <tr key={row.player}>
+                <td style={modernTdStyle}>{row.player}</td>
+                <td style={modernTdStyle}>
+                  {row.soloTackles + row.assistedTackles}
+                </td>
+                <td style={modernTdStyle}>{row.tacklesForLoss}</td>
+                <td style={modernTdStyle}>{row.sacks}</td>
+                <td style={modernTdStyle}>{row.interceptions}</td>
+                <td style={modernTdStyle}>{row.passBreakups}</td>
+                <td style={modernTdStyle}>{row.forcedFumbles}</td>
+                <td style={modernTdStyle}>{row.fumbleRecoveries}</td>
+                <td style={modernTdStyle}>{row.defensiveTouchdowns}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function PossessionAnalyticsReport({
   possessions,
@@ -3416,7 +4132,7 @@ const miniDeleteButtonStyle: React.CSSProperties = {
 
 const decisionGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   gap: 12,
   marginTop: 16,
 };
@@ -3538,6 +4254,36 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   fontSize: 14,
   fontWeight: 750,
+};
+
+const specialTeamsMetricGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(8, minmax(105px, 1fr))",
+  gap: 8,
+  marginTop: 12,
+  overflowX: "auto",
+};
+
+const specialTeamsEntryGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(6, minmax(120px, 1fr))",
+  gap: 8,
+  marginTop: 12,
+};
+
+const defenseMetricGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(8, minmax(105px, 1fr))",
+  gap: 8,
+  marginTop: 12,
+  overflowX: "auto",
+};
+
+const defenseEntryGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, minmax(110px, 1fr))",
+  gap: 8,
+  marginTop: 12,
 };
 
 const setupGridStyle: React.CSSProperties = {
