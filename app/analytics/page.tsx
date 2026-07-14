@@ -5,6 +5,7 @@ import Link from "next/link";
 
 type Section = "command" | "setup" | "games" | "reports";
 type GameCenterSection = "offense" | "defense" | "specialTeams";
+type ReportSection = "offense" | "defense" | "specialTeams";
 type PlayType = "Run" | "Pass" | "Punt" | "RPO" | "Screen" | "Other";
 type Grade = "negative" | "normal" | "success" | "explosive";
 
@@ -169,6 +170,7 @@ export default function AnalyticsPage() {
   const [activeSection, setActiveSection] = useState<Section>("command");
   const [gameCenterSection, setGameCenterSection] = useState<GameCenterSection>("offense");
   const [reportScope, setReportScope] = useState<"game" | "season">("game");
+  const [reportSection, setReportSection] = useState<ReportSection>("offense");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -2215,13 +2217,51 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
+          <div className="no-print" style={reportCategoryBarStyle}>
+            <button
+              style={{
+                ...reportCategoryButtonStyle,
+                ...(reportSection === "offense"
+                  ? reportCategoryButtonActiveStyle
+                  : {}),
+              }}
+              onClick={() => setReportSection("offense")}
+            >
+              Offense
+            </button>
+
+            <button
+              style={{
+                ...reportCategoryButtonStyle,
+                ...(reportSection === "defense"
+                  ? reportCategoryButtonActiveStyle
+                  : {}),
+              }}
+              onClick={() => setReportSection("defense")}
+            >
+              Defense
+            </button>
+
+            <button
+              style={{
+                ...reportCategoryButtonStyle,
+                ...(reportSection === "specialTeams"
+                  ? reportCategoryButtonActiveStyle
+                  : {}),
+              }}
+              onClick={() => setReportSection("specialTeams")}
+            >
+              Special Teams
+            </button>
+          </div>
+
           <div style={printHeaderStyle}>
             <div>
               <div style={eyebrowStyle}>COACHBOARD ANALYTICS</div>
               <h1 style={{ ...titleStyle, fontSize: 30 }}>
                 {reportScope === "season"
-                  ? "Season Offensive Analytics Report"
-                  : `Week ${selectedGame?.week ?? "-"} vs ${selectedGame?.opponent ?? "Opponent"}`}
+                  ? `${reportSection === "offense" ? "Offensive" : reportSection === "defense" ? "Defensive" : "Special Teams"} Season Analytics Report`
+                  : `Week ${selectedGame?.week ?? "-"} vs ${selectedGame?.opponent ?? "Opponent"} — ${reportSection === "offense" ? "Offense" : reportSection === "defense" ? "Defense" : "Special Teams"}`}
               </h1>
             </div>
 
@@ -2230,60 +2270,73 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          <section style={reportMetricGridStyle}>
-            <Metric label="Total Yards" value={reportStats.yards} />
-            <Metric label="Rush Yards" value={reportStats.rushYards} />
-            <Metric label="Pass Yards" value={reportStats.passYards} />
-            <Metric label="Plays" value={reportStats.total} />
-            <Metric label="TDs" value={reportStats.tds} />
-            <Metric
-              label="2PT"
-              value={`${reportStats.twoPointMade}/${reportStats.twoPointAttempts}`}
-            />
-            <Metric label="Turnovers" value={reportStats.turnovers} danger={reportStats.turnovers > 0} />
-            <Metric label="1st Downs" value={reportStats.firstDownsEarned} />
-            <Metric label="Success" value={`${reportStats.successRate}%`} />
-            <Metric label="Explosive" value={`${reportStats.explosiveRate}%`} />
-            <Metric label="Average" value={reportStats.averageYards} />
-            <Metric
-              label="Time of Possession"
-              value={formatDuration(reportPossessionStats.totalSeconds)}
-            />
-            <Metric
-              label="Avg Possession"
-              value={formatDuration(reportPossessionStats.averageSeconds)}
-            />
-          </section>
+          {reportSection === "offense" && (
+            <>
+              <section style={reportMetricGridStyle}>
+                <Metric label="Total Yards" value={reportStats.yards} />
+                <Metric label="Rush Yards" value={reportStats.rushYards} />
+                <Metric label="Pass Yards" value={reportStats.passYards} />
+                <Metric label="Plays" value={reportStats.total} />
+                <Metric label="TDs" value={reportStats.tds} />
+                <Metric
+                  label="2PT"
+                  value={`${reportStats.twoPointMade}/${reportStats.twoPointAttempts}`}
+                />
+                <Metric label="Turnovers" value={reportStats.turnovers} danger={reportStats.turnovers > 0} />
+                <Metric label="1st Downs" value={reportStats.firstDownsEarned} />
+                <Metric label="Success" value={`${reportStats.successRate}%`} />
+                <Metric label="Explosive" value={`${reportStats.explosiveRate}%`} />
+                <Metric label="Average" value={reportStats.averageYards} />
+                <Metric
+                  label="Time of Possession"
+                  value={formatDuration(reportPossessionStats.totalSeconds)}
+                />
+                <Metric
+                  label="Avg Possession"
+                  value={formatDuration(reportPossessionStats.averageSeconds)}
+                />
+              </section>
 
-          <section style={reportsGridStyle}>
-            <FormationPlaySuccessReport rows={formationPlayReport} />
+              <section style={reportsGridStyle}>
+                <FormationPlaySuccessReport rows={formationPlayReport} />
 
-            <PlayerAnalyticsReport
-              rushing={rushingReport}
-              passing={passingReport}
-              receiving={receivingReport}
-              scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
-            />
+                <PlayerAnalyticsReport
+                  rushing={rushingReport}
+                  passing={passingReport}
+                  receiving={receivingReport}
+                  scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
+                />
 
-            <PenaltyAnalyticsReport rows={penaltyReport} />
+                <PenaltyAnalyticsReport rows={penaltyReport} />
 
-            <SpecialTeamsReport events={reportSpecialTeams} />
-            <DefenseReport events={reportDefense} />
+                <PossessionAnalyticsReport
+                  possessions={reportPossessions}
+                  games={games}
+                  scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
+                />
 
-            <PossessionAnalyticsReport
-              possessions={reportPossessions}
-              games={games}
-              scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
-            />
+                <Report title="Play Rankings" rows={playReport} />
+                <Report title="Formation Rankings" rows={formationReport} />
+                <Report title="Formation + Play Rankings" rows={formationPlayReport} />
 
-            <Report title="Play Rankings" rows={playReport} />
-            <Report title="Formation Rankings" rows={formationReport} />
-            <Report title="Formation + Play Rankings" rows={formationPlayReport} />
+                {reportScope === "season" && (
+                  <GameBreakdownReport rows={gameBreakdown} />
+                )}
+              </section>
+            </>
+          )}
 
-            {reportScope === "season" && (
-              <GameBreakdownReport rows={gameBreakdown} />
-            )}
-          </section>
+          {reportSection === "defense" && (
+            <section style={reportsGridStyle}>
+              <DefenseReport events={reportDefense} />
+            </section>
+          )}
+
+          {reportSection === "specialTeams" && (
+            <section style={reportsGridStyle}>
+              <SpecialTeamsReport events={reportSpecialTeams} />
+            </section>
+          )}
 
           <style jsx global>{`
             @media print {
@@ -2320,6 +2373,7 @@ export default function AnalyticsPage() {
           `}</style>
         </section>
       )}
+
     </main>
   );
 }
@@ -3231,6 +3285,53 @@ function SpecialTeamsReport({
         <Metric label="Kick Return Avg" value={stats.kickReturnAverage} />
         <Metric label="Punt Return Avg" value={stats.puntReturnAverage} />
         <Metric label="ST TD" value={stats.touchdowns} />
+      </div>
+
+      <div style={tableWrapStyle}>
+        <table style={modernTableStyle}>
+          <thead>
+            <tr>
+              <th style={modernThStyle}>Type</th>
+              <th style={modernThStyle}>Player</th>
+              <th style={modernThStyle}>Yards</th>
+              <th style={modernThStyle}>Result</th>
+              <th style={modernThStyle}>Quarter</th>
+              <th style={modernThStyle}>Clock</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.length === 0 && (
+              <tr>
+                <td style={emptyTdStyle} colSpan={6}>
+                  No special teams data recorded.
+                </td>
+              </tr>
+            )}
+
+            {events.map((event) => (
+              <tr key={event.id}>
+                <td style={modernTdStyle}>{event.type}</td>
+                <td style={modernTdStyle}>{event.player || "—"}</td>
+                <td style={modernTdStyle}>
+                  {event.yards === null ? "—" : event.yards}
+                </td>
+                <td style={modernTdStyle}>
+                  {event.made === true
+                    ? "GOOD"
+                    : event.made === false
+                      ? "MISS"
+                      : event.touchback
+                        ? "TOUCHBACK"
+                        : event.touchdown
+                          ? "TD"
+                          : event.notes || "—"}
+                </td>
+                <td style={modernTdStyle}>{event.quarter}</td>
+                <td style={modernTdStyle}>{event.clock || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -4486,6 +4587,35 @@ const playerStatTitleStyle: React.CSSProperties = {
   color: "#0f172a",
   fontSize: 18,
   fontWeight: 950,
+};
+
+const reportCategoryBarStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 6,
+  width: "fit-content",
+  marginBottom: 12,
+  padding: 4,
+  borderRadius: 12,
+  background: "#e2e8f0",
+  border: "1px solid #cbd5e1",
+};
+
+const reportCategoryButtonStyle: React.CSSProperties = {
+  border: "1px solid transparent",
+  borderRadius: 9,
+  padding: "9px 14px",
+  background: "transparent",
+  color: "#475569",
+  fontSize: 13,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const reportCategoryButtonActiveStyle: React.CSSProperties = {
+  background: "#ffffff",
+  color: "#dc2626",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 4px 12px rgba(15,23,42,.08)",
 };
 
 const reportToolbarStyle: React.CSSProperties = {
