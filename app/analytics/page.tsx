@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import type { RealtimeChannel, User } from "@supabase/supabase-js";
 
 type Section = "command" | "setup" | "games" | "reports";
 type GameCenterSection = "offense" | "defense" | "specialTeams";
@@ -151,6 +153,7 @@ type ReportRow = {
 };
 
 const STORAGE_KEY = "coachboard_analytics_local_v1";
+const SHARED_STATE_TABLE = "coachboard_analytics_shared_state";
 
 const RUN_SUCCESS = 4;
 const PASS_SUCCESS = 12;
@@ -166,6 +169,11 @@ export default function AnalyticsPage() {
   const [reportSection, setReportSection] = useState<ReportSection>("offense");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [activeTeamId, setActiveTeamId] = useState("");
+  const [activeTeamName, setActiveTeamName] = useState("");
+  const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
+  const [syncingAnalytics, setSyncingAnalytics] = useState(false);
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [formations, setFormations] = useState<Formation[]>([]);
@@ -232,49 +240,135 @@ export default function AnalyticsPage() {
   });
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
+    let cancelled = false;
 
-      const saved = JSON.parse(raw) as SavedState;
+    async function initializeSharedAnalytics() {
+      setMessage("");
+      setAnalyticsLoaded(false);
 
-      const savedPlayers = saved.players ?? [];
+      const {
+        data: { user: signedInUser },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      setPlayers(savedPlayers);
-      setFormations(saved.formations ?? []);
-      setPlays(saved.plays ?? []);
+      if (cancelled) return;
 
-      const savedGames = saved.games ?? [];
-      const savedChartPlays = (saved.chartPlays ?? []).map((play) => ({
-        ...play,
-        rusher: resolvePlayerInput(play.rusher, savedPlayers),
-        passer: resolvePlayerInput(play.passer, savedPlayers),
-        receiver: resolvePlayerInput(play.receiver, savedPlayers),
-        penaltyType: play.penaltyType ?? "",
-        seriesStart: play.seriesStart ?? false,
-      }));
+      if (userError || !signedInUser) {
+        setMessage("Sign in to load your program's shared analytics.");
+        setAnalyticsLoaded(true);
+        return;
+      }
 
-      setGames(savedGames);
-      setChartPlays(savedChartPlays);
-      setPossessions(saved.possessions ?? []);
-      setSpecialTeamsEvents(saved.specialTeamsEvents ?? []);
-      setDefensiveEvents(saved.defensiveEvents ?? []);
-      setQuarterLengthMinutes(saved.quarterLengthMinutes === 15 ? 15 : 12);
-      const savedSelectionIsValid = savedGames.some(
-        (game) => game.id === saved.selectedGameId,
+      setUser(signedInUser);
+
+      const { data: membership, error: membershipError } = await supabase
+        .from("coachboard_analytics_team_members")
+        .select(`
+          team_id,
+          role,
+          coachboard_analytics_teams (
+            id,
+            team_name,
+            season
+          )
+        `)
+        .eq("user_id", signedInUser.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (membershipError) {
+        setMessage(`Could not load team membership: ${membershipError.message}`);
+        setAnalyticsLoaded(true);
+        return;
+      }
+
+      if (!membership?.team_id) {
+        setMessage("Your account has not been added to an analytics team.");
+        setAnalyticsLoaded(true);
+        return;
+      }
+
+      const teamRelation = Array.isArray(membership.coachboard_analytics_teams)
+        ? membership.coachboard_analytics_teams[0]
+        : membership.coachboard_analytics_teams;
+
+      setActiveTeamId(membership.team_id);
+      setActiveTeamName(
+        teamRelation?.team_name
+          ? `${teamRelation.team_name}${teamRelation.season ? ` ${teamRelation.season}` : ""}`
+          : "Shared Program Analytics",
       );
 
-      setSelectedGameId(
-        savedSelectionIsValid
-          ? saved.selectedGameId
-          : savedGames[0]?.id ?? "",
-      );
-    } catch {
-      setMessage("Could not load saved analytics data.");
+      const { data: sharedRow, error: sharedError } = await supabase
+        .from(SHARED_STATE_TABLE)
+        .select("state")
+        .eq("team_id", membership.team_id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (sharedError) {
+        setMessage(`Could not load shared analytics: ${sharedError.message}`);
+        setAnalyticsLoaded(true);
+        return;
+      }
+
+      let saved: SavedState | null = null;
+
+      if (sharedRow?.state) {
+        saved = sharedRow.state as SavedState;
+      } else {
+        // One-time migration: if this browser has the previous local version,
+        // upload it as the team's first shared analytics state.
+        try {
+          const localRaw = window.localStorage.getItem(STORAGE_KEY);
+          if (localRaw) {
+            saved = JSON.parse(localRaw) as SavedState;
+
+            const { error: migrationError } = await supabase
+              .from(SHARED_STATE_TABLE)
+              .upsert(
+                {
+                  team_id: membership.team_id,
+                  state: saved,
+                  updated_by: signedInUser.id,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "team_id" },
+              );
+
+            if (migrationError) {
+              setMessage(
+                `Loaded local analytics, but could not upload them: ${migrationError.message}`,
+              );
+            } else {
+              setMessage("Your browser analytics were moved into shared team analytics.");
+            }
+          }
+        } catch {
+          setMessage("Could not migrate the analytics stored in this browser.");
+        }
+      }
+
+      if (saved) {
+        applySavedAnalyticsState(saved);
+      }
+
+      setAnalyticsLoaded(true);
     }
+
+    void initializeSharedAnalytics();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    if (!analyticsLoaded || !activeTeamId || !user) return;
+
     const state: SavedState = {
       players,
       formations,
@@ -288,12 +382,33 @@ export default function AnalyticsPage() {
       quarterLengthMinutes,
     };
 
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      setMessage("Could not save analytics data in this browser.");
-    }
+    const timeout = window.setTimeout(async () => {
+      setSyncingAnalytics(true);
+
+      const { error } = await supabase
+        .from(SHARED_STATE_TABLE)
+        .upsert(
+          {
+            team_id: activeTeamId,
+            state,
+            updated_by: user.id,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "team_id" },
+        );
+
+      setSyncingAnalytics(false);
+
+      if (error) {
+        setMessage(`Could not sync shared analytics: ${error.message}`);
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timeout);
   }, [
+    analyticsLoaded,
+    activeTeamId,
+    user,
     players,
     formations,
     plays,
@@ -305,6 +420,69 @@ export default function AnalyticsPage() {
     selectedGameId,
     quarterLengthMinutes,
   ]);
+
+  useEffect(() => {
+    if (!activeTeamId) return;
+
+    const channel: RealtimeChannel = supabase
+      .channel(`analytics-team-${activeTeamId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: SHARED_STATE_TABLE,
+          filter: `team_id=eq.${activeTeamId}`,
+        },
+        (payload) => {
+          const row = payload.new as { state?: SavedState; updated_by?: string };
+
+          // Ignore our own save; state is already current on this browser.
+          if (!row.state || row.updated_by === user?.id) return;
+
+          applySavedAnalyticsState(row.state);
+          setMessage("Shared analytics updated by another coach.");
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [activeTeamId, user?.id]);
+
+  function applySavedAnalyticsState(saved: SavedState) {
+    const savedPlayers = saved.players ?? [];
+    const savedGames = saved.games ?? [];
+    const savedChartPlays = (saved.chartPlays ?? []).map((play) => ({
+      ...play,
+      rusher: resolvePlayerInput(play.rusher, savedPlayers),
+      passer: resolvePlayerInput(play.passer, savedPlayers),
+      receiver: resolvePlayerInput(play.receiver, savedPlayers),
+      penaltyType: play.penaltyType ?? "",
+      seriesStart: play.seriesStart ?? false,
+    }));
+
+    setPlayers(savedPlayers);
+    setFormations(saved.formations ?? []);
+    setPlays(saved.plays ?? []);
+    setGames(savedGames);
+    setChartPlays(savedChartPlays);
+    setPossessions(saved.possessions ?? []);
+    setSpecialTeamsEvents(saved.specialTeamsEvents ?? []);
+    setDefensiveEvents(saved.defensiveEvents ?? []);
+    setQuarterLengthMinutes(saved.quarterLengthMinutes === 15 ? 15 : 12);
+
+    const savedSelectionIsValid = savedGames.some(
+      (game) => game.id === saved.selectedGameId,
+    );
+
+    setSelectedGameId(
+      savedSelectionIsValid
+        ? saved.selectedGameId
+        : savedGames[0]?.id ?? "",
+    );
+  }
 
   const selectedGame = games.find((game) => game.id === selectedGameId) ?? games[0];
 
@@ -973,7 +1151,7 @@ export default function AnalyticsPage() {
   }
 
   function clearAllData() {
-    if (!window.confirm("Clear all analytics data stored in this browser?")) return;
+    if (!window.confirm("Clear all shared analytics data for this team? This affects every coach in the program.")) return;
 
     setPlayers([]);
     setFormations([]);
@@ -995,9 +1173,11 @@ export default function AnalyticsPage() {
           <div style={eyebrowStyle}>COACHBOARD</div>
           <h1 style={titleStyle}>Analytics</h1>
           <p style={subTitleStyle}>
+            {activeTeamName ? `${activeTeamName} • ` : ""}
             {selectedGame
               ? `Week ${selectedGame.week} vs ${selectedGame.opponent}`
               : "No game selected"}
+            {syncingAnalytics ? " • Syncing..." : ""}
           </p>
         </div>
 
