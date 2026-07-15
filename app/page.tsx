@@ -1855,6 +1855,8 @@ function CoachBoardWebApp() {
   const [organizationInviteCode, setOrganizationInviteCode] = useState("");
   const [organizationSaving, setOrganizationSaving] = useState(false);
   const [organizationError, setOrganizationError] = useState("");
+  const [showOrganizationPanel, setShowOrganizationPanel] = useState(false);
+  const [organizationCodeCopied, setOrganizationCodeCopied] = useState(false);
 
   const ROOM_ID = teamCode ? `coachboard-gameday-${teamCode}` : "";
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
@@ -6989,6 +6991,19 @@ function CoachBoardWebApp() {
   const fieldNumberColor = fieldBlackWhiteMode
     ? "rgba(0,0,0,.88)"
     : "rgba(255,255,255,.88)";
+  async function copyOrganizationInviteCode() {
+    const code = organization?.invite_code;
+    if (!code) return;
+
+    try {
+      await navigator.clipboard.writeText(code);
+      setOrganizationCodeCopied(true);
+      window.setTimeout(() => setOrganizationCodeCopied(false), 1800);
+    } catch {
+      window.prompt("Copy this organization code:", code);
+    }
+  }
+
   async function refreshOrganization() {
     if (!user) return;
 
@@ -7706,6 +7721,137 @@ function CoachBoardWebApp() {
         setActiveLineId(null);
       }}
     >
+      {showOrganizationPanel && organization && (
+        <div
+          onClick={() => setShowOrganizationPanel(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            background: "rgba(0,0,0,.78)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <section
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              ...cardStyle,
+              width: "min(560px, 100%)",
+              padding: 28,
+              color: "white",
+            }}
+          >
+            <div style={panelHeaderStyle}>COACHBOARD ORGANIZATION</div>
+            <h2
+              style={{
+                margin: "8px 0 4px",
+                fontSize: 30,
+                letterSpacing: "-.03em",
+              }}
+            >
+              {organization.team_name}
+            </h2>
+            <div style={{ color: "#94a3b8", fontWeight: 800 }}>
+              {organization.season} Season • {organization.role}
+            </div>
+
+            {organization.invite_code ? (
+              <div
+                style={{
+                  marginTop: 22,
+                  padding: 20,
+                  borderRadius: 16,
+                  background: "rgba(220,38,38,.15)",
+                  border: "1px solid rgba(248,113,113,.35)",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#fca5a5",
+                    fontSize: 11,
+                    fontWeight: 950,
+                    letterSpacing: ".14em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Organization Invite Code
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 9,
+                    fontSize: 34,
+                    fontWeight: 950,
+                    letterSpacing: ".16em",
+                    color: "#ffffff",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {organization.invite_code}
+                </div>
+
+                <p
+                  style={{
+                    margin: "12px 0 0",
+                    color: "#cbd5e1",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Share this code with coaches who should join your program.
+                  They will enter it after signing in.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={copyOrganizationInviteCode}
+                  style={{
+                    ...buttonBase,
+                    width: "100%",
+                    marginTop: 16,
+                    background:
+                      "linear-gradient(180deg, #22c55e 0%, #15803d 100%)",
+                    color: "white",
+                  }}
+                >
+                  {organizationCodeCopied ? "CODE COPIED" : "COPY CODE"}
+                </button>
+              </div>
+            ) : (
+              <div
+                style={{
+                  marginTop: 22,
+                  padding: 16,
+                  borderRadius: 14,
+                  background: "rgba(127,29,29,.45)",
+                  border: "1px solid rgba(248,113,113,.45)",
+                  color: "#fecaca",
+                  fontWeight: 800,
+                }}
+              >
+                No invite code is assigned to this organization yet.
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowOrganizationPanel(false)}
+              style={{
+                ...buttonBase,
+                width: "100%",
+                marginTop: 16,
+                background: "#111827",
+                color: "white",
+              }}
+            >
+              CLOSE
+            </button>
+          </section>
+        </div>
+      )}
+
       {showGamedayRoom && (
         <div
           style={{
@@ -8047,6 +8193,19 @@ function CoachBoardWebApp() {
             Game Plan
           </button>
           <button
+            type="button"
+            style={{
+              ...buttonBase,
+              width: "100%",
+              background: showOrganizationPanel ? "#dc2626" : "#090b10",
+              color: "white",
+              padding: "8px",
+            }}
+            onClick={() => setShowOrganizationPanel(true)}
+          >
+            Organization
+          </button>
+          <button
   style={{
     ...buttonBase,
     width: "100%",
@@ -8142,20 +8301,28 @@ function CoachBoardWebApp() {
                 {organization.season} • {organization.role}
               </div>
               {organization.invite_code && (
-                <div
+                <button
+                  type="button"
+                  onClick={copyOrganizationInviteCode}
+                  title="Copy organization invite code"
                   style={{
+                    width: "100%",
                     marginTop: 8,
-                    padding: "7px 8px",
+                    padding: "8px",
                     borderRadius: 9,
                     background: "rgba(220,38,38,.18)",
                     color: "#fecaca",
+                    border: "1px solid rgba(248,113,113,.28)",
                     fontSize: 12,
                     fontWeight: 950,
                     letterSpacing: ".08em",
+                    cursor: "pointer",
                   }}
                 >
-                  Invite: {organization.invite_code}
-                </div>
+                  {organizationCodeCopied
+                    ? "CODE COPIED"
+                    : `Invite: ${organization.invite_code}`}
+                </button>
               )}
             </div>
           )}
