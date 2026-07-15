@@ -76,6 +76,14 @@ type DrawLine = {
   color?: string;
 };
 
+type LineEditDrag = {
+  lineId: string;
+  startPointer: FieldPoint;
+  originalPoints: FieldPoint[];
+  renderedPoints: FieldPoint[];
+  grabIndex: number;
+};
+
 type CustomOffensePreset = {
   id: string;
   name: string;
@@ -1366,24 +1374,105 @@ function cleanDrawnPoints(points: FieldPoint[]) {
   return cleaned;
 }
 
+function resampleFreehandPoints(
+  points: FieldPoint[],
+  spacing = 1.15,
+): FieldPoint[] {
+  if (points.length <= 2) return points.map((point) => ({ ...point }));
+
+  const result: FieldPoint[] = [{ ...points[0] }];
+  let previous = { ...points[0] };
+  let carried = 0;
+
+  for (let index = 1; index < points.length; index++) {
+    const target = points[index];
+    let dx = target.x - previous.x;
+    let dy = target.y - previous.y;
+    let distance = Math.hypot(dx, dy);
+
+    if (distance === 0) continue;
+
+    while (carried + distance >= spacing) {
+      const needed = spacing - carried;
+      const ratio = needed / distance;
+      previous = {
+        x: previous.x + dx * ratio,
+        y: previous.y + dy * ratio,
+      };
+      result.push({ ...previous });
+
+      dx = target.x - previous.x;
+      dy = target.y - previous.y;
+      distance = Math.hypot(dx, dy);
+      carried = 0;
+
+      if (distance === 0) break;
+    }
+
+    carried += distance;
+    previous = { ...target };
+  }
+
+  const last = points[points.length - 1];
+  const resultLast = result[result.length - 1];
+
+  if (Math.hypot(last.x - resultLast.x, last.y - resultLast.y) > 0.15) {
+    result.push({ ...last });
+  } else {
+    result[result.length - 1] = { ...last };
+  }
+
+  return result;
+}
+
+function chaikinSmoothPoints(
+  points: FieldPoint[],
+  passes = 2,
+): FieldPoint[] {
+  if (points.length <= 2) return points.map((point) => ({ ...point }));
+
+  let current = points.map((point) => ({ ...point }));
+
+  for (let pass = 0; pass < passes; pass++) {
+    const next: FieldPoint[] = [{ ...current[0] }];
+
+    for (let index = 0; index < current.length - 1; index++) {
+      const first = current[index];
+      const second = current[index + 1];
+
+      next.push({
+        x: first.x * 0.75 + second.x * 0.25,
+        y: first.y * 0.75 + second.y * 0.25,
+      });
+      next.push({
+        x: first.x * 0.25 + second.x * 0.75,
+        y: first.y * 0.25 + second.y * 0.75,
+      });
+    }
+
+    next.push({ ...current[current.length - 1] });
+    current = next;
+  }
+
+  return current;
+}
+
 function cleanCurvedDrawnPoints(points: FieldPoint[]) {
   if (points.length <= 2) return points;
 
-  const cleaned: FieldPoint[] = [points[0]];
+  // First remove tiny hand tremors and produce evenly spaced points.
+  const resampled = resampleFreehandPoints(points, 1.15);
 
-  // Curve mode should feel easy/freehand, so it does not auto-snap into sharp breaks.
-  // It only removes tiny jitter while preserving the rounded shape the coach drew.
-  for (let i = 1; i < points.length - 1; i++) {
-    const last = cleaned[cleaned.length - 1];
-    const current = points[i];
+  // Then apply two gentle corner-cutting passes. This removes shaky bumps while
+  // preserving the overall path the coach intentionally drew.
+  const smoothed = chaikinSmoothPoints(resampled, 2);
 
-    if (Math.hypot(current.x - last.x, current.y - last.y) >= 1.1) {
-      cleaned.push(current);
-    }
-  }
+  // Preserve the exact start and finish so player anchoring and arrow direction
+  // remain accurate.
+  smoothed[0] = { ...points[0] };
+  smoothed[smoothed.length - 1] = { ...points[points.length - 1] };
 
-  cleaned.push(points[points.length - 1]);
-  return cleaned;
+  return smoothed;
 }
 
 function smoothPath(points: FieldPoint[]) {
@@ -1915,6 +2004,8 @@ function CoachBoardWebApp() {
   const [drawingMode, setDrawingMode] = useState<DrawLineMode>("curve");
   const [drawnLines, setDrawnLines] = useState<DrawLine[]>([]);
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
+  const [lineEditDrag, setLineEditDrag] =
+    useState<LineEditDrag | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingSide, setDraggingSide] = useState<Side | null>(null);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
@@ -5159,6 +5250,118 @@ function CoachBoardWebApp() {
     }));
   }
 
+  function nearestRenderedPointIndex(
+    points: FieldPoint[],
+    pointer: FieldPoint,
+  ) {
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    points.forEach((point, index) => {
+      const distance = Math.hypot(point.x - pointer.x, point.y - pointer.y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+      }
+    });
+
+    return bestIndex;
+  }
+
+  function startLineEdit(
+    line: DrawLine,
+    renderedPoints: FieldPoint[],
+    clientX: number,
+    clientY: number,
+  ) {
+    const pointer = screenPointFromClient(clientX, clientY);
+    if (!pointer || renderedPoints.length < 2) return;
+
+    pushUndoSnapshot();
+    setSelectedFieldItem({ type: "drawnLine", id: line.id });
+    setLineEditDrag({
+      lineId: line.id,
+      startPointer: pointer,
+      originalPoints: line.points.map((point) => ({ ...point })),
+      renderedPoints: renderedPoints.map((point) => ({ ...point })),
+      grabIndex: nearestRenderedPointIndex(renderedPoints, pointer),
+    });
+  }
+
+  function updateLineEdit(clientX: number, clientY: number) {
+    if (!lineEditDrag) return;
+
+    const pointer = screenPointFromClient(clientX, clientY);
+    if (!pointer) return;
+
+    const deltaX = pointer.x - lineEditDrag.startPointer.x;
+    const screenDeltaY = pointer.y - lineEditDrag.startPointer.y;
+    const deltaY = isDefensiveFocusView ? -screenDeltaY : screenDeltaY;
+
+    const pointCount = lineEditDrag.originalPoints.length;
+    const influenceRadius = Math.max(2, Math.round(pointCount * 0.22));
+
+    setDrawnLines((current) =>
+      current.map((line) => {
+        if (line.id !== lineEditDrag.lineId) return line;
+
+        const adjusted = lineEditDrag.originalPoints.map((point, index) => {
+          const indexDistance = Math.abs(index - lineEditDrag.grabIndex);
+          if (indexDistance > influenceRadius) return point;
+
+          // Smooth falloff makes the grabbed area bend naturally instead of
+          // creating a sharp spike at one control point.
+          const normalized = indexDistance / (influenceRadius + 1);
+          const weight = Math.cos(normalized * Math.PI * 0.5) ** 2;
+
+          return {
+            x: Math.max(0, Math.min(100, point.x + deltaX * weight)),
+            y: Math.max(0, Math.min(100, point.y + deltaY * weight)),
+          };
+        });
+
+        return {
+          ...line,
+          points:
+            line.mode === "curve"
+              ? chaikinSmoothPoints(adjusted, 1)
+              : adjusted,
+        };
+      }),
+    );
+  }
+
+  function finalizeLineEdit() {
+    if (!lineEditDrag) return;
+
+    setDrawnLines((current) => {
+      const next = current.map((line) => {
+        if (line.id !== lineEditDrag.lineId) return line;
+
+        return {
+          ...line,
+          points:
+            line.mode === "curve"
+              ? cleanCurvedDrawnPoints(line.points)
+              : cleanDrawnPoints(line.points),
+        };
+      });
+
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_DRAWN_LINES",
+          drawnLines: next,
+        },
+      });
+
+      return next;
+    });
+
+    setLineEditDrag(null);
+  }
+
   function startDrawing(clientX: number, clientY: number) {
     const point = fieldPointFromClient(clientX, clientY);
     if (!point) return;
@@ -7748,11 +7951,13 @@ function CoachBoardWebApp() {
       onPointerMove={(e) => {
         updateDraggedPlayer(e.clientX, e.clientY);
         updateDrawing(e.clientX, e.clientY);
+        updateLineEdit(e.clientX, e.clientY);
         updateZoneDraft(e.clientX, e.clientY);
         updateZoneDrag(e.clientX, e.clientY);
       }}
       onPointerUp={() => {
         finalizeDrawing();
+        finalizeLineEdit();
         finalizeZoneDraft();
         finalizeZoneDrag();
         setDraggingId(null);
@@ -7761,6 +7966,7 @@ function CoachBoardWebApp() {
       }}
       onPointerCancel={() => {
         finalizeDrawing();
+        finalizeLineEdit();
         finalizeZoneDraft();
         finalizeZoneDrag();
         setDraggingId(null);
@@ -8579,7 +8785,7 @@ function CoachBoardWebApp() {
                         fontSize: 11,
                       }}
                       onClick={toggleMoveTool}
-                      title="Move players"
+                      title="Move players or reshape a drawn line"
                     >
                       Move
                     </button>
@@ -9714,9 +9920,28 @@ function CoachBoardWebApp() {
                         onPointerDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          selectFieldItem({ type: "drawnLine", id: line.id });
+                          e.currentTarget.setPointerCapture(e.pointerId);
+
+                          if (tool === "Select" || tool === "Move") {
+                            startLineEdit(
+                              line,
+                              renderedPoints,
+                              e.clientX,
+                              e.clientY,
+                            );
+                          } else {
+                            selectFieldItem({
+                              type: "drawnLine",
+                              id: line.id,
+                            });
+                          }
                         }}
-                        style={{ cursor: "pointer" }}
+                        style={{
+                          cursor:
+                            tool === "Select" || tool === "Move"
+                              ? "grab"
+                              : "pointer",
+                        }}
                       />
                       {cap && (
                         <>
