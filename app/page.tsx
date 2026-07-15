@@ -8785,7 +8785,7 @@ function CoachBoardWebApp() {
                         fontSize: 11,
                       }}
                       onClick={toggleMoveTool}
-                      title="Move players or reshape a drawn line"
+                      title="Move players"
                     >
                       Move
                     </button>
@@ -9922,25 +9922,19 @@ function CoachBoardWebApp() {
                           e.stopPropagation();
                           e.currentTarget.setPointerCapture(e.pointerId);
 
-                          if (tool === "Select" || tool === "Move") {
-                            startLineEdit(
-                              line,
-                              renderedPoints,
-                              e.clientX,
-                              e.clientY,
-                            );
-                          } else {
-                            selectFieldItem({
-                              type: "drawnLine",
-                              id: line.id,
-                            });
-                          }
+                          // A drawn line can always be grabbed and reshaped
+                          // directly, regardless of which toolbar tool is active.
+                          startLineEdit(
+                            line,
+                            renderedPoints,
+                            e.clientX,
+                            e.clientY,
+                          );
                         }}
                         style={{
-                          cursor:
-                            tool === "Select" || tool === "Move"
-                              ? "grab"
-                              : "pointer",
+                          cursor: lineEditDrag?.lineId === line.id
+                            ? "grabbing"
+                            : "grab",
                         }}
                       />
                       {cap && (
