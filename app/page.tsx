@@ -7281,6 +7281,9 @@ function CoachBoardWebApp() {
                   border: "1px solid rgba(255,255,255,.18)",
                   fontSize: 16,
                   fontWeight: 800,
+                  color: "#111827",
+                  background: "#ffffff",
+                  caretColor: "#111827",
                 }}
               />
 
@@ -7299,6 +7302,9 @@ function CoachBoardWebApp() {
                   border: "1px solid rgba(255,255,255,.18)",
                   fontSize: 16,
                   fontWeight: 800,
+                  color: "#111827",
+                  background: "#ffffff",
+                  caretColor: "#111827",
                 }}
               />
 
@@ -7360,6 +7366,9 @@ function CoachBoardWebApp() {
                   fontWeight: 950,
                   letterSpacing: ".12em",
                   textTransform: "uppercase",
+                  color: "#111827",
+                  background: "#ffffff",
+                  caretColor: "#111827",
                 }}
               />
 
