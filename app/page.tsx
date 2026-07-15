@@ -1857,6 +1857,7 @@ function CoachBoardWebApp() {
   const [organizationError, setOrganizationError] = useState("");
   const [showOrganizationPanel, setShowOrganizationPanel] = useState(false);
   const [organizationCodeCopied, setOrganizationCodeCopied] = useState(false);
+  const [organizationLinkCopied, setOrganizationLinkCopied] = useState(false);
 
   const ROOM_ID = teamCode ? `coachboard-gameday-${teamCode}` : "";
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
@@ -2245,6 +2246,22 @@ function CoachBoardWebApp() {
     return () => {
       subscription.unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const inviteFromUrl = new URLSearchParams(window.location.search)
+      .get("invite")
+      ?.trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 12);
+
+    if (!inviteFromUrl) return;
+
+    setOrganizationInviteCode(inviteFromUrl);
+    setOrganizationMode("join");
   }, []);
 
   useEffect(() => {
@@ -7004,6 +7021,28 @@ function CoachBoardWebApp() {
     }
   }
 
+  function getOrganizationInviteLink() {
+    const code = organization?.invite_code;
+    if (!code || typeof window === "undefined") return "";
+
+    const url = new URL(window.location.origin);
+    url.searchParams.set("invite", code);
+    return url.toString();
+  }
+
+  async function copyOrganizationInviteLink() {
+    const inviteLink = getOrganizationInviteLink();
+    if (!inviteLink) return;
+
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setOrganizationLinkCopied(true);
+      window.setTimeout(() => setOrganizationLinkCopied(false), 1800);
+    } catch {
+      window.prompt("Copy this organization invite link:", inviteLink);
+    }
+  }
+
   async function refreshOrganization() {
     if (!user) return;
 
@@ -7092,6 +7131,13 @@ function CoachBoardWebApp() {
     }
 
     await refreshOrganization();
+
+    if (typeof window !== "undefined") {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("invite");
+      window.history.replaceState({}, "", cleanUrl.toString());
+    }
+
     setOrganizationSaving(false);
   }
 
@@ -7188,8 +7234,9 @@ function CoachBoardWebApp() {
               Connect Your Program
             </h1>
             <p style={{ color: "#cbd5e1", lineHeight: 1.6, margin: 0 }}>
-              Create your organization if you are the first coach from your
-              program, or enter the code provided by another coach.
+              {organizationInviteCode
+                ? "You were invited to join an existing CoachBoard organization."
+                : "Create your organization if you are the first coach from your program, or enter the code provided by another coach."}
             </p>
           </div>
 
@@ -7817,6 +7864,23 @@ function CoachBoardWebApp() {
                   }}
                 >
                   {organizationCodeCopied ? "CODE COPIED" : "COPY CODE"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={copyOrganizationInviteLink}
+                  style={{
+                    ...buttonBase,
+                    width: "100%",
+                    marginTop: 10,
+                    background:
+                      "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+                    color: "white",
+                  }}
+                >
+                  {organizationLinkCopied
+                    ? "INVITE LINK COPIED"
+                    : "COPY INVITE LINK"}
                 </button>
               </div>
             ) : (
