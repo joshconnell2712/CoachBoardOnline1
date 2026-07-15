@@ -8193,19 +8193,6 @@ function CoachBoardWebApp() {
             Game Plan
           </button>
           <button
-            type="button"
-            style={{
-              ...buttonBase,
-              width: "100%",
-              background: showOrganizationPanel ? "#dc2626" : "#090b10",
-              color: "white",
-              padding: "8px",
-            }}
-            onClick={() => setShowOrganizationPanel(true)}
-          >
-            Organization
-          </button>
-          <button
   style={{
     ...buttonBase,
     width: "100%",
@@ -8267,13 +8254,19 @@ function CoachBoardWebApp() {
             Team Setup
           </button>
           {organization && (
-            <div
+            <button
+              type="button"
+              onClick={() => setShowOrganizationPanel(true)}
+              title="View organization details"
               style={{
+                width: "100%",
                 marginTop: 12,
                 padding: 12,
                 borderRadius: 14,
                 background: "rgba(255,255,255,.05)",
                 border: "1px solid rgba(255,255,255,.10)",
+                textAlign: "left",
+                cursor: "pointer",
               }}
             >
               <div
@@ -8324,7 +8317,7 @@ function CoachBoardWebApp() {
                     : `Invite: ${organization.invite_code}`}
                 </button>
               )}
-            </div>
+            </button>
           )}
 
           <div
