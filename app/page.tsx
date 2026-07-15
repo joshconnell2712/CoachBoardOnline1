@@ -1460,43 +1460,73 @@ function chaikinSmoothPoints(
 function cleanCurvedDrawnPoints(points: FieldPoint[]) {
   if (points.length <= 2) return points;
 
-  // First remove tiny hand tremors and produce evenly spaced points.
-  const resampled = resampleFreehandPoints(points, 1.15);
+  // Normalize the Pencil/mouse samples so a shaky hand does not create dozens
+  // of tiny control points.
+  const resampled = resampleFreehandPoints(points, 1.35);
 
-  // Then apply two gentle corner-cutting passes. This removes shaky bumps while
-  // preserving the overall path the coach intentionally drew.
+  // Smooth the stored anchors before rendering them as cubic Bézier curves.
   const smoothed = chaikinSmoothPoints(resampled, 2);
 
-  // Preserve the exact start and finish so player anchoring and arrow direction
-  // remain accurate.
-  smoothed[0] = { ...points[0] };
-  smoothed[smoothed.length - 1] = { ...points[points.length - 1] };
+  // Reduce redundant anchors while keeping the intended shape.
+  const simplified: FieldPoint[] = [smoothed[0]];
 
-  return smoothed;
+  for (let index = 1; index < smoothed.length - 1; index++) {
+    const lastKept = simplified[simplified.length - 1];
+    const current = smoothed[index];
+
+    if (Math.hypot(current.x - lastKept.x, current.y - lastKept.y) >= 0.9) {
+      simplified.push(current);
+    }
+  }
+
+  simplified.push(smoothed[smoothed.length - 1]);
+
+  // Preserve exact endpoints for player anchoring and arrowhead direction.
+  simplified[0] = { ...points[0] };
+  simplified[simplified.length - 1] = { ...points[points.length - 1] };
+
+  return simplified;
 }
 
 function smoothPath(points: FieldPoint[]) {
   if (points.length < 2) return "";
-  if (points.length === 2)
-    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
 
-  // Three-point cleaned drawings are intentional sharp route breaks.
-  // Render them as straight line segments instead of a quadratic curve.
+  if (points.length === 2) {
+    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+  }
+
+  // Three-point paths are intentional sharp football route breaks.
+  // Keep these as crisp straight segments instead of rounding the corner.
   if (points.length === 3) {
     return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y} L ${points[2].x} ${points[2].y}`;
   }
 
-  // More than three points means the coach drew a true rounded/curved path.
-  let d = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length - 1; i++) {
-    const current = points[i];
-    const next = points[i + 1];
-    d += ` Q ${current.x} ${current.y} ${(current.x + next.x) / 2} ${
-      (current.y + next.y) / 2
-    }`;
+  // Convert the stored freehand points into a smooth cubic Bézier path.
+  // This is a Catmull-Rom-to-Bézier conversion, which lets the curve pass
+  // through the coach's actual points while removing the jagged appearance.
+  const tension = 0.92;
+  let path = `M ${points[0].x} ${points[0].y}`;
+
+  for (let index = 0; index < points.length - 1; index++) {
+    const previous = points[Math.max(0, index - 1)];
+    const current = points[index];
+    const next = points[index + 1];
+    const afterNext = points[Math.min(points.length - 1, index + 2)];
+
+    const control1 = {
+      x: current.x + ((next.x - previous.x) / 6) * tension,
+      y: current.y + ((next.y - previous.y) / 6) * tension,
+    };
+
+    const control2 = {
+      x: next.x - ((afterNext.x - current.x) / 6) * tension,
+      y: next.y - ((afterNext.y - current.y) / 6) * tension,
+    };
+
+    path += ` C ${control1.x} ${control1.y}, ${control2.x} ${control2.y}, ${next.x} ${next.y}`;
   }
-  const last = points[points.length - 1];
-  return `${d} L ${last.x} ${last.y}`;
+
+  return path;
 }
 
 function straightPath(points: FieldPoint[]) {
