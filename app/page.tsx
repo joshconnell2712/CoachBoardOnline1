@@ -1979,21 +1979,6 @@ function CoachBoardWebApp() {
   const [organizationLinkCopied, setOrganizationLinkCopied] = useState(false);
 
   const ROOM_ID = teamCode ? `coachboard-gameday-${teamCode}` : "";
-
-  function resetWhiteboardState() {
-    setRoutes([]);
-    setDrawnLines([]);
-    setActiveLineId(null);
-    setLineEditDrag(null);
-    setDraggingId(null);
-    setDraggingSide(null);
-    setSelectedFieldItem(null);
-    setSelectedZoneId(null);
-    setZoneDraftId(null);
-    setZoneDrag(null);
-    setUndoStack([]);
-  }
-
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
     DEFAULT_FOOTBALL_TEAM_SIZE,
   );
@@ -2256,8 +2241,37 @@ function CoachBoardWebApp() {
   const playsInSelectedFolder = visibleSavedPlays.filter(
     (play) => (play.folderId ?? "root") === selectedLibraryFolderId,
   );
+  function clearWhiteboardForGamedayRoom() {
+    // Clear every drawing/assignment that could carry over from the coach's
+    // previous local board before entering a Gameday Room.
+    setDrawnLines([]);
+    setRoutes([]);
+    setZoneAssignments([]);
+    setManAssignments({});
+    setDefensiveReadPlayerIds([]);
+    setUndoStack([]);
+
+    setSelectedFieldItem(null);
+    setSelectedZoneId(null);
+    setZoneDraftId(null);
+    setZoneDrag(null);
+    setActiveLineId(null);
+    setLineEditDrag(null);
+    setDraggingId(null);
+    setDraggingSide(null);
+
+    setShowCoverageOverlay(false);
+    setShowPressureOverlay(false);
+    setTool("Select");
+  }
+
   useEffect(() => {
     if (!ROOM_ID || !user) return;
+
+    // ROOM_ID changes whenever a coach enters a different room. Clearing here
+    // guarantees the old local board is removed before the new realtime
+    // channel subscribes—even when the room was entered from saved localStorage.
+    clearWhiteboardForGamedayRoom();
 
     const channel = supabase.channel(ROOM_ID, {
       config: {
@@ -8345,6 +8359,7 @@ function CoachBoardWebApp() {
 
                 const newCode = generateTeamCode();
 
+                clearWhiteboardForGamedayRoom();
                 localStorage.setItem("coachboard_team_code", newCode);
 
                 setTeamCode(newCode);
@@ -8373,10 +8388,10 @@ function CoachBoardWebApp() {
                   return;
                 }
 
+                clearWhiteboardForGamedayRoom();
                 localStorage.setItem("coachboard_team_code", cleanedCode);
 
-                resetWhiteboardState();
-    setTeamCode(cleanedCode);
+                setTeamCode(cleanedCode);
                 setTeamCodeInput(cleanedCode);
               }}
               style={{
