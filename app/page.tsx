@@ -1979,6 +1979,21 @@ function CoachBoardWebApp() {
   const [organizationLinkCopied, setOrganizationLinkCopied] = useState(false);
 
   const ROOM_ID = teamCode ? `coachboard-gameday-${teamCode}` : "";
+
+  function resetWhiteboardState() {
+    setRoutes([]);
+    setDrawnLines([]);
+    setActiveLineId(null);
+    setLineEditDrag(null);
+    setDraggingId(null);
+    setDraggingSide(null);
+    setSelectedFieldItem(null);
+    setSelectedZoneId(null);
+    setZoneDraftId(null);
+    setZoneDrag(null);
+    setUndoStack([]);
+  }
+
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
     DEFAULT_FOOTBALL_TEAM_SIZE,
   );
@@ -8360,7 +8375,8 @@ function CoachBoardWebApp() {
 
                 localStorage.setItem("coachboard_team_code", cleanedCode);
 
-                setTeamCode(cleanedCode);
+                resetWhiteboardState();
+    setTeamCode(cleanedCode);
                 setTeamCodeInput(cleanedCode);
               }}
               style={{
