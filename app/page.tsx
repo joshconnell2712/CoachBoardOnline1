@@ -1,4 +1,4 @@
-"use client"; 1
+"use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
