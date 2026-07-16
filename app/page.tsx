@@ -1968,9 +1968,7 @@ function CoachBoardWebApp() {
   const [organizationMode, setOrganizationMode] =
     useState<"choose" | "create" | "join">("choose");
   const [organizationName, setOrganizationName] = useState("");
-  const [organizationSeason, setOrganizationSeason] = useState(
-    String(new Date().getFullYear()),
-  );
+  const [organizationSeason, setOrganizationSeason] = useState("");
   const [organizationInviteCode, setOrganizationInviteCode] = useState("");
   const [organizationSaving, setOrganizationSaving] = useState(false);
   const [organizationError, setOrganizationError] = useState("");
@@ -7569,7 +7567,7 @@ function CoachBoardWebApp() {
                 onChange={(event) =>
                   setOrganizationName(event.target.value)
                 }
-                placeholder="Hershey Football"
+                placeholder="Enter organization or team name"
                 style={{
                   padding: 14,
                   borderRadius: 12,
@@ -7591,6 +7589,7 @@ function CoachBoardWebApp() {
                 onChange={(event) =>
                   setOrganizationSeason(event.target.value)
                 }
+                placeholder="Enter season (e.g. 2026)"
                 style={{
                   padding: 14,
                   borderRadius: 12,
