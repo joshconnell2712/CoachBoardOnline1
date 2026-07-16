@@ -1902,6 +1902,8 @@ type CoachBoardOrganization = {
   season: number;
   invite_code: string | null;
   role: "owner" | "admin" | "coach" | "viewer";
+  football_type: FootballTeamSize;
+  field_template: FieldTemplate;
 };
 
 function generateTeamCode(length = 6) {
@@ -2410,7 +2412,10 @@ function CoachBoardWebApp() {
       }
 
       const row = Array.isArray(data) ? data[0] : data;
-      setOrganization((row as CoachBoardOrganization | undefined) ?? null);
+      const nextOrganization =
+        (row as CoachBoardOrganization | undefined) ?? null;
+      setOrganization(nextOrganization);
+      applyOrganizationSettings(nextOrganization);
       setOrganizationChecked(true);
     }
 
@@ -7274,6 +7279,37 @@ function CoachBoardWebApp() {
     }
   }
 
+  function applyOrganizationSettings(
+    nextOrganization: CoachBoardOrganization | null,
+  ) {
+    if (!nextOrganization) return;
+
+    const nextFootballType = FOOTBALL_TEAM_SIZE_OPTIONS[
+      nextOrganization.football_type
+    ]
+      ? nextOrganization.football_type
+      : DEFAULT_FOOTBALL_TEAM_SIZE;
+
+    const nextFieldTemplate = FIELD_HASH_PRESETS[
+      nextOrganization.field_template
+    ]
+      ? nextOrganization.field_template
+      : DEFAULT_FIELD_TEMPLATE;
+
+    setFootballTeamSize(nextFootballType);
+    setFieldTemplate(nextFieldTemplate);
+    setOffensePlayers(getDefaultOffensePlayers(nextFootballType));
+    applyDefensePlayers(getDefaultDefensePlayers(nextFootballType));
+    setSelectedPlayerId(
+      getDefaultOffensePlayers(nextFootballType)[0]?.id ?? "x",
+    );
+    setSelectedSide("offense");
+    setSelectedPlayId("");
+    setSelectedPlayFormationId("");
+    setRoutes([]);
+    setDrawnLines([]);
+  }
+
   async function refreshOrganization() {
     if (!user) return;
 
@@ -7287,7 +7323,10 @@ function CoachBoardWebApp() {
     }
 
     const row = Array.isArray(data) ? data[0] : data;
-    setOrganization((row as CoachBoardOrganization | undefined) ?? null);
+    const nextOrganization =
+      (row as CoachBoardOrganization | undefined) ?? null;
+    setOrganization(nextOrganization);
+    applyOrganizationSettings(nextOrganization);
     setOrganizationChecked(true);
   }
 
@@ -7319,6 +7358,8 @@ function CoachBoardWebApp() {
       {
         organization_name: cleanName,
         organization_season: seasonNumber,
+        organization_football_type: footballTeamSize,
+        organization_field_template: fieldTemplate,
       },
     );
 
@@ -7601,6 +7642,89 @@ function CoachBoardWebApp() {
                   caretColor: "#111827",
                 }}
               />
+
+              <div style={{ display: "grid", gap: 8 }}>
+                <label style={{ fontWeight: 900 }}>Football Type</label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(105px, 1fr))",
+                    gap: 8,
+                  }}
+                >
+                  {(
+                    [
+                      ["11man", "11-Man"],
+                      ["9man", "9-Man"],
+                      ["8man", "8-Man"],
+                      ["6man", "6-Man"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFootballTeamSize(value)}
+                      style={{
+                        ...buttonBase,
+                        padding: "10px 8px",
+                        background:
+                          footballTeamSize === value
+                            ? "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)"
+                            : "#111827",
+                        color: "white",
+                        border:
+                          footballTeamSize === value
+                            ? "1px solid rgba(248,113,113,.9)"
+                            : "1px solid rgba(255,255,255,.12)",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gap: 8 }}>
+                <label style={{ fontWeight: 900 }}>Field Type</label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(125px, 1fr))",
+                    gap: 8,
+                  }}
+                >
+                  {(
+                    [
+                      ["highschool", "High School"],
+                      ["college", "College"],
+                      ["nfl", "NFL"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFieldTemplate(value)}
+                      style={{
+                        ...buttonBase,
+                        padding: "10px 8px",
+                        background:
+                          fieldTemplate === value
+                            ? "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)"
+                            : "#111827",
+                        color: "white",
+                        border:
+                          fieldTemplate === value
+                            ? "1px solid rgba(96,165,250,.9)"
+                            : "1px solid rgba(255,255,255,.12)",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <button
                 type="button"
