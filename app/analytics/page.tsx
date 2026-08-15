@@ -5358,10 +5358,11 @@ const gameCenterSubnavButtonActiveStyle: React.CSSProperties = {
 
 const topMetricGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(13, minmax(92px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))",
   gap: 7,
   marginBottom: 10,
-  overflowX: "auto",
+  width: "100%",
+  overflow: "visible",
 };
 
 const metricStyle: React.CSSProperties = {
@@ -5370,6 +5371,9 @@ const metricStyle: React.CSSProperties = {
   borderRadius: 13,
   padding: "9px 10px",
   boxShadow: "0 8px 22px rgba(15,23,42,.06)",
+  minWidth: 0,
+  width: "100%",
+  boxSizing: "border-box",
 };
 
 const metricLabelStyle: React.CSSProperties = {
