@@ -2316,6 +2316,17 @@ function CoachBoardWebApp() {
 
       if (payload.type === "SET_SELECTED_SIDE") {
         setSelectedSide(payload.selectedSide);
+        setDrawnLines([]);
+        setRoutes([]);
+        setZoneAssignments([]);
+        setManAssignments({});
+        setUndoStack([]);
+        setSelectedFieldItem(null);
+        setSelectedZoneId(null);
+        setZoneDraftId(null);
+        setZoneDrag(null);
+        setActiveLineId(null);
+        setLineEditDrag(null);
       }
 
       if (payload.type === "SET_BOARD_STATE") {
@@ -4274,9 +4285,7 @@ function CoachBoardWebApp() {
           <button
             style={{ ...buttonBase, background: "#7f1111", color: "white" }}
             onClick={() => {
-              pushUndoSnapshot();
-              setDrawnLines([]);
-              setSelectedFieldItem(null);
+              clearAllBoardMarkup({ broadcast: true, pushUndo: true });
             }}
           >
             Clear Drawings
@@ -5120,7 +5129,47 @@ function CoachBoardWebApp() {
     );
   }, [footballTeamSize]);
 
+  function clearAllBoardMarkup(options?: { broadcast?: boolean; pushUndo?: boolean }) {
+    const shouldBroadcast = options?.broadcast ?? true;
+    const shouldPushUndo = options?.pushUndo ?? false;
+
+    if (shouldPushUndo) {
+      pushUndoSnapshot();
+    }
+
+    setDrawnLines([]);
+    setRoutes([]);
+    setZoneAssignments([]);
+    setManAssignments({});
+    setUndoStack([]);
+
+    setSelectedFieldItem(null);
+    setSelectedZoneId(null);
+    setZoneDraftId(null);
+    setZoneDrag(null);
+    setActiveLineId(null);
+    setLineEditDrag(null);
+
+    if (shouldBroadcast) {
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_BOARD_STATE",
+          drawnLines: [],
+          routes: [],
+          zoneAssignments: [],
+          manAssignments: {},
+        },
+      });
+    }
+  }
+
   function applyCoachFocus(nextFocus: CoachFocus) {
+    if (nextFocus !== coachFocus) {
+      clearAllBoardMarkup({ broadcast: true });
+    }
+
     setCoachFocus(nextFocus);
 
     realtimeChannelRef.current?.send({
