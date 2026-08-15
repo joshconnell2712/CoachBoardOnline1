@@ -2787,6 +2787,12 @@ export default function AnalyticsPage() {
               <h2 style={panelTitleStyle}>
                 {reportScope === "season" ? "Season Analytics" : "Current Game Analytics"}
               </h2>
+              {reportSection === "offense" && (
+                <div style={reportDefinitionStyle}>
+                  <strong>Big / Explosive Play:</strong> Run of 10+ yards or pass of 25+ yards.
+                  CoachBoard uses “Big” and “Explosive” for the same play classification.
+                </div>
+              )}
             </div>
 
             <div style={reportToolbarActionsStyle}>
@@ -2928,6 +2934,12 @@ export default function AnalyticsPage() {
                   ? `${reportSection === "offense" ? "Offensive" : reportSection === "defense" ? "Defensive" : "Special Teams"} Season Analytics Report`
                   : `Week ${selectedGame?.week ?? "-"} vs ${selectedGame?.opponent ?? "Opponent"} — ${reportSection === "offense" ? "Offense" : reportSection === "defense" ? "Defense" : "Special Teams"}`}
               </h1>
+              {reportSection === "offense" && (
+                <div style={printDefinitionStyle}>
+                  <strong>Big / Explosive Play:</strong> Run of 10+ yards or pass of 25+ yards.
+                  “Big” and “Explosive” mean the same thing in CoachBoard.
+                </div>
+              )}
             </div>
 
             <div style={printDateStyle}>
@@ -5738,6 +5750,22 @@ const reportToolbarStyle: React.CSSProperties = {
   background: "#ffffff",
   border: "1px solid #e2e8f0",
   boxShadow: "0 8px 22px rgba(15,23,42,.05)",
+};
+
+const reportDefinitionStyle: React.CSSProperties = {
+  marginTop: 6,
+  color: "#64748b",
+  fontSize: 12,
+  lineHeight: 1.45,
+  fontWeight: 650,
+};
+
+const printDefinitionStyle: React.CSSProperties = {
+  marginTop: 7,
+  color: "#475569",
+  fontSize: 12,
+  lineHeight: 1.45,
+  fontWeight: 650,
 };
 
 const reportToolbarActionsStyle: React.CSSProperties = {
