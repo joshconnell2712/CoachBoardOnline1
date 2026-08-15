@@ -519,16 +519,26 @@ export default function AnalyticsPage() {
   function applySavedAnalyticsState(saved: SavedState) {
     const savedPlayers = saved.players ?? [];
     const savedGames = saved.games ?? [];
-    const savedChartPlays = (saved.chartPlays ?? []).map((play) => ({
-      ...play,
-      motion: play.motion ?? "",
-      tags: Array.isArray(play.tags) ? play.tags : [],
-      rusher: resolvePlayerInput(play.rusher, savedPlayers),
-      passer: resolvePlayerInput(play.passer, savedPlayers),
-      receiver: resolvePlayerInput(play.receiver, savedPlayers),
-      penaltyType: play.penaltyType ?? "",
-      seriesStart: play.seriesStart ?? false,
-    }));
+    const savedChartPlays = (saved.chartPlays ?? []).map((play) => {
+      const normalizedTouchdown =
+        play.touchdown === true ||
+        (play.result ?? "").toUpperCase().includes("TD");
+
+      return {
+        ...play,
+        motion: play.motion ?? "",
+        tags: Array.isArray(play.tags) ? play.tags : [],
+        rusher: resolvePlayerInput(play.rusher, savedPlayers),
+        passer: resolvePlayerInput(play.passer, savedPlayers),
+        receiver: resolvePlayerInput(play.receiver, savedPlayers),
+        penaltyType: play.penaltyType ?? "",
+        seriesStart: play.seriesStart ?? false,
+        touchdown: normalizedTouchdown,
+        // A touchdown ends the play/drive outcome and should not also be
+        // credited as an earned first down in the statistical totals.
+        firstDown: normalizedTouchdown ? false : (play.firstDown ?? false),
+      };
+    });
 
     setPlayers(savedPlayers);
     setFormations(saved.formations ?? []);
@@ -1011,6 +1021,7 @@ export default function AnalyticsPage() {
           .join(" "),
       touchdown: isTouchdown,
       firstDown:
+        !isTouchdown &&
         !isPunt &&
         !isTwoPointAttempt &&
         !entry.seriesStart &&
@@ -1476,7 +1487,7 @@ export default function AnalyticsPage() {
                 : resolvePlayerInput(editPlayDraft.receiver, players),
               result: resultUpper,
               touchdown: isTouchdown,
-              firstDown: editPlayDraft.firstDown,
+              firstDown: isTouchdown ? false : editPlayDraft.firstDown,
               seriesStart: editPlayDraft.seriesStart,
               turnover: isTurnover,
               penalty: isPenalty,
@@ -2220,7 +2231,17 @@ export default function AnalyticsPage() {
                               <label style={inlineCheckboxLabelStyle}>
                                 <input
                                   type="checkbox"
-                                  checked={editPlayDraft.firstDown}
+                                  checked={
+                                    !editPlayDraft.result
+                                      .trim()
+                                      .toUpperCase()
+                                      .includes("TD") &&
+                                    editPlayDraft.firstDown
+                                  }
+                                  disabled={editPlayDraft.result
+                                    .trim()
+                                    .toUpperCase()
+                                    .includes("TD")}
                                   onChange={(event) =>
                                     updateEditPlayDraft(
                                       "firstDown",
@@ -2228,7 +2249,12 @@ export default function AnalyticsPage() {
                                     )
                                   }
                                 />
-                                Earned
+                                {editPlayDraft.result
+                                  .trim()
+                                  .toUpperCase()
+                                  .includes("TD")
+                                  ? "TD"
+                                  : "Earned"}
                               </label>
                             </td>
 
