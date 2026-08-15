@@ -2975,6 +2975,7 @@ export default function AnalyticsPage() {
                 <PrintableExpandableReport
                   title="Player Analytics"
                   printSelected={printSelections.playerAnalytics}
+                  fullWidth
                 >
                   <PlayerAnalyticsReport
                     rushing={rushingReport}
@@ -4670,6 +4671,10 @@ function PrintableExpandableReport({
       style={{
         position: "relative",
         minWidth: 0,
+        width: "100%",
+        maxWidth: "100%",
+        overflow: "hidden",
+        boxSizing: "border-box",
         ...(fullWidth ? { gridColumn: "1 / -1" } : {}),
       }}
     >
@@ -4934,6 +4939,11 @@ const panelStyle: React.CSSProperties = {
   borderRadius: 15,
   padding: 12,
   boxShadow: "0 10px 30px rgba(15,23,42,.07)",
+  minWidth: 0,
+  width: "100%",
+  maxWidth: "100%",
+  boxSizing: "border-box",
+  overflow: "hidden",
 };
 
 const panelHeaderRowStyle: React.CSSProperties = {
@@ -5252,6 +5262,11 @@ const saveButtonStyle: React.CSSProperties = {
 
 const tableWrapStyle: React.CSSProperties = {
   overflowX: "auto",
+  overflowY: "hidden",
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
   marginTop: 12,
   borderRadius: 14,
   border: "1px solid #e2e8f0",
@@ -5475,6 +5490,11 @@ const playerStatPanelStyle: React.CSSProperties = {
   padding: 12,
   background: "#f8fafc",
   border: "1px solid #e2e8f0",
+  minWidth: 0,
+  width: "100%",
+  maxWidth: "100%",
+  boxSizing: "border-box",
+  overflow: "hidden",
 };
 
 const playerStatTitleStyle: React.CSSProperties = {
@@ -5732,8 +5752,11 @@ const reportMetricGridStyle: React.CSSProperties = {
 
 const reportsGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 500px), 1fr))",
   gap: 12,
+  alignItems: "start",
+  minWidth: 0,
+  width: "100%",
 };
 
 const formFourStyle: React.CSSProperties = {
