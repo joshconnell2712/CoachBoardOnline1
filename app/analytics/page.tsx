@@ -143,6 +143,22 @@ type EntryState = {
   qtr: string;
 };
 
+type EditPlayDraft = {
+  dd: string;
+  formation: string;
+  motion: string;
+  play: string;
+  tags: string;
+  yards: string;
+  rusher: string;
+  passer: string;
+  receiver: string;
+  seriesStart: boolean;
+  firstDown: boolean;
+  result: string;
+  penalty: string;
+};
+
 type SavedState = {
   players: Player[];
   formations: Formation[];
@@ -280,6 +296,9 @@ export default function AnalyticsPage() {
     possessionClock: "",
     qtr: "1",
   });
+
+  const [editingPlayId, setEditingPlayId] = useState<string | null>(null);
+  const [editPlayDraft, setEditPlayDraft] = useState<EditPlayDraft | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1319,81 +1338,60 @@ export default function AnalyticsPage() {
     setMessage("Play added.");
   }
 
-  function editPlay(playToEdit: ChartPlay) {
-    const ddInput = window.prompt(
-      "Down & Distance",
-      `${playToEdit.down} and ${playToEdit.distance}`,
+  function startEditingPlay(playToEdit: ChartPlay) {
+    setEditingPlayId(playToEdit.id);
+    setEditPlayDraft({
+      dd: `${playToEdit.down} and ${playToEdit.distance}`,
+      formation: playToEdit.formation ?? "",
+      motion: playToEdit.motion ?? "",
+      play: playToEdit.play ?? "",
+      tags: (playToEdit.tags ?? []).join(", "),
+      yards: String(playToEdit.yards),
+      rusher: playToEdit.rusher ?? "",
+      passer: playToEdit.passer ?? "",
+      receiver: playToEdit.receiver ?? "",
+      seriesStart: playToEdit.seriesStart ?? false,
+      firstDown: playToEdit.firstDown ?? false,
+      result: playToEdit.result ?? "",
+      penalty: playToEdit.penaltyType ?? "",
+    });
+    setMessage(`Editing play #${playToEdit.playNumber}.`);
+  }
+
+  function cancelEditingPlay() {
+    setEditingPlayId(null);
+    setEditPlayDraft(null);
+    setMessage("");
+  }
+
+  function updateEditPlayDraft<K extends keyof EditPlayDraft>(
+    key: K,
+    value: EditPlayDraft[K],
+  ) {
+    setEditPlayDraft((current) =>
+      current ? { ...current, [key]: value } : current,
     );
-    if (ddInput === null) return;
+  }
 
-    const formationInput = window.prompt("Formation", playToEdit.formation);
-    if (formationInput === null) return;
+  function saveEditedPlay(playToEdit: ChartPlay) {
+    if (!editPlayDraft) return;
 
-    const motionInput = window.prompt("Motion", playToEdit.motion ?? "");
-    if (motionInput === null) return;
+    const parsed = parseDownDistance(editPlayDraft.dd);
+    const yards = Number(editPlayDraft.yards.trim());
 
-    const playInput = window.prompt("Play", playToEdit.play);
-    if (playInput === null) return;
-
-    const tagsInput = window.prompt(
-      "Tags — separate multiple tags with commas",
-      (playToEdit.tags ?? []).join(", "),
-    );
-    if (tagsInput === null) return;
-
-    const yardsInput = window.prompt("Yards", String(playToEdit.yards));
-    if (yardsInput === null) return;
-
-    const yards = Number(yardsInput.trim());
     if (Number.isNaN(yards)) {
-      setMessage("Yards must be a number.");
+      setMessage("Yards must be a number before saving the edit.");
       return;
     }
 
-    const rusherInput = window.prompt("Rusher", playToEdit.rusher ?? "");
-    if (rusherInput === null) return;
-
-    const passerInput = window.prompt("Passer", playToEdit.passer ?? "");
-    if (passerInput === null) return;
-
-    const receiverInput = window.prompt("Receiver", playToEdit.receiver ?? "");
-    if (receiverInput === null) return;
-
-    const resultInput = window.prompt(
-      "Result (examples: TD, INC, INT, FUM, FD)",
-      playToEdit.result ?? "",
-    );
-    if (resultInput === null) return;
-
-    const penaltyInput = window.prompt(
-      "Penalty",
-      playToEdit.penaltyType ?? "",
-    );
-    if (penaltyInput === null) return;
-
-    const seriesInput = window.prompt(
-      "Start of series? Enter Y or N",
-      playToEdit.seriesStart ? "Y" : "N",
-    );
-    if (seriesInput === null) return;
-
-    const firstDownInput = window.prompt(
-      "First down earned? Enter Y or N",
-      playToEdit.firstDown ? "Y" : "N",
-    );
-    if (firstDownInput === null) return;
-
-    const parsed = parseDownDistance(ddInput);
-    const resultUpper = resultInput.trim().toUpperCase();
-    const penaltyText = penaltyInput.trim();
+    const resultUpper = editPlayDraft.result.trim().toUpperCase();
+    const penaltyText = editPlayDraft.penalty.trim();
 
     const isPunt = resultUpper.includes("PUNT");
     const isTwoPointAttempt =
       resultUpper.includes("2PT") ||
       resultUpper.includes("2 PT") ||
       resultUpper.includes("TWO POINT");
-    const isIncomplete =
-      resultUpper.includes("INC") || resultUpper.includes("INCOMPLETE");
     const isInterception = resultUpper.includes("INT");
     const isFumble = resultUpper.includes("FUM");
     const isTurnover =
@@ -1402,22 +1400,19 @@ export default function AnalyticsPage() {
       resultUpper.includes("TD") && !isTwoPointAttempt;
     const isPenalty = Boolean(penaltyText) || resultUpper.includes("PEN");
 
-    const seriesStart = seriesInput.trim().toUpperCase().startsWith("Y");
-    const firstDown = firstDownInput.trim().toUpperCase().startsWith("Y");
-
     const editEntryForType: EntryState = {
-      dd: ddInput,
-      formation: formationInput,
-      motion: motionInput,
-      play: playInput,
+      dd: editPlayDraft.dd,
+      formation: editPlayDraft.formation,
+      motion: editPlayDraft.motion,
+      play: editPlayDraft.play,
       tags: [],
-      yards: String(yards),
-      rusher: rusherInput,
-      passer: passerInput,
-      receiver: receiverInput,
-      result: resultInput,
-      penalty: penaltyInput,
-      seriesStart,
+      yards: editPlayDraft.yards,
+      rusher: editPlayDraft.rusher,
+      passer: editPlayDraft.passer,
+      receiver: editPlayDraft.receiver,
+      result: editPlayDraft.result,
+      penalty: editPlayDraft.penalty,
+      seriesStart: editPlayDraft.seriesStart,
       possessionStart: false,
       possessionEnd: false,
       possessionClock: "",
@@ -1430,21 +1425,21 @@ export default function AnalyticsPage() {
 
     const formationName = isPunt
       ? "Special Teams"
-      : addFormation(formationInput.trim() || "Base");
+      : addFormation(editPlayDraft.formation.trim() || "Base");
 
     const motionName = isPunt
       ? ""
-      : motionInput.trim()
-        ? addMotion(motionInput)
+      : editPlayDraft.motion.trim()
+        ? addMotion(editPlayDraft.motion)
         : "";
 
     const playName = isPunt
       ? "Punt"
-      : addPlayCall(playInput.trim() || "Unknown Play", playType);
+      : addPlayCall(editPlayDraft.play.trim() || "Unknown Play", playType);
 
     const savedTags = isPunt
       ? []
-      : tagsInput
+      : editPlayDraft.tags
           .split(",")
           .map((tag) => tag.trim())
           .filter(Boolean)
@@ -1470,13 +1465,19 @@ export default function AnalyticsPage() {
               tags: savedTags,
               playType,
               yards,
-              rusher: isPunt ? "" : resolvePlayerInput(rusherInput, players),
-              passer: isPunt ? "" : resolvePlayerInput(passerInput, players),
-              receiver: isPunt ? "" : resolvePlayerInput(receiverInput, players),
+              rusher: isPunt
+                ? ""
+                : resolvePlayerInput(editPlayDraft.rusher, players),
+              passer: isPunt
+                ? ""
+                : resolvePlayerInput(editPlayDraft.passer, players),
+              receiver: isPunt
+                ? ""
+                : resolvePlayerInput(editPlayDraft.receiver, players),
               result: resultUpper,
               touchdown: isTouchdown,
-              firstDown,
-              seriesStart,
+              firstDown: editPlayDraft.firstDown,
+              seriesStart: editPlayDraft.seriesStart,
               turnover: isTurnover,
               penalty: isPenalty,
               penaltyType:
@@ -1487,7 +1488,11 @@ export default function AnalyticsPage() {
       ),
     );
 
-    setMessage(`Updated play #${playToEdit.playNumber}.`);
+    setEditingPlayId(null);
+    setEditPlayDraft(null);
+    setMessage(
+      `Updated play #${playToEdit.playNumber}. Stats and reports recalculated automatically.`,
+    );
   }
 
   function deletePlay(id: string) {
@@ -2073,6 +2078,213 @@ export default function AnalyticsPage() {
                     )}
 
                     {currentGamePlays.map((row) => {
+                      const isEditing =
+                        editingPlayId === row.id && Boolean(editPlayDraft);
+
+                      if (isEditing && editPlayDraft) {
+                        return (
+                          <tr key={row.id} style={editingRowStyle}>
+                            <td style={modernTdStyle}>{row.playNumber}</td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={inlineEditInputStyle}
+                                value={editPlayDraft.dd}
+                                onChange={(event) =>
+                                  updateEditPlayDraft("dd", event.target.value)
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={inlineEditInputStyle}
+                                list="formation-options"
+                                value={editPlayDraft.formation}
+                                onChange={(event) =>
+                                  updateEditPlayDraft(
+                                    "formation",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={inlineEditInputStyle}
+                                list="motion-options"
+                                value={editPlayDraft.motion}
+                                onChange={(event) =>
+                                  updateEditPlayDraft(
+                                    "motion",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={inlineEditInputStyle}
+                                list="play-options"
+                                value={editPlayDraft.play}
+                                onChange={(event) =>
+                                  updateEditPlayDraft("play", event.target.value)
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={{ ...inlineEditInputStyle, minWidth: 150 }}
+                                list="tag-options"
+                                placeholder="Tag, Tag, Tag"
+                                value={editPlayDraft.tags}
+                                onChange={(event) =>
+                                  updateEditPlayDraft("tags", event.target.value)
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={{ ...inlineEditInputStyle, width: 70 }}
+                                inputMode="numeric"
+                                value={editPlayDraft.yards}
+                                onChange={(event) =>
+                                  updateEditPlayDraft("yards", event.target.value)
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={{ ...inlineEditInputStyle, minWidth: 130 }}
+                                list="player-options"
+                                value={editPlayDraft.rusher}
+                                onChange={(event) =>
+                                  updateEditPlayDraft(
+                                    "rusher",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={{ ...inlineEditInputStyle, minWidth: 130 }}
+                                list="player-options"
+                                value={editPlayDraft.passer}
+                                onChange={(event) =>
+                                  updateEditPlayDraft(
+                                    "passer",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={{ ...inlineEditInputStyle, minWidth: 130 }}
+                                list="player-options"
+                                value={editPlayDraft.receiver}
+                                onChange={(event) =>
+                                  updateEditPlayDraft(
+                                    "receiver",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <label style={inlineCheckboxLabelStyle}>
+                                <input
+                                  type="checkbox"
+                                  checked={editPlayDraft.seriesStart}
+                                  onChange={(event) =>
+                                    updateEditPlayDraft(
+                                      "seriesStart",
+                                      event.target.checked,
+                                    )
+                                  }
+                                />
+                                Start
+                              </label>
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <label style={inlineCheckboxLabelStyle}>
+                                <input
+                                  type="checkbox"
+                                  checked={editPlayDraft.firstDown}
+                                  onChange={(event) =>
+                                    updateEditPlayDraft(
+                                      "firstDown",
+                                      event.target.checked,
+                                    )
+                                  }
+                                />
+                                Earned
+                              </label>
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={{ ...inlineEditInputStyle, minWidth: 100 }}
+                                placeholder="TD, INC, INT..."
+                                value={editPlayDraft.result}
+                                onChange={(event) =>
+                                  updateEditPlayDraft(
+                                    "result",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <input
+                                style={{ ...inlineEditInputStyle, minWidth: 120 }}
+                                value={editPlayDraft.penalty}
+                                onChange={(event) =>
+                                  updateEditPlayDraft(
+                                    "penalty",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <span style={editGradeHintStyle}>Auto</span>
+                            </td>
+
+                            <td style={modernTdStyle}>
+                              <div style={playActionButtonsStyle}>
+                                <button
+                                  type="button"
+                                  style={miniSaveEditButtonStyle}
+                                  onClick={() => saveEditedPlay(row)}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  style={miniCancelEditButtonStyle}
+                                  onClick={cancelEditingPlay}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }
+
                       const grade = classify(row);
 
                       return (
@@ -2133,7 +2345,8 @@ export default function AnalyticsPage() {
                               <button
                                 type="button"
                                 style={miniEditButtonStyle}
-                                onClick={() => editPlay(row)}
+                                onClick={() => startEditingPlay(row)}
+                                disabled={Boolean(editingPlayId)}
                               >
                                 Edit
                               </button>
@@ -2142,6 +2355,7 @@ export default function AnalyticsPage() {
                                 style={miniDeleteButtonStyle}
                                 onClick={() => deletePlay(row.id)}
                                 title="Delete play"
+                                disabled={Boolean(editingPlayId)}
                               >
                                 ×
                               </button>
@@ -5568,6 +5782,72 @@ const pillStyle: React.CSSProperties = {
   padding: "3px 8px",
   fontSize: 10,
   fontWeight: 950,
+};
+
+const editingRowStyle: React.CSSProperties = {
+  background: "#eff6ff",
+  outline: "2px solid #bfdbfe",
+  outlineOffset: "-2px",
+};
+
+const inlineEditInputStyle: React.CSSProperties = {
+  width: "100%",
+  minWidth: 90,
+  height: 34,
+  border: "1px solid #94a3b8",
+  borderRadius: 8,
+  background: "#ffffff",
+  color: "#0f172a",
+  padding: "5px 7px",
+  fontSize: 12,
+  fontWeight: 800,
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+const inlineCheckboxLabelStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  fontSize: 11,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
+const editGradeHintStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 999,
+  padding: "4px 8px",
+  background: "#e2e8f0",
+  color: "#475569",
+  fontSize: 10,
+  fontWeight: 900,
+};
+
+const miniSaveEditButtonStyle: React.CSSProperties = {
+  border: "1px solid #86efac",
+  background: "#dcfce7",
+  color: "#166534",
+  borderRadius: 8,
+  padding: "7px 10px",
+  fontSize: 11,
+  lineHeight: 1,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const miniCancelEditButtonStyle: React.CSSProperties = {
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  color: "#475569",
+  borderRadius: 8,
+  padding: "7px 10px",
+  fontSize: 11,
+  lineHeight: 1,
+  fontWeight: 900,
+  cursor: "pointer",
 };
 
 const playActionButtonsStyle: React.CSSProperties = {
