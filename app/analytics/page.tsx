@@ -24,6 +24,16 @@ type Formation = {
   name: string;
 };
 
+type Motion = {
+  id: string;
+  name: string;
+};
+
+type PlayTag = {
+  id: string;
+  name: string;
+};
+
 type PlayCall = {
   id: string;
   name: string;
@@ -96,7 +106,9 @@ type ChartPlay = {
   down: number;
   distance: number;
   formation: string;
+  motion: string;
   play: string;
+  tags: string[];
   playType: PlayType;
   yards: number;
   rusher: string;
@@ -115,7 +127,9 @@ type ChartPlay = {
 type EntryState = {
   dd: string;
   formation: string;
+  motion: string;
   play: string;
+  tags: string[];
   yards: string;
   rusher: string;
   passer: string;
@@ -132,7 +146,9 @@ type EntryState = {
 type SavedState = {
   players: Player[];
   formations: Formation[];
+  motions: Motion[];
   plays: PlayCall[];
+  tags: PlayTag[];
   games: Game[];
   chartPlays: ChartPlay[];
   possessions: Possession[];
@@ -177,7 +193,9 @@ export default function AnalyticsPage() {
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [formations, setFormations] = useState<Formation[]>([]);
+  const [motions, setMotions] = useState<Motion[]>([]);
   const [plays, setPlays] = useState<PlayCall[]>([]);
+  const [tags, setTags] = useState<PlayTag[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [chartPlays, setChartPlays] = useState<ChartPlay[]>([]);
   const [possessions, setPossessions] = useState<Possession[]>([]);
@@ -196,8 +214,11 @@ export default function AnalyticsPage() {
   const [playerPosition, setPlayerPosition] = useState("");
 
   const [formationSetup, setFormationSetup] = useState("");
+  const [motionSetup, setMotionSetup] = useState("");
   const [playSetup, setPlaySetup] = useState("");
   const [playSetupType, setPlaySetupType] = useState<PlayType>("Run");
+  const [tagSetup, setTagSetup] = useState("");
+  const [tagDraft, setTagDraft] = useState("");
 
   const [specialTeamsEntry, setSpecialTeamsEntry] = useState({
     type: "Punt" as SpecialTeamsType,
@@ -225,7 +246,9 @@ export default function AnalyticsPage() {
   const [entry, setEntry] = useState<EntryState>({
     dd: "1 and 10",
     formation: "",
+    motion: "",
     play: "",
+    tags: [],
     yards: "",
     rusher: "",
     passer: "",
@@ -372,7 +395,9 @@ export default function AnalyticsPage() {
     const state: SavedState = {
       players,
       formations,
+      motions,
       plays,
+      tags,
       games,
       chartPlays,
       possessions,
@@ -411,7 +436,9 @@ export default function AnalyticsPage() {
     user,
     players,
     formations,
+    motions,
     plays,
+    tags,
     games,
     chartPlays,
     possessions,
@@ -456,6 +483,8 @@ export default function AnalyticsPage() {
     const savedGames = saved.games ?? [];
     const savedChartPlays = (saved.chartPlays ?? []).map((play) => ({
       ...play,
+      motion: play.motion ?? "",
+      tags: Array.isArray(play.tags) ? play.tags : [],
       rusher: resolvePlayerInput(play.rusher, savedPlayers),
       passer: resolvePlayerInput(play.passer, savedPlayers),
       receiver: resolvePlayerInput(play.receiver, savedPlayers),
@@ -465,7 +494,9 @@ export default function AnalyticsPage() {
 
     setPlayers(savedPlayers);
     setFormations(saved.formations ?? []);
+    setMotions(saved.motions ?? []);
     setPlays(saved.plays ?? []);
+    setTags(saved.tags ?? []);
     setGames(savedGames);
     setChartPlays(savedChartPlays);
     setPossessions(saved.possessions ?? []);
@@ -575,8 +606,46 @@ export default function AnalyticsPage() {
     [reportPlays],
   );
 
+  const motionReport = useMemo(
+    () => makeReport(reportPlays.filter((row) => row.motion), (row) => row.motion),
+    [reportPlays],
+  );
+
+  const tagReport = useMemo(
+    () => makeMultiReport(reportPlays, (row) => row.tags),
+    [reportPlays],
+  );
+
+  const formationMotionReport = useMemo(
+    () =>
+      makeReport(
+        reportPlays.filter((row) => row.motion),
+        (row) => `${row.formation} — ${row.motion}`,
+      ),
+    [reportPlays],
+  );
+
   const formationPlayReport = useMemo(
     () => makeReport(reportPlays, (row) => `${row.formation} — ${row.play}`),
+    [reportPlays],
+  );
+
+  const playTagReport = useMemo(
+    () =>
+      makeMultiReport(
+        reportPlays,
+        (row) => row.tags.map((tag) => `${row.play} — ${tag}`),
+      ),
+    [reportPlays],
+  );
+
+  const formationPlayTagReport = useMemo(
+    () =>
+      makeMultiReport(
+        reportPlays,
+        (row) =>
+          row.tags.map((tag) => `${row.formation} — ${row.play} — ${tag}`),
+      ),
     [reportPlays],
   );
 
@@ -655,6 +724,79 @@ export default function AnalyticsPage() {
     return clean;
   }
 
+  function addMotion(name: string) {
+    const clean = name.trim();
+    if (!clean) return clean;
+
+    const existing = motions.find(
+      (motion) => motion.name.toLowerCase() === clean.toLowerCase(),
+    );
+
+    if (existing) return existing.name;
+
+    const newMotion: Motion = {
+      id: createId(),
+      name: clean,
+    };
+
+    setMotions((current) =>
+      [...current, newMotion].sort((a, b) => a.name.localeCompare(b.name)),
+    );
+
+    return clean;
+  }
+
+  function addTag(name: string) {
+    const clean = name.trim();
+    if (!clean) return clean;
+
+    const existing = tags.find(
+      (tag) => tag.name.toLowerCase() === clean.toLowerCase(),
+    );
+
+    if (existing) return existing.name;
+
+    const newTag: PlayTag = {
+      id: createId(),
+      name: clean,
+    };
+
+    setTags((current) =>
+      [...current, newTag].sort((a, b) => a.name.localeCompare(b.name)),
+    );
+
+    return clean;
+  }
+
+  function addEntryTag(value?: string) {
+    const clean = (value ?? tagDraft).trim();
+    if (!clean) return;
+
+    const savedName = addTag(clean);
+
+    setEntry((current) => {
+      const alreadySelected = current.tags.some(
+        (tag) => tag.toLowerCase() === savedName.toLowerCase(),
+      );
+
+      if (alreadySelected) return current;
+
+      return {
+        ...current,
+        tags: [...current.tags, savedName],
+      };
+    });
+
+    setTagDraft("");
+  }
+
+  function removeEntryTag(tagToRemove: string) {
+    setEntry((current) => ({
+      ...current,
+      tags: current.tags.filter((tag) => tag !== tagToRemove),
+    }));
+  }
+
   function addPlayCall(name: string, type: PlayType) {
     const clean = name.trim();
     if (!clean) return clean;
@@ -730,9 +872,15 @@ export default function AnalyticsPage() {
     const formationName = isPunt
       ? "Special Teams"
       : addFormation(entry.formation || "Base");
+    const motionName = isPunt
+      ? ""
+      : entry.motion.trim()
+        ? addMotion(entry.motion)
+        : "";
     const playName = isPunt
       ? "Punt"
       : addPlayCall(entry.play || "Unknown Play", playType);
+    const savedTags = isPunt ? [] : entry.tags.map((tag) => addTag(tag));
 
     const parsed = parseDownDistance(entry.dd);
     const result = entry.result.trim().toUpperCase();
@@ -764,7 +912,9 @@ export default function AnalyticsPage() {
       down: parsed.down,
       distance: parsed.distance,
       formation: formationName,
+      motion: motionName,
       play: playName,
+      tags: savedTags,
       playType,
       yards,
       rusher: isPunt ? "" : resolvePlayerInput(entry.rusher, players),
@@ -875,9 +1025,11 @@ export default function AnalyticsPage() {
 
     setEntry((current) => ({
       ...current,
-      formation: formationName,
+      formation: "",
+      motion: "",
       dd: isPunt ? "1 and 10" : nextDownDistance(current.dd, yards),
       play: "",
+      tags: [],
       yards: "",
       rusher: "",
       passer: "",
@@ -889,6 +1041,7 @@ export default function AnalyticsPage() {
       possessionEnd: false,
       possessionClock: "",
     }));
+    setTagDraft("");
 
     setMessage(`Saved play #${nextPlayNumber}.`);
     window.setTimeout(() => setSaving(false), 150);
@@ -1081,6 +1234,28 @@ export default function AnalyticsPage() {
     setMessage("Formation added.");
   }
 
+  function addSetupMotion() {
+    if (!motionSetup.trim()) {
+      setMessage("Type a motion.");
+      return;
+    }
+
+    addMotion(motionSetup);
+    setMotionSetup("");
+    setMessage("Motion added.");
+  }
+
+  function addSetupTag() {
+    if (!tagSetup.trim()) {
+      setMessage("Type a tag.");
+      return;
+    }
+
+    addTag(tagSetup);
+    setTagSetup("");
+    setMessage("Tag added.");
+  }
+
   function addSetupPlay() {
     if (!playSetup.trim()) {
       setMessage("Type a play.");
@@ -1137,6 +1312,14 @@ export default function AnalyticsPage() {
     }
   }
 
+  function deleteMotion(id: string) {
+    setMotions((current) => current.filter((motion) => motion.id !== id));
+  }
+
+  function deleteTag(id: string) {
+    setTags((current) => current.filter((tag) => tag.id !== id));
+  }
+
   function deleteSetupPlay(id: string) {
     const target = plays.find((play) => play.id === id);
     setPlays((current) => current.filter((play) => play.id !== id));
@@ -1155,7 +1338,9 @@ export default function AnalyticsPage() {
 
     setPlayers([]);
     setFormations([]);
+    setMotions([]);
     setPlays([]);
+    setTags([]);
     setGames([]);
     setChartPlays([]);
     setPossessions([]);
@@ -1333,6 +1518,14 @@ export default function AnalyticsPage() {
                   wide
                 />
                 <SheetInput
+                  label="Motion"
+                  value={entry.motion}
+                  onChange={(value) => updateEntry("motion", value)}
+                  onKeyDown={handleEnterSave}
+                  list="motion-options"
+                  wide
+                />
+                <SheetInput
                   label="Play"
                   value={entry.play}
                   onChange={(value) => updateEntry("play", value)}
@@ -1340,6 +1533,49 @@ export default function AnalyticsPage() {
                   list="play-options"
                   wide
                 />
+                <div style={tagEntryFieldStyle}>
+                  <span style={tagEntryLabelStyle}>Tags</span>
+                  <div style={tagPickerStyle}>
+                    {entry.tags.length > 0 && (
+                      <div style={selectedTagsStyle}>
+                        {entry.tags.map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            style={selectedTagPillStyle}
+                            onClick={() => removeEntryTag(tag)}
+                            title={`Remove ${tag}`}
+                          >
+                            {tag} ×
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={tagInputRowStyle}>
+                      <input
+                        style={tagPickerInputStyle}
+                        list="tag-options"
+                        placeholder="Add tag"
+                        value={tagDraft}
+                        onChange={(event) => setTagDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === ",") {
+                            event.preventDefault();
+                            addEntryTag();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        style={tagAddButtonStyle}
+                        onClick={() => addEntryTag()}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <SheetInput
                   label="Yards"
                   value={entry.yards}
@@ -1395,9 +1631,21 @@ export default function AnalyticsPage() {
                 ))}
               </datalist>
 
+              <datalist id="motion-options">
+                {motions.map((motion) => (
+                  <option key={motion.id} value={motion.name} />
+                ))}
+              </datalist>
+
               <datalist id="play-options">
                 {plays.map((play) => (
                   <option key={play.id} value={play.name} />
+                ))}
+              </datalist>
+
+              <datalist id="tag-options">
+                {tags.map((tag) => (
+                  <option key={tag.id} value={tag.name} />
                 ))}
               </datalist>
 
@@ -1525,7 +1773,9 @@ export default function AnalyticsPage() {
                       <th style={modernThStyle}>#</th>
                       <th style={modernThStyle}>D & Dist</th>
                       <th style={modernThStyle}>Formation</th>
+                      <th style={modernThStyle}>Motion</th>
                       <th style={modernThStyle}>Play</th>
+                      <th style={modernThStyle}>Tags</th>
                       <th style={modernThStyle}>Yards</th>
                       <th style={modernThStyle}>Rusher</th>
                       <th style={modernThStyle}>Passer</th>
@@ -1542,7 +1792,7 @@ export default function AnalyticsPage() {
                   <tbody>
                     {currentGamePlays.length === 0 && (
                       <tr>
-                        <td style={emptyTdStyle} colSpan={15}>
+                        <td style={emptyTdStyle} colSpan={17}>
                           No plays entered yet. Type a play and press SAVE PLAY.
                         </td>
                       </tr>
@@ -1558,7 +1808,17 @@ export default function AnalyticsPage() {
                             {row.down} and {row.distance}
                           </td>
                           <td style={modernTdStyle}>{row.formation}</td>
+                          <td style={modernTdStyle}>{row.motion}</td>
                           <td style={modernTdStyle}>{row.play}</td>
+                          <td style={modernTdStyle}>
+                            <div style={tableTagWrapStyle}>
+                              {row.tags.map((tag) => (
+                                <span key={tag} style={tableTagPillStyle}>
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
                           <td style={modernTdStyle}>{row.yards}</td>
                           <td style={modernTdStyle}>{row.rusher}</td>
                           <td style={modernTdStyle}>{row.passer}</td>
@@ -2301,6 +2561,37 @@ export default function AnalyticsPage() {
 
           <div style={panelStyle}>
             <div style={smallRedStyle}>OFFENSE</div>
+            <h2 style={panelTitleStyle}>Motions</h2>
+
+            <div style={inlineFormStyle}>
+              <input
+                style={inputStyle}
+                placeholder="Motion"
+                value={motionSetup}
+                onChange={(event) => setMotionSetup(event.target.value)}
+              />
+              <button style={primaryButtonStyleNoMargin} onClick={addSetupMotion}>
+                Add
+              </button>
+            </div>
+
+            <List>
+              {motions.map((motion) => (
+                <Row key={motion.id}>
+                  <span>{motion.name}</span>
+                  <button
+                    style={dangerButtonStyle}
+                    onClick={() => deleteMotion(motion.id)}
+                  >
+                    Delete
+                  </button>
+                </Row>
+              ))}
+            </List>
+          </div>
+
+          <div style={panelStyle}>
+            <div style={smallRedStyle}>OFFENSE</div>
             <h2 style={panelTitleStyle}>Plays</h2>
 
             <div style={formTwoStyle}>
@@ -2336,6 +2627,37 @@ export default function AnalyticsPage() {
                   <button
                     style={dangerButtonStyle}
                     onClick={() => deleteSetupPlay(play.id)}
+                  >
+                    Delete
+                  </button>
+                </Row>
+              ))}
+            </List>
+          </div>
+
+          <div style={panelStyle}>
+            <div style={smallRedStyle}>OFFENSE</div>
+            <h2 style={panelTitleStyle}>Tags</h2>
+
+            <div style={inlineFormStyle}>
+              <input
+                style={inputStyle}
+                placeholder="Tag"
+                value={tagSetup}
+                onChange={(event) => setTagSetup(event.target.value)}
+              />
+              <button style={primaryButtonStyleNoMargin} onClick={addSetupTag}>
+                Add
+              </button>
+            </div>
+
+            <List>
+              {tags.map((tag) => (
+                <Row key={tag.id}>
+                  <span>{tag.name}</span>
+                  <button
+                    style={dangerButtonStyle}
+                    onClick={() => deleteTag(tag.id)}
                   >
                     Delete
                   </button>
@@ -2494,7 +2816,12 @@ export default function AnalyticsPage() {
 
                 <Report title="Play Rankings" rows={playReport} />
                 <Report title="Formation Rankings" rows={formationReport} />
+                <Report title="Motion Rankings" rows={motionReport} />
+                <Report title="Tag Rankings" rows={tagReport} />
+                <Report title="Formation + Motion Rankings" rows={formationMotionReport} />
                 <Report title="Formation + Play Rankings" rows={formationPlayReport} />
+                <Report title="Play + Tag Rankings" rows={playTagReport} />
+                <Report title="Formation + Play + Tag Rankings" rows={formationPlayTagReport} />
 
                 {reportScope === "season" && (
                   <GameBreakdownReport rows={gameBreakdown} />
@@ -2891,6 +3218,50 @@ function makeReport(rows: ChartPlay[], keyGetter: (play: ChartPlay) => string): 
     const key = keyGetter(play) || "Unknown";
     groups.set(key, [...(groups.get(key) ?? []), play]);
   });
+
+  return Array.from(groups.entries())
+    .map(([label, group]) => {
+      const yards = group.reduce((sum, play) => sum + play.yards, 0);
+      const successCount = group.filter(isSuccess).length;
+      const explosiveCount = group.filter((play) => classify(play) === "explosive").length;
+
+      return {
+        id: label,
+        label,
+        calls: group.length,
+        yards,
+        avg: group.length ? yards / group.length : 0,
+        successRate: group.length ? Math.round((successCount / group.length) * 100) : 0,
+        explosiveRate: group.length ? Math.round((explosiveCount / group.length) * 100) : 0,
+      };
+    })
+    .sort((a, b) => b.successRate - a.successRate || b.avg - a.avg || b.calls - a.calls);
+}
+
+function makeMultiReport(
+  rows: ChartPlay[],
+  keyGetter: (play: ChartPlay) => string[],
+): ReportRow[] {
+  const groups = new Map<string, ChartPlay[]>();
+
+  rows
+    .filter(
+      (play) =>
+        !play.penalty &&
+        play.playType !== "Punt" &&
+        !play.result.toUpperCase().includes("2PT"),
+    )
+    .forEach((play) => {
+      const keys = keyGetter(play)
+        .map((key) => key.trim())
+        .filter(Boolean);
+
+      const uniqueKeys = [...new Set(keys)];
+
+      uniqueKeys.forEach((key) => {
+        groups.set(key, [...(groups.get(key) ?? []), play]);
+      });
+    });
 
   return Array.from(groups.entries())
     .map(([label, group]) => {
@@ -4331,6 +4702,98 @@ const entryBarStyle: React.CSSProperties = {
   borderRadius: 13,
   background: "#f8fafc",
   border: "1px solid #e2e8f0",
+};
+
+const tagEntryFieldStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 3,
+  minWidth: 0,
+  color: "#475569",
+};
+
+const tagEntryLabelStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: ".02em",
+};
+
+const tagPickerStyle: React.CSSProperties = {
+  minHeight: 43,
+  border: "1px solid #cbd5e1",
+  borderRadius: 10,
+  background: "#ffffff",
+  padding: 5,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  gap: 5,
+  boxSizing: "border-box",
+};
+
+const selectedTagsStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 4,
+};
+
+const selectedTagPillStyle: React.CSSProperties = {
+  border: "1px solid #cbd5e1",
+  borderRadius: 999,
+  padding: "3px 7px",
+  background: "#f1f5f9",
+  color: "#0f172a",
+  fontSize: 10,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const tagInputRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+};
+
+const tagPickerInputStyle: React.CSSProperties = {
+  width: "100%",
+  border: "none",
+  outline: "none",
+  fontSize: 14,
+  fontWeight: 800,
+  color: "#0f172a",
+  minWidth: 0,
+};
+
+const tagAddButtonStyle: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  flex: "0 0 28px",
+  border: "1px solid #cbd5e1",
+  borderRadius: 7,
+  background: "#f8fafc",
+  color: "#0f172a",
+  cursor: "pointer",
+  fontSize: 18,
+  fontWeight: 950,
+  lineHeight: 1,
+};
+
+const tableTagWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 3,
+};
+
+const tableTagPillStyle: React.CSSProperties = {
+  display: "inline-block",
+  padding: "2px 6px",
+  borderRadius: 999,
+  background: "#e2e8f0",
+  color: "#0f172a",
+  fontSize: 10,
+  fontWeight: 850,
+  whiteSpace: "nowrap",
 };
 
 const downDistanceGroupStyle: React.CSSProperties = {
