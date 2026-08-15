@@ -4052,7 +4052,7 @@ function SpecialTeamsReport({
   const stats = calculateSpecialTeamsStats(events);
 
   return (
-    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+    <div style={panelStyle}>
       <div style={smallRedStyle}>SPECIAL TEAMS</div>
       <h2 style={panelTitleStyle}>Special Teams Analytics</h2>
 
@@ -4125,7 +4125,7 @@ function DefenseReport({
   const players = aggregateDefense(events);
 
   return (
-    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+    <div style={panelStyle}>
       <div style={smallRedStyle}>DEFENSE</div>
       <h2 style={panelTitleStyle}>Defensive Analytics</h2>
 
@@ -4190,7 +4190,7 @@ function PossessionAnalyticsReport({
   const stats = calculatePossessionStats(possessions);
 
   return (
-    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+    <div style={panelStyle}>
       <div style={smallRedStyle}>CLOCK CONTROL</div>
       <h2 style={panelTitleStyle}>{scopeLabel} Time of Possession</h2>
 
@@ -4259,7 +4259,7 @@ function PenaltyAnalyticsReport({ rows }: { rows: PenaltyStatRow[] }) {
   const total = rows.reduce((sum, row) => sum + row.count, 0);
 
   return (
-    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+    <div style={panelStyle}>
       <div style={smallRedStyle}>DISCIPLINE</div>
       <h2 style={panelTitleStyle}>Penalty Analytics</h2>
 
@@ -4311,7 +4311,7 @@ function PlayerAnalyticsReport({
   scopeLabel: string;
 }) {
   return (
-    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+    <div style={panelStyle}>
       <div style={smallRedStyle}>PLAYER PRODUCTION</div>
       <h2 style={panelTitleStyle}>{scopeLabel} Player Analytics</h2>
 
@@ -4461,7 +4461,7 @@ function GameBreakdownReport({
   }>;
 }) {
   return (
-    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+    <div style={panelStyle}>
       <div style={smallRedStyle}>SEASON BY GAME</div>
       <h2 style={panelTitleStyle}>Game-by-Game Breakdown</h2>
 
@@ -4530,7 +4530,7 @@ function FormationPlaySuccessReport({ rows }: { rows: ReportRow[] }) {
   const stopCalling = rows.filter((row) => getDecision(row) === "stop");
 
   return (
-    <div style={{ ...panelStyle, gridColumn: "1 / -1" }}>
+    <div style={panelStyle}>
       <div style={smallRedStyle}>DECISION ENGINE</div>
       <h2 style={panelTitleStyle}>What Should I Call?</h2>
 
