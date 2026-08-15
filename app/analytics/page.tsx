@@ -1319,6 +1319,177 @@ export default function AnalyticsPage() {
     setMessage("Play added.");
   }
 
+  function editPlay(playToEdit: ChartPlay) {
+    const ddInput = window.prompt(
+      "Down & Distance",
+      `${playToEdit.down} and ${playToEdit.distance}`,
+    );
+    if (ddInput === null) return;
+
+    const formationInput = window.prompt("Formation", playToEdit.formation);
+    if (formationInput === null) return;
+
+    const motionInput = window.prompt("Motion", playToEdit.motion ?? "");
+    if (motionInput === null) return;
+
+    const playInput = window.prompt("Play", playToEdit.play);
+    if (playInput === null) return;
+
+    const tagsInput = window.prompt(
+      "Tags — separate multiple tags with commas",
+      (playToEdit.tags ?? []).join(", "),
+    );
+    if (tagsInput === null) return;
+
+    const yardsInput = window.prompt("Yards", String(playToEdit.yards));
+    if (yardsInput === null) return;
+
+    const yards = Number(yardsInput.trim());
+    if (Number.isNaN(yards)) {
+      setMessage("Yards must be a number.");
+      return;
+    }
+
+    const rusherInput = window.prompt("Rusher", playToEdit.rusher ?? "");
+    if (rusherInput === null) return;
+
+    const passerInput = window.prompt("Passer", playToEdit.passer ?? "");
+    if (passerInput === null) return;
+
+    const receiverInput = window.prompt("Receiver", playToEdit.receiver ?? "");
+    if (receiverInput === null) return;
+
+    const resultInput = window.prompt(
+      "Result (examples: TD, INC, INT, FUM, FD)",
+      playToEdit.result ?? "",
+    );
+    if (resultInput === null) return;
+
+    const penaltyInput = window.prompt(
+      "Penalty",
+      playToEdit.penaltyType ?? "",
+    );
+    if (penaltyInput === null) return;
+
+    const seriesInput = window.prompt(
+      "Start of series? Enter Y or N",
+      playToEdit.seriesStart ? "Y" : "N",
+    );
+    if (seriesInput === null) return;
+
+    const firstDownInput = window.prompt(
+      "First down earned? Enter Y or N",
+      playToEdit.firstDown ? "Y" : "N",
+    );
+    if (firstDownInput === null) return;
+
+    const parsed = parseDownDistance(ddInput);
+    const resultUpper = resultInput.trim().toUpperCase();
+    const penaltyText = penaltyInput.trim();
+
+    const isPunt = resultUpper.includes("PUNT");
+    const isTwoPointAttempt =
+      resultUpper.includes("2PT") ||
+      resultUpper.includes("2 PT") ||
+      resultUpper.includes("TWO POINT");
+    const isIncomplete =
+      resultUpper.includes("INC") || resultUpper.includes("INCOMPLETE");
+    const isInterception = resultUpper.includes("INT");
+    const isFumble = resultUpper.includes("FUM");
+    const isTurnover =
+      isInterception || isFumble || resultUpper.includes("TO");
+    const isTouchdown =
+      resultUpper.includes("TD") && !isTwoPointAttempt;
+    const isPenalty = Boolean(penaltyText) || resultUpper.includes("PEN");
+
+    const seriesStart = seriesInput.trim().toUpperCase().startsWith("Y");
+    const firstDown = firstDownInput.trim().toUpperCase().startsWith("Y");
+
+    const editEntryForType: EntryState = {
+      dd: ddInput,
+      formation: formationInput,
+      motion: motionInput,
+      play: playInput,
+      tags: [],
+      yards: String(yards),
+      rusher: rusherInput,
+      passer: passerInput,
+      receiver: receiverInput,
+      result: resultInput,
+      penalty: penaltyInput,
+      seriesStart,
+      possessionStart: false,
+      possessionEnd: false,
+      possessionClock: "",
+      qtr: playToEdit.quarter || "1",
+    };
+
+    const playType: PlayType = isPunt
+      ? "Punt"
+      : detectPlayType(editEntryForType);
+
+    const formationName = isPunt
+      ? "Special Teams"
+      : addFormation(formationInput.trim() || "Base");
+
+    const motionName = isPunt
+      ? ""
+      : motionInput.trim()
+        ? addMotion(motionInput)
+        : "";
+
+    const playName = isPunt
+      ? "Punt"
+      : addPlayCall(playInput.trim() || "Unknown Play", playType);
+
+    const savedTags = isPunt
+      ? []
+      : tagsInput
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+          .filter(
+            (tag, index, array) =>
+              array.findIndex(
+                (candidate) =>
+                  candidate.toLowerCase() === tag.toLowerCase(),
+              ) === index,
+          )
+          .map((tag) => addTag(tag));
+
+    setChartPlays((current) =>
+      current.map((play) =>
+        play.id === playToEdit.id
+          ? {
+              ...play,
+              down: parsed.down,
+              distance: parsed.distance,
+              formation: formationName,
+              motion: motionName,
+              play: playName,
+              tags: savedTags,
+              playType,
+              yards,
+              rusher: isPunt ? "" : resolvePlayerInput(rusherInput, players),
+              passer: isPunt ? "" : resolvePlayerInput(passerInput, players),
+              receiver: isPunt ? "" : resolvePlayerInput(receiverInput, players),
+              result: resultUpper,
+              touchdown: isTouchdown,
+              firstDown,
+              seriesStart,
+              turnover: isTurnover,
+              penalty: isPenalty,
+              penaltyType:
+                penaltyText ||
+                (resultUpper.includes("PEN") ? "Penalty" : ""),
+            }
+          : play,
+      ),
+    );
+
+    setMessage(`Updated play #${playToEdit.playNumber}.`);
+  }
+
   function deletePlay(id: string) {
     setChartPlays((current) => current.filter((play) => play.id !== id));
   }
@@ -1888,14 +2059,14 @@ export default function AnalyticsPage() {
                       <th style={modernThStyle}>Result</th>
                       <th style={modernThStyle}>Penalty</th>
                       <th style={modernThStyle}>Grade</th>
-                      <th style={modernThStyle}></th>
+                      <th style={modernThStyle}>Actions</th>
                     </tr>
                   </thead>
 
                   <tbody>
                     {currentGamePlays.length === 0 && (
                       <tr>
-                        <td style={emptyTdStyle} colSpan={17}>
+                        <td style={emptyTdStyle} colSpan={16}>
                           No plays entered yet. Type a play and press SAVE PLAY.
                         </td>
                       </tr>
@@ -1958,12 +2129,23 @@ export default function AnalyticsPage() {
                             </span>
                           </td>
                           <td style={modernTdStyle}>
-                            <button
-                              style={miniDeleteButtonStyle}
-                              onClick={() => deletePlay(row.id)}
-                            >
-                              ×
-                            </button>
+                            <div style={playActionButtonsStyle}>
+                              <button
+                                type="button"
+                                style={miniEditButtonStyle}
+                                onClick={() => editPlay(row)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                style={miniDeleteButtonStyle}
+                                onClick={() => deletePlay(row.id)}
+                                title="Delete play"
+                              >
+                                ×
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -5386,6 +5568,25 @@ const pillStyle: React.CSSProperties = {
   padding: "3px 8px",
   fontSize: 10,
   fontWeight: 950,
+};
+
+const playActionButtonsStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  whiteSpace: "nowrap",
+};
+
+const miniEditButtonStyle: React.CSSProperties = {
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  color: "#334155",
+  borderRadius: 8,
+  padding: "6px 9px",
+  fontSize: 11,
+  lineHeight: 1,
+  fontWeight: 900,
+  cursor: "pointer",
 };
 
 const miniDeleteButtonStyle: React.CSSProperties = {
