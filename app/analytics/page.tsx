@@ -2937,7 +2937,14 @@ export default function AnalyticsPage() {
 
           {reportSection === "offense" && (
             <>
-              <section className={printSelections.summary ? "" : "print-excluded"} style={reportMetricGridStyle}>
+              <section
+                className={
+                  printSelections.summary
+                    ? "print-report-page print-summary-metrics"
+                    : "print-excluded"
+                }
+                style={reportMetricGridStyle}
+              >
                 <Metric label="Total Yards" value={reportStats.yards} />
                 <Metric label="Rush Yards" value={reportStats.rushYards} />
                 <Metric label="Pass Yards" value={reportStats.passYards} />
@@ -2949,7 +2956,11 @@ export default function AnalyticsPage() {
                   value={`${reportStats.twoPointMade}/${reportStats.twoPointAttempts}`}
                 />
                 <Metric label="Turnovers" value={reportStats.turnovers} danger={reportStats.turnovers > 0} />
+                <Metric label="Interceptions" value={reportStats.interceptions} danger={reportStats.interceptions > 0} />
+                <Metric label="Fumbles" value={reportStats.fumbles} danger={reportStats.fumbles > 0} />
+                <Metric label="Penalties" value={reportStats.penalties} danger={reportStats.penalties > 0} />
                 <Metric label="1st Downs" value={reportStats.firstDownsEarned} />
+                <Metric label="Series Starts" value={reportStats.seriesStarts} />
                 <Metric label="Success" value={`${reportStats.successRate}%`} />
                 <Metric label="Explosive" value={`${reportStats.explosiveRate}%`} />
                 <Metric label="Average" value={reportStats.averageYards} />
@@ -2957,13 +2968,18 @@ export default function AnalyticsPage() {
                   label="Time of Possession"
                   value={formatDuration(reportPossessionStats.totalSeconds)}
                 />
+                <Metric label="Possessions" value={reportPossessionStats.count} />
                 <Metric
                   label="Avg Possession"
                   value={formatDuration(reportPossessionStats.averageSeconds)}
                 />
+                <Metric
+                  label="Longest Drive"
+                  value={formatDuration(reportPossessionStats.longestSeconds)}
+                />
               </section>
 
-              <section style={reportsGridStyle}>
+              <section className="print-reports-grid" style={reportsGridStyle}>
                 <PrintableExpandableReport
                   title="Decision Engine / Play Success"
                   printSelected={printSelections.decisionEngine}
@@ -3042,7 +3058,7 @@ export default function AnalyticsPage() {
           )}
 
           {reportSection === "defense" && (
-            <section style={reportsGridStyle}>
+            <section className="print-reports-grid" style={reportsGridStyle}>
               <PrintableExpandableReport
                 title="Defense Report"
                 printSelected={printSelections.defense}
@@ -3054,7 +3070,7 @@ export default function AnalyticsPage() {
           )}
 
           {reportSection === "specialTeams" && (
-            <section style={reportsGridStyle}>
+            <section className="print-reports-grid" style={reportsGridStyle}>
               <PrintableExpandableReport
                 title="Special Teams Report"
                 printSelected={printSelections.specialTeams}
@@ -3094,6 +3110,48 @@ export default function AnalyticsPage() {
 
               .print-excluded {
                 display: none !important;
+              }
+
+              .print-reports-grid {
+                display: block !important;
+                width: 100% !important;
+              }
+
+              .print-report-page {
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                overflow: visible !important;
+                box-sizing: border-box !important;
+                break-after: page;
+                page-break-after: always;
+                break-inside: avoid;
+                page-break-inside: avoid;
+              }
+
+              .print-summary-metrics {
+                display: grid !important;
+                grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+                gap: 10px !important;
+                overflow: visible !important;
+                width: 100% !important;
+                margin-bottom: 0 !important;
+              }
+
+              .print-summary-metrics > * {
+                min-width: 0 !important;
+                width: auto !important;
+              }
+
+              .print-report-page table {
+                width: 100% !important;
+              }
+
+              .print-report-page > div,
+              .print-report-page section {
+                max-width: 100% !important;
+                overflow: visible !important;
               }
 
               @page {
@@ -4667,7 +4725,7 @@ function PrintableExpandableReport({
 
   return (
     <div
-      className={printSelected ? "" : "print-excluded"}
+      className={printSelected ? "print-report-page" : "print-excluded"}
       style={{
         position: "relative",
         minWidth: 0,
