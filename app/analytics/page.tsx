@@ -183,6 +183,25 @@ export default function AnalyticsPage() {
   const [gameCenterSection, setGameCenterSection] = useState<GameCenterSection>("offense");
   const [reportScope, setReportScope] = useState<"game" | "season">("game");
   const [reportSection, setReportSection] = useState<ReportSection>("offense");
+  const [showPrintOptions, setShowPrintOptions] = useState(false);
+  const [printSelections, setPrintSelections] = useState<Record<string, boolean>>({
+    summary: true,
+    decisionEngine: true,
+    playerAnalytics: true,
+    penalties: true,
+    possessions: true,
+    playRankings: true,
+    formationRankings: true,
+    motionRankings: true,
+    tagRankings: true,
+    formationMotion: true,
+    formationPlay: true,
+    playTag: true,
+    formationPlayTag: true,
+    gameBreakdown: true,
+    defense: true,
+    specialTeams: true,
+  });
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -1382,6 +1401,69 @@ export default function AnalyticsPage() {
     setSelectedGameId("");
     setMessage("Analytics data cleared.");
   }
+
+  function togglePrintSelection(key: string) {
+    setPrintSelections((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  }
+
+  function setVisiblePrintSelections(value: boolean) {
+    const keys =
+      reportSection === "offense"
+        ? [
+            "summary",
+            "decisionEngine",
+            "playerAnalytics",
+            "penalties",
+            "possessions",
+            "playRankings",
+            "formationRankings",
+            "motionRankings",
+            "tagRankings",
+            "formationMotion",
+            "formationPlay",
+            "playTag",
+            "formationPlayTag",
+            ...(reportScope === "season" ? ["gameBreakdown"] : []),
+          ]
+        : reportSection === "defense"
+          ? ["defense"]
+          : ["specialTeams"];
+
+    setPrintSelections((current) => {
+      const next = { ...current };
+      keys.forEach((key) => {
+        next[key] = value;
+      });
+      return next;
+    });
+  }
+
+  const visiblePrintOptions =
+    reportSection === "offense"
+      ? [
+          ["summary", "Summary Metrics"],
+          ["decisionEngine", "Decision Engine / Play Success"],
+          ["playerAnalytics", "Player Analytics"],
+          ["penalties", "Penalty Analytics"],
+          ["possessions", "Possession Analytics"],
+          ["playRankings", "Play Rankings"],
+          ["formationRankings", "Formation Rankings"],
+          ["motionRankings", "Motion Rankings"],
+          ["tagRankings", "Tag Rankings"],
+          ["formationMotion", "Formation + Motion Rankings"],
+          ["formationPlay", "Formation + Play Rankings"],
+          ["playTag", "Play + Tag Rankings"],
+          ["formationPlayTag", "Formation + Play + Tag Rankings"],
+          ...(reportScope === "season"
+            ? [["gameBreakdown", "Game-by-Game Breakdown"]]
+            : []),
+        ]
+      : reportSection === "defense"
+        ? [["defense", "Defense Report"]]
+        : [["specialTeams", "Special Teams Report"]];
 
   return (
     <main style={pageStyle}>
@@ -2730,9 +2812,73 @@ export default function AnalyticsPage() {
                 </button>
               </div>
 
-              <button style={printButtonStyle} onClick={() => window.print()}>
-                Print Report
-              </button>
+              <div style={printMenuWrapStyle}>
+                <button
+                  style={printButtonStyle}
+                  onClick={() => setShowPrintOptions((current) => !current)}
+                >
+                  Print Report
+                </button>
+
+                {showPrintOptions && (
+                  <div style={printOptionsPanelStyle}>
+                    <div style={printOptionsHeaderStyle}>
+                      <div>
+                        <strong>Choose What to Print</strong>
+                        <small>Only checked report sections will print.</small>
+                      </div>
+                      <button
+                        type="button"
+                        style={printOptionsCloseStyle}
+                        onClick={() => setShowPrintOptions(false)}
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <div style={printQuickActionsStyle}>
+                      <button
+                        type="button"
+                        style={printQuickButtonStyle}
+                        onClick={() => setVisiblePrintSelections(true)}
+                      >
+                        Select All
+                      </button>
+                      <button
+                        type="button"
+                        style={printQuickButtonStyle}
+                        onClick={() => setVisiblePrintSelections(false)}
+                      >
+                        Clear All
+                      </button>
+                    </div>
+
+                    <div style={printOptionListStyle}>
+                      {visiblePrintOptions.map(([key, label]) => (
+                        <label key={key} style={printOptionRowStyle}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(printSelections[key])}
+                            onChange={() => togglePrintSelection(key)}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      style={{ ...printButtonStyle, width: "100%" }}
+                      onClick={() => {
+                        setShowPrintOptions(false);
+                        window.setTimeout(() => window.print(), 50);
+                      }}
+                    >
+                      Print Selected
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -2791,7 +2937,7 @@ export default function AnalyticsPage() {
 
           {reportSection === "offense" && (
             <>
-              <section style={reportMetricGridStyle}>
+              <section className={printSelections.summary ? "" : "print-excluded"} style={reportMetricGridStyle}>
                 <Metric label="Total Yards" value={reportStats.yards} />
                 <Metric label="Rush Yards" value={reportStats.rushYards} />
                 <Metric label="Pass Yards" value={reportStats.passYards} />
@@ -2818,34 +2964,77 @@ export default function AnalyticsPage() {
               </section>
 
               <section style={reportsGridStyle}>
-                <FormationPlaySuccessReport rows={formationPlayReport} />
+                <PrintableExpandableReport
+                  title="Decision Engine / Play Success"
+                  printSelected={printSelections.decisionEngine}
+                  fullWidth
+                >
+                  <FormationPlaySuccessReport rows={formationPlayReport} />
+                </PrintableExpandableReport>
 
-                <PlayerAnalyticsReport
-                  rushing={rushingReport}
-                  passing={passingReport}
-                  receiving={receivingReport}
-                  scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
-                />
+                <PrintableExpandableReport
+                  title="Player Analytics"
+                  printSelected={printSelections.playerAnalytics}
+                >
+                  <PlayerAnalyticsReport
+                    rushing={rushingReport}
+                    passing={passingReport}
+                    receiving={receivingReport}
+                    scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
+                  />
+                </PrintableExpandableReport>
 
-                <PenaltyAnalyticsReport rows={penaltyReport} />
+                <PrintableExpandableReport
+                  title="Penalty Analytics"
+                  printSelected={printSelections.penalties}
+                >
+                  <PenaltyAnalyticsReport rows={penaltyReport} />
+                </PrintableExpandableReport>
 
-                <PossessionAnalyticsReport
-                  possessions={reportPossessions}
-                  games={games}
-                  scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
-                />
+                <PrintableExpandableReport
+                  title="Possession Analytics"
+                  printSelected={printSelections.possessions}
+                >
+                  <PossessionAnalyticsReport
+                    possessions={reportPossessions}
+                    games={games}
+                    scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
+                  />
+                </PrintableExpandableReport>
 
-                <Report title="Play Rankings" rows={playReport} />
-                <Report title="Formation Rankings" rows={formationReport} />
-                <Report title="Motion Rankings" rows={motionReport} />
-                <Report title="Tag Rankings" rows={tagReport} />
-                <Report title="Formation + Motion Rankings" rows={formationMotionReport} />
-                <Report title="Formation + Play Rankings" rows={formationPlayReport} />
-                <Report title="Play + Tag Rankings" rows={playTagReport} />
-                <Report title="Formation + Play + Tag Rankings" rows={formationPlayTagReport} />
+                <PrintableExpandableReport title="Play Rankings" printSelected={printSelections.playRankings}>
+                  <Report title="Play Rankings" rows={playReport} />
+                </PrintableExpandableReport>
+                <PrintableExpandableReport title="Formation Rankings" printSelected={printSelections.formationRankings}>
+                  <Report title="Formation Rankings" rows={formationReport} />
+                </PrintableExpandableReport>
+                <PrintableExpandableReport title="Motion Rankings" printSelected={printSelections.motionRankings}>
+                  <Report title="Motion Rankings" rows={motionReport} />
+                </PrintableExpandableReport>
+                <PrintableExpandableReport title="Tag Rankings" printSelected={printSelections.tagRankings}>
+                  <Report title="Tag Rankings" rows={tagReport} />
+                </PrintableExpandableReport>
+                <PrintableExpandableReport title="Formation + Motion Rankings" printSelected={printSelections.formationMotion}>
+                  <Report title="Formation + Motion Rankings" rows={formationMotionReport} />
+                </PrintableExpandableReport>
+                <PrintableExpandableReport title="Formation + Play Rankings" printSelected={printSelections.formationPlay}>
+                  <Report title="Formation + Play Rankings" rows={formationPlayReport} />
+                </PrintableExpandableReport>
+                <PrintableExpandableReport title="Play + Tag Rankings" printSelected={printSelections.playTag}>
+                  <Report title="Play + Tag Rankings" rows={playTagReport} />
+                </PrintableExpandableReport>
+                <PrintableExpandableReport title="Formation + Play + Tag Rankings" printSelected={printSelections.formationPlayTag}>
+                  <Report title="Formation + Play + Tag Rankings" rows={formationPlayTagReport} />
+                </PrintableExpandableReport>
 
                 {reportScope === "season" && (
-                  <GameBreakdownReport rows={gameBreakdown} />
+                  <PrintableExpandableReport
+                    title="Game-by-Game Breakdown"
+                    printSelected={printSelections.gameBreakdown}
+                    fullWidth
+                  >
+                    <GameBreakdownReport rows={gameBreakdown} />
+                  </PrintableExpandableReport>
                 )}
               </section>
             </>
@@ -2853,13 +3042,25 @@ export default function AnalyticsPage() {
 
           {reportSection === "defense" && (
             <section style={reportsGridStyle}>
-              <DefenseReport events={reportDefense} />
+              <PrintableExpandableReport
+                title="Defense Report"
+                printSelected={printSelections.defense}
+                fullWidth
+              >
+                <DefenseReport events={reportDefense} />
+              </PrintableExpandableReport>
             </section>
           )}
 
           {reportSection === "specialTeams" && (
             <section style={reportsGridStyle}>
-              <SpecialTeamsReport events={reportSpecialTeams} />
+              <PrintableExpandableReport
+                title="Special Teams Report"
+                printSelected={printSelections.specialTeams}
+                fullWidth
+              >
+                <SpecialTeamsReport events={reportSpecialTeams} />
+              </PrintableExpandableReport>
             </section>
           )}
 
@@ -2887,6 +3088,10 @@ export default function AnalyticsPage() {
               }
 
               .no-print {
+                display: none !important;
+              }
+
+              .print-excluded {
                 display: none !important;
               }
 
@@ -4389,17 +4594,7 @@ function FormationPlaySuccessReport({ rows }: { rows: ReportRow[] }) {
                   <td style={modernTdStyle}>{row.label}</td>
                   <td style={modernTdStyle}>{row.calls}</td>
                   <td style={modernTdStyle}>
-                    <div style={rateCellStyle}>
-                      <strong>{row.successRate}%</strong>
-                      <div style={barTrackStyle}>
-                        <div
-                          style={{
-                            ...barFillStyle,
-                            width: `${Math.min(100, Math.max(0, row.successRate))}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
+                    <strong>{row.successRate}%</strong>
                   </td>
                   <td style={modernTdStyle}>{row.explosiveRate}%</td>
                   <td style={modernTdStyle}>{row.yards}</td>
@@ -4452,6 +4647,70 @@ function DecisionColumn({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function PrintableExpandableReport({
+  title,
+  printSelected,
+  fullWidth = false,
+  children,
+}: {
+  title: string;
+  printSelected: boolean;
+  fullWidth?: boolean;
+  children: React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div
+      className={printSelected ? "" : "print-excluded"}
+      style={{
+        position: "relative",
+        minWidth: 0,
+        ...(fullWidth ? { gridColumn: "1 / -1" } : {}),
+      }}
+    >
+      <button
+        type="button"
+        className="no-print"
+        style={expandReportButtonStyle}
+        onClick={() => setExpanded(true)}
+      >
+        Expand
+      </button>
+
+      {children}
+
+      {expanded && (
+        <div
+          className="no-print"
+          style={expandedReportBackdropStyle}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setExpanded(false);
+          }}
+        >
+          <div style={expandedReportModalStyle}>
+            <div style={expandedReportHeaderStyle}>
+              <div>
+                <div style={smallRedStyle}>EXPANDED REPORT</div>
+                <h2 style={{ ...panelTitleStyle, marginBottom: 0 }}>{title}</h2>
+              </div>
+              <button
+                type="button"
+                style={expandedReportCloseStyle}
+                onClick={() => setExpanded(false)}
+              >
+                Close ×
+              </button>
+            </div>
+
+            <div style={expandedReportBodyStyle}>{children}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -5103,25 +5362,6 @@ const reportDescriptionStyle: React.CSSProperties = {
   margin: "8px 0 0",
 };
 
-const rateCellStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "50px minmax(90px, 1fr)",
-  alignItems: "center",
-  gap: 10,
-};
-
-const barTrackStyle: React.CSSProperties = {
-  height: 9,
-  borderRadius: 999,
-  background: "#e5e7eb",
-  overflow: "hidden",
-};
-
-const barFillStyle: React.CSSProperties = {
-  height: "100%",
-  borderRadius: 999,
-  background: "linear-gradient(90deg, #ef4444, #facc15, #22c55e)",
-};
 
 const recommendationCardStyle: React.CSSProperties = {
   display: "grid",
@@ -5271,6 +5511,142 @@ const reportCategoryButtonActiveStyle: React.CSSProperties = {
   color: "#dc2626",
   border: "1px solid #e2e8f0",
   boxShadow: "0 4px 12px rgba(15,23,42,.08)",
+};
+
+const printMenuWrapStyle: React.CSSProperties = {
+  position: "relative",
+};
+
+const printOptionsPanelStyle: React.CSSProperties = {
+  position: "absolute",
+  right: 0,
+  top: "calc(100% + 8px)",
+  zIndex: 120,
+  width: 340,
+  maxWidth: "88vw",
+  padding: 14,
+  borderRadius: 14,
+  background: "#ffffff",
+  border: "1px solid #cbd5e1",
+  boxShadow: "0 18px 45px rgba(15, 23, 42, .20)",
+};
+
+const printOptionsHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 12,
+  marginBottom: 10,
+};
+
+const printOptionsCloseStyle: React.CSSProperties = {
+  border: "none",
+  background: "transparent",
+  fontSize: 22,
+  lineHeight: 1,
+  cursor: "pointer",
+  color: "#64748b",
+};
+
+const printQuickActionsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 7,
+  marginBottom: 10,
+};
+
+const printQuickButtonStyle: React.CSSProperties = {
+  border: "1px solid #cbd5e1",
+  borderRadius: 8,
+  padding: "6px 9px",
+  background: "#f8fafc",
+  color: "#334155",
+  fontSize: 12,
+  fontWeight: 850,
+  cursor: "pointer",
+};
+
+const printOptionListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 3,
+  maxHeight: 340,
+  overflowY: "auto",
+  marginBottom: 12,
+  paddingRight: 4,
+};
+
+const printOptionRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 9,
+  padding: "7px 4px",
+  color: "#0f172a",
+  fontSize: 13,
+  fontWeight: 750,
+  cursor: "pointer",
+};
+
+const expandReportButtonStyle: React.CSSProperties = {
+  position: "absolute",
+  right: 12,
+  top: 12,
+  zIndex: 5,
+  border: "1px solid #cbd5e1",
+  borderRadius: 9,
+  padding: "6px 9px",
+  background: "#ffffff",
+  color: "#334155",
+  fontSize: 11,
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "0 3px 8px rgba(15,23,42,.06)",
+};
+
+const expandedReportBackdropStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 1000,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 18,
+  background: "rgba(15, 23, 42, .58)",
+};
+
+const expandedReportModalStyle: React.CSSProperties = {
+  width: "min(1500px, 97vw)",
+  maxHeight: "94vh",
+  display: "flex",
+  flexDirection: "column",
+  borderRadius: 18,
+  background: "#f8fafc",
+  border: "1px solid #cbd5e1",
+  boxShadow: "0 30px 80px rgba(15, 23, 42, .35)",
+  overflow: "hidden",
+};
+
+const expandedReportHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 14,
+  padding: "14px 16px",
+  background: "#ffffff",
+  borderBottom: "1px solid #e2e8f0",
+};
+
+const expandedReportCloseStyle: React.CSSProperties = {
+  border: "1px solid #cbd5e1",
+  borderRadius: 9,
+  padding: "8px 10px",
+  background: "#ffffff",
+  color: "#334155",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const expandedReportBodyStyle: React.CSSProperties = {
+  overflow: "auto",
+  padding: 12,
 };
 
 const reportToolbarStyle: React.CSSProperties = {
