@@ -4304,7 +4304,7 @@ function gradeLabel(grade: Grade) {
   if (grade === "negative") return "NEG";
   if (grade === "explosive") return "BIG";
   if (grade === "success") return "GOOD";
-  return "";
+  return "OK";
 }
 
 function rowStyleForGrade(grade: Grade): React.CSSProperties {
