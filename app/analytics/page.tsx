@@ -1547,7 +1547,6 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("formation", value)}
                   onKeyDown={handleEnterSave}
                   list="formation-options"
-                  wide
                 />
                 <SheetInput
                   label="Motion"
@@ -1555,7 +1554,6 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("motion", value)}
                   onKeyDown={handleEnterSave}
                   list="motion-options"
-                  wide
                 />
                 <SheetInput
                   label="Play"
@@ -1563,7 +1561,6 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("play", value)}
                   onKeyDown={handleEnterSave}
                   list="play-options"
-                  wide
                 />
                 <div style={tagEntryFieldStyle}>
                   <span style={tagEntryLabelStyle}>Tags</span>
@@ -1588,7 +1585,7 @@ export default function AnalyticsPage() {
                       <input
                         style={tagPickerInputStyle}
                         list="tag-options"
-                        placeholder="Type tags separated by commas"
+                        placeholder="Tag, Tag, Tag"
                         value={tagDraft}
                         onChange={(event) => handleTagDraftChange(event.target.value)}
                         onKeyDown={(event) => {
@@ -1638,7 +1635,6 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("result", value)}
                   onKeyDown={handleEnterSave}
                   placeholder=""
-                  wide
                 />
                 <SheetInput
                   label="Penalty"
@@ -1646,7 +1642,6 @@ export default function AnalyticsPage() {
                   onChange={(value) => updateEntry("penalty", value)}
                   onKeyDown={handleEnterSave}
                   placeholder=""
-                  wide
                 />
 
               </div>
@@ -4723,8 +4718,8 @@ const gameSelectStyle: React.CSSProperties = {
 const entryBarStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 7,
-  padding: 9,
+  gap: 6,
+  padding: 8,
   borderRadius: 13,
   background: "#f8fafc",
   border: "1px solid #e2e8f0",
@@ -4746,11 +4741,11 @@ const tagEntryLabelStyle: React.CSSProperties = {
 };
 
 const tagPickerStyle: React.CSSProperties = {
-  minHeight: 43,
+  minHeight: 38,
   border: "1px solid #cbd5e1",
-  borderRadius: 10,
+  borderRadius: 9,
   background: "#ffffff",
-  padding: 5,
+  padding: 4,
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
@@ -4849,7 +4844,7 @@ const sheetInputStyle: React.CSSProperties = {
   boxSizing: "border-box",
   border: "1px solid #cbd5e1",
   borderRadius: 9,
-  padding: "8px 8px",
+  padding: "7px 8px",
   fontSize: 14,
   fontWeight: 800,
   color: "#0f172a",
