@@ -2369,7 +2369,10 @@ export default function AnalyticsPage() {
               </div>
             </div>
 
-            <aside style={rightRailStyle}>
+
+          </section>
+
+          <section className="analytics-below-play-insights" style={belowPlayInsightsGridStyle}>
               <div style={panelStyle}>
                 <div style={smallRedStyle}>CALL IT NOW</div>
                 <Recommendation title="Best Play" row={playReport[0]} />
@@ -2420,7 +2423,6 @@ export default function AnalyticsPage() {
                   </div>
                 ))}
               </div>
-            </aside>
           </section>
 
           <section style={panelStyle}>
@@ -5388,9 +5390,17 @@ const metricValueStyle: React.CSSProperties = {
 
 const mainGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 2.25fr) minmax(300px, .72fr)",
+  gridTemplateColumns: "minmax(0, 1fr)",
   gap: 10,
   marginBottom: 10,
+};
+
+const belowPlayInsightsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(300px, .8fr) minmax(0, 1.7fr)",
+  gap: 10,
+  marginBottom: 10,
+  alignItems: "start",
 };
 
 const rightRailStyle: React.CSSProperties = {
