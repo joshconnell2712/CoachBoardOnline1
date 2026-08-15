@@ -768,25 +768,45 @@ export default function AnalyticsPage() {
     return clean;
   }
 
-  function addEntryTag(value?: string) {
-    const clean = (value ?? tagDraft).trim();
-    if (!clean) return;
+  function addEntryTags(values: string[]) {
+    const cleaned = values.map((value) => value.trim()).filter(Boolean);
+    if (!cleaned.length) return;
 
-    const savedName = addTag(clean);
+    const savedNames = cleaned.map((value) => addTag(value));
 
     setEntry((current) => {
-      const alreadySelected = current.tags.some(
-        (tag) => tag.toLowerCase() === savedName.toLowerCase(),
-      );
+      const nextTags = [...current.tags];
 
-      if (alreadySelected) return current;
+      savedNames.forEach((savedName) => {
+        const alreadySelected = nextTags.some(
+          (tag) => tag.toLowerCase() === savedName.toLowerCase(),
+        );
 
-      return {
-        ...current,
-        tags: [...current.tags, savedName],
-      };
+        if (!alreadySelected) nextTags.push(savedName);
+      });
+
+      return { ...current, tags: nextTags };
     });
+  }
 
+  function handleTagDraftChange(value: string) {
+    if (!value.includes(",")) {
+      setTagDraft(value);
+      return;
+    }
+
+    const parts = value.split(",");
+    const unfinishedPart = parts.pop() ?? "";
+
+    addEntryTags(parts);
+    setTagDraft(unfinishedPart.replace(/^\s+/, ""));
+  }
+
+  function commitTagDraft() {
+    const clean = tagDraft.trim();
+    if (!clean) return;
+
+    addEntryTags([clean]);
     setTagDraft("");
   }
 
@@ -880,7 +900,19 @@ export default function AnalyticsPage() {
     const playName = isPunt
       ? "Punt"
       : addPlayCall(entry.play || "Unknown Play", playType);
-    const savedTags = isPunt ? [] : entry.tags.map((tag) => addTag(tag));
+    const draftTags = tagDraft
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
+    const allTagNames = [...entry.tags, ...draftTags].filter(
+      (tag, index, array) =>
+        array.findIndex(
+          (candidate) => candidate.toLowerCase() === tag.toLowerCase(),
+        ) === index,
+    );
+
+    const savedTags = isPunt ? [] : allTagNames.map((tag) => addTag(tag));
 
     const parsed = parseDownDistance(entry.dd);
     const result = entry.result.trim().toUpperCase();
@@ -1556,23 +1588,17 @@ export default function AnalyticsPage() {
                       <input
                         style={tagPickerInputStyle}
                         list="tag-options"
-                        placeholder="Add tag"
+                        placeholder="Type tags separated by commas"
                         value={tagDraft}
-                        onChange={(event) => setTagDraft(event.target.value)}
+                        onChange={(event) => handleTagDraftChange(event.target.value)}
                         onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === ",") {
+                          if (event.key === "Enter") {
                             event.preventDefault();
-                            addEntryTag();
+                            commitTagDraft();
                           }
                         }}
+                        onBlur={commitTagDraft}
                       />
-                      <button
-                        type="button"
-                        style={tagAddButtonStyle}
-                        onClick={() => addEntryTag()}
-                      >
-                        +
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -4765,19 +4791,6 @@ const tagPickerInputStyle: React.CSSProperties = {
   minWidth: 0,
 };
 
-const tagAddButtonStyle: React.CSSProperties = {
-  width: 28,
-  height: 28,
-  flex: "0 0 28px",
-  border: "1px solid #cbd5e1",
-  borderRadius: 7,
-  background: "#f8fafc",
-  color: "#0f172a",
-  cursor: "pointer",
-  fontSize: 18,
-  fontWeight: 950,
-  lineHeight: 1,
-};
 
 const tableTagWrapStyle: React.CSSProperties = {
   display: "flex",
