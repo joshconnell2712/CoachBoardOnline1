@@ -10106,15 +10106,18 @@ function CoachBoardWebApp() {
                     isBlock && renderedPoints.length > 1
                       ? blockTCap(renderedPoints, blockCapSize)
                       : null;
+                  const isDotted = line.style === "dotted";
                   const arrow =
                     !isBlock && renderedPoints.length > 1
-                      ? drawLineArrow(renderedPoints, arrowSize * 0.8)
+                      ? drawLineArrow(
+                          renderedPoints,
+                          arrowSize * (isDotted ? 1.55 : 1.12),
+                        )
                       : null;
                   const path =
                     line.mode === "curve"
                       ? smoothPath(renderedPoints)
                       : straightPath(renderedPoints);
-                  const isDotted = line.style === "dotted";
                   const isSelectedDrawing =
                     selectedFieldItem?.type === "drawnLine" &&
                     selectedFieldItem.id === line.id;
@@ -10204,7 +10207,9 @@ function CoachBoardWebApp() {
                           <polygon
                             points={arrowPolygonPoints(arrow)}
                             fill={drawingColorForDisplay}
-                            stroke="none"
+                            stroke={fieldBlackWhiteMode ? "#111827" : "#ffffff"}
+                            strokeWidth={isDotted ? 0.22 : 0.16}
+                            strokeLinejoin="round"
                             shapeRendering="geometricPrecision"
                           />
                         </>
