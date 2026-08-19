@@ -9011,16 +9011,18 @@ function CoachBoardWebApp() {
                       right: 28,
                       zIndex: 2147483646,
                       display: "flex",
-                      flexWrap: "wrap",
+                      flexWrap: "nowrap",
                       alignItems: "center",
-                      gap: 8,
-                      padding: "10px 12px",
-                      minHeight: 58,
-                      borderRadius: 18,
-                      background: "rgba(15,23,42,.82)",
-                      border: "1px solid rgba(255,255,255,.16)",
-                      boxShadow: "0 20px 50px rgba(0,0,0,.42)",
-                      backdropFilter: "blur(12px)",
+                      gap: 6,
+                      padding: "7px 9px",
+                      minHeight: 52,
+                      overflowX: "auto",
+                      overflowY: "hidden",
+                      borderRadius: 16,
+                      background: "rgba(15,23,42,.52)",
+                      border: "1px solid rgba(255,255,255,.12)",
+                      boxShadow: "0 12px 34px rgba(0,0,0,.24)",
+                      backdropFilter: "blur(9px)",
                     }}
                     onPointerDown={(e) => e.stopPropagation()}
                     onPointerMove={(e) => e.stopPropagation()}
@@ -9031,9 +9033,9 @@ function CoachBoardWebApp() {
                         ...buttonBase,
                         background: tool === "Move" ? "#dc2626" : "#090b10",
                         color: "white",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 92,
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        minWidth: 78,
                       }}
                       onClick={toggleMoveTool}
                       title="Move players"
@@ -9048,9 +9050,9 @@ function CoachBoardWebApp() {
                             ? "#dc2626"
                             : "#090b10",
                         color: "white",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 92,
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        minWidth: 78,
                       }}
                       onClick={() => toggleDrawTool("solid")}
                       title="Solid draw"
@@ -9065,9 +9067,9 @@ function CoachBoardWebApp() {
                             ? "#dc2626"
                             : "#090b10",
                         color: "white",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 92,
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        minWidth: 78,
                       }}
                       onClick={() => toggleDrawTool("dotted")}
                       title="Dotted draw"
@@ -9082,9 +9084,9 @@ function CoachBoardWebApp() {
                             ? "#dc2626"
                             : "#090b10",
                         color: "white",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 92,
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        minWidth: 78,
                       }}
                       onClick={() => toggleDrawTool("block")}
                       title="Block draw"
@@ -9097,9 +9099,9 @@ function CoachBoardWebApp() {
                         background:
                           drawingMode === "curve" ? "#dc2626" : "#090b10",
                         color: "white",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 70,
+                        padding: "8px 9px",
+                        fontSize: 11,
+                        minWidth: 62,
                       }}
                       onClick={() => toggleDrawMode("curve")}
                       title="Curve feel"
@@ -9112,9 +9114,9 @@ function CoachBoardWebApp() {
                         background:
                           drawingMode === "straight" ? "#dc2626" : "#090b10",
                         color: "white",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 86,
+                        padding: "8px 9px",
+                        fontSize: 11,
+                        minWidth: 72,
                       }}
                       onClick={() => toggleDrawMode("straight")}
                       title="Straight feel"
@@ -9126,9 +9128,9 @@ function CoachBoardWebApp() {
                         ...buttonBase,
                         background: tool === "Zone" ? "#dc2626" : "#090b10",
                         color: "white",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 88,
+                        padding: "8px 9px",
+                        fontSize: 11,
+                        minWidth: 70,
                       }}
                       onClick={toggleZoneTool}
                       title="Draw or move zone circle"
@@ -9140,9 +9142,9 @@ function CoachBoardWebApp() {
                         ...buttonBase,
                         background: tool === "Man" ? "#dc2626" : "#090b10",
                         color: "white",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 88,
+                        padding: "8px 9px",
+                        fontSize: 11,
+                        minWidth: 70,
                       }}
                       onClick={toggleManTool}
                       title="Man assignment"
@@ -9158,9 +9160,9 @@ function CoachBoardWebApp() {
                         color: undoStack.length
                           ? "white"
                           : "rgba(255,255,255,.42)",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 82,
+                        padding: "8px 9px",
+                        fontSize: 11,
+                        minWidth: 68,
                         cursor: undoStack.length ? "pointer" : "not-allowed",
                       }}
                       onClick={undoLastAction}
@@ -9178,9 +9180,9 @@ function CoachBoardWebApp() {
                         color: selectedFieldItem
                           ? "white"
                           : "rgba(255,255,255,.45)",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 86,
+                        padding: "8px 9px",
+                        fontSize: 11,
+                        minWidth: 72,
                         cursor: selectedFieldItem ? "pointer" : "not-allowed",
                       }}
                       onClick={deleteSelectedFieldItem}
@@ -9206,9 +9208,9 @@ function CoachBoardWebApp() {
                           ? "#dc2626"
                           : "#090b10",
                         color: "white",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 118,
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        minWidth: 102,
                       }}
                       onClick={() => {
                         setShowFullscreenPlayerPanel((current) => {
@@ -9228,9 +9230,9 @@ function CoachBoardWebApp() {
                           ? "#dc2626"
                           : "#090b10",
                         color: "white",
-                        padding: "10px 12px",
-                        fontSize: 12,
-                        minWidth: 92,
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        minWidth: 78,
                       }}
                       onClick={() => {
                         setShowFullscreenToolsPanel((current) => {
@@ -9252,21 +9254,21 @@ function CoachBoardWebApp() {
                 style={{
                   ...cardStyle,
                   position: "fixed",
-                  top: 98,
+                  top: 90,
                   left: "50%",
                   transform: "translateX(-50%)",
-                  width: "min(920px, calc(100vw - 56px))",
-                  maxHeight: "min(560px, 44vh)",
+                  width: "min(720px, calc(100vw - 100px))",
+                  maxHeight: "210px",
                   zIndex: 2147483645,
-                  padding: 18,
+                  padding: 10,
                   display: "flex",
                   flexDirection: "column",
-                  gap: 14,
+                  gap: 8,
                   overflowY: "auto",
-                  background: "rgba(15,23,42,.95)",
-                  backdropFilter: "blur(12px)",
-                  border: "1px solid rgba(255,255,255,.16)",
-                  boxShadow: "0 22px 60px rgba(0,0,0,.42)",
+                  background: "rgba(15,23,42,.60)",
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,.12)",
+                  boxShadow: "0 14px 38px rgba(0,0,0,.26)",
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onPointerMove={(e) => e.stopPropagation()}
@@ -9280,21 +9282,21 @@ function CoachBoardWebApp() {
                 style={{
                   ...cardStyle,
                   position: "fixed",
-                  top: 98,
+                  top: 90,
                   left: "50%",
                   transform: "translateX(-50%)",
-                  width: "min(840px, calc(100vw - 56px))",
-                  maxHeight: "min(560px, 42vh)",
+                  width: "min(680px, calc(100vw - 100px))",
+                  maxHeight: "190px",
                   zIndex: 2147483645,
-                  padding: 14,
+                  padding: 9,
                   display: "flex",
                   flexDirection: "column",
-                  gap: 8,
+                  gap: 6,
                   overflowY: "auto",
-                  background: "rgba(15,23,42,.95)",
-                  backdropFilter: "blur(12px)",
-                  border: "1px solid rgba(255,255,255,.16)",
-                  boxShadow: "0 22px 60px rgba(0,0,0,.42)",
+                  background: "rgba(15,23,42,.56)",
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,.12)",
+                  boxShadow: "0 14px 38px rgba(0,0,0,.24)",
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onPointerMove={(e) => e.stopPropagation()}
