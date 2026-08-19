@@ -2118,21 +2118,28 @@ function CoachBoardWebApp() {
   const playerBorderPx = Math.max(1.5, playerPx * 0.065);
   const selectedPlayerBorderPx = Math.max(2, playerPx * 0.09);
 
-  // Unified line sizing system.
-  // Routes, solid draw, dotted draw, block lines, arrows, and T-caps now share
-  // the same visual stroke size so no tool looks thicker than another.
+  // Base line sizing system.
   const lineStroke = Math.max(0.28, playerPx * 0.014);
 
   const routeStroke = lineStroke;
   const blockStroke = lineStroke;
   const blockCapStroke = lineStroke;
 
+  // Dotted lines need a larger dot diameter in the normal field view.
+  // Fullscreen already scales the field up, so the boost can be smaller there.
+  const dottedStroke = fieldFullscreen
+    ? Math.max(lineStroke * 1.2, 0.42)
+    : Math.max(lineStroke * 2.15, 0.72);
+
   const arrowSize = Math.max(1.15, playerPx * 0.035);
   const blockCapSize = visualPlayerPx * 0.045;
 
-  // Tight, clean dotted pattern. The round caps in the SVG make this look like
-  // true dots instead of long thick dashes.
-  const dashPattern = `${Math.max(0.01, lineStroke * 0.05)} ${Math.max(1.35, lineStroke * 3.1)}`;
+  // Short dash + round caps = true circular dots.
+  // Use the dotted stroke for spacing so the pattern stays readable at every size.
+  const dashPattern = `${Math.max(0.01, dottedStroke * 0.04)} ${Math.max(
+    fieldFullscreen ? 1.45 : 1.15,
+    dottedStroke * 2.55,
+  )}`;
 
   const endzoneFontPx = fieldFullscreen
     ? Math.max(40, Math.min(100, fieldPixelHeight * 0.08))
@@ -10130,12 +10137,20 @@ function CoachBoardWebApp() {
                         strokeWidth={
                           isSelectedDrawing
                             ? Math.max(
-                                isBlock ? blockStroke : routeStroke,
-                                lineStroke * 1.25,
+                                isBlock
+                                  ? blockStroke
+                                  : isDotted
+                                    ? dottedStroke
+                                    : routeStroke,
+                                isDotted
+                                  ? dottedStroke * 1.18
+                                  : lineStroke * 1.25,
                               )
                             : isBlock
                               ? blockStroke
-                              : routeStroke
+                              : isDotted
+                                ? dottedStroke
+                                : routeStroke
                         }
                         strokeLinecap={isDotted ? "round" : "butt"}
                         strokeLinejoin="miter"
