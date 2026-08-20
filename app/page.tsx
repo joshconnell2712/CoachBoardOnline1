@@ -5123,7 +5123,15 @@ function CoachBoardWebApp() {
         </div>
       </div>
     ) : (
-      playerPanelContent
+      <div
+        style={{
+          zoom: 0.68,
+          width: "147%",
+          minWidth: 0,
+        }}
+      >
+        {playerPanelContent}
+      </div>
     );
 
   useEffect(() => {
@@ -9532,19 +9540,19 @@ function CoachBoardWebApp() {
                   height:
                     activePanelTab === "player" && !showFullscreenPlayerDetails
                       ? "64px"
-                      : "118px",
+                      : "88px",
                   maxHeight:
                     activePanelTab === "player" && !showFullscreenPlayerDetails
                       ? "64px"
-                      : "118px",
+                      : "88px",
                   zIndex: 2147483645,
                   padding:
                     activePanelTab === "player" && !showFullscreenPlayerDetails
                       ? "8px 10px"
-                      : "8px 10px",
+                      : "5px 8px",
                   display: "flex",
                   flexDirection: "column",
-                  gap: 6,
+                  gap: 4,
                   overflowY:
                     activePanelTab === "player" && !showFullscreenPlayerDetails
                       ? "hidden"
@@ -9553,7 +9561,7 @@ function CoachBoardWebApp() {
                   background:
                     activePanelTab === "player" && !showFullscreenPlayerDetails
                       ? "rgba(15,23,42,.34)"
-                      : "rgba(15,23,42,.38)",
+                      : "rgba(15,23,42,.30)",
                   backdropFilter: "blur(6px)",
                   border: "1px solid rgba(255,255,255,.08)",
                   boxShadow: "0 7px 20px rgba(0,0,0,.14)",
