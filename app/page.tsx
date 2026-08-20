@@ -2081,6 +2081,8 @@ function CoachBoardWebApp() {
   const [fieldFullscreen, setFieldFullscreen] = useState(false);
   const [showFullscreenPlayerPanel, setShowFullscreenPlayerPanel] =
     useState(false);
+  const [showFullscreenPlayerDetails, setShowFullscreenPlayerDetails] =
+    useState(false);
   const [showFullscreenToolsPanel, setShowFullscreenToolsPanel] =
     useState(false);
   const [showFullscreenQuickToolbar, setShowFullscreenQuickToolbar] =
@@ -3857,6 +3859,7 @@ function CoachBoardWebApp() {
     if (!fieldFullscreen) {
       setShowFullscreenQuickToolbar(false);
       setShowFullscreenPlayerPanel(false);
+      setShowFullscreenPlayerDetails(false);
       setShowFullscreenToolsPanel(false);
     }
   }, [fieldFullscreen]);
@@ -3922,17 +3925,17 @@ function CoachBoardWebApp() {
         <SmallButton
           label="Routes"
           active={activePanelTab === "routes"}
-          onClick={() => setActivePanelTab("routes")}
+          onClick={() => { setShowFullscreenPlayerDetails(false); setActivePanelTab("routes"); }}
         />
         <SmallButton
           label="Forms"
           active={activePanelTab === "formations"}
-          onClick={() => setActivePanelTab("formations")}
+          onClick={() => { setShowFullscreenPlayerDetails(false); setActivePanelTab("formations"); }}
         />
         <SmallButton
           label="Def"
           active={activePanelTab === "defense"}
-          onClick={() => setActivePanelTab("defense")}
+          onClick={() => { setShowFullscreenPlayerDetails(false); setActivePanelTab("defense"); }}
         />
       </div>
       <div
@@ -3945,7 +3948,7 @@ function CoachBoardWebApp() {
         <SmallButton
           label="Plays"
           active={activePanelTab === "plays"}
-          onClick={() => setActivePanelTab("plays")}
+          onClick={() => { setShowFullscreenPlayerDetails(false); setActivePanelTab("plays"); }}
         />
       </div>
 
@@ -4969,14 +4972,22 @@ function CoachBoardWebApp() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 5,
+            justifyContent: "flex-end",
+            alignItems: "center",
+            flexWrap: "nowrap",
+          }}
+        >
           {selectedSide === "offense" && (
             <button
               style={{
                 ...buttonBase,
                 background: "rgba(220,38,38,.78)",
                 color: "white",
-                padding: "8px 10px",
+                padding: "8px 9px",
                 fontSize: 10,
                 whiteSpace: "nowrap",
               }}
@@ -4996,7 +5007,7 @@ function CoachBoardWebApp() {
                   ? "linear-gradient(180deg, #a855f7 0%, #6d28d9 100%)"
                   : "rgba(2,6,23,.58)",
                 color: "white",
-                padding: "8px 10px",
+                padding: "8px 9px",
                 fontSize: 10,
                 whiteSpace: "nowrap",
               }}
@@ -5026,6 +5037,89 @@ function CoachBoardWebApp() {
                 : "Mark Read"}
             </button>
           )}
+
+          <button
+            style={{
+              ...buttonBase,
+              background: "rgba(2,6,23,.60)",
+              color: "white",
+              padding: "8px 9px",
+              fontSize: 10,
+              whiteSpace: "nowrap",
+            }}
+            onClick={() => {
+              setShowFullscreenPlayerDetails(false);
+              setActivePanelTab("routes");
+            }}
+          >
+            Routes
+          </button>
+          <button
+            style={{
+              ...buttonBase,
+              background: "rgba(2,6,23,.60)",
+              color: "white",
+              padding: "8px 9px",
+              fontSize: 10,
+              whiteSpace: "nowrap",
+            }}
+            onClick={() => {
+              setShowFullscreenPlayerDetails(false);
+              setActivePanelTab("formations");
+            }}
+          >
+            Forms
+          </button>
+          <button
+            style={{
+              ...buttonBase,
+              background: "rgba(2,6,23,.60)",
+              color: "white",
+              padding: "8px 9px",
+              fontSize: 10,
+              whiteSpace: "nowrap",
+            }}
+            onClick={() => {
+              setShowFullscreenPlayerDetails(false);
+              setActivePanelTab("defense");
+            }}
+          >
+            Def
+          </button>
+          <button
+            style={{
+              ...buttonBase,
+              background: "rgba(2,6,23,.60)",
+              color: "white",
+              padding: "8px 9px",
+              fontSize: 10,
+              whiteSpace: "nowrap",
+            }}
+            onClick={() => {
+              setShowFullscreenPlayerDetails(false);
+              setActivePanelTab("plays");
+            }}
+          >
+            Plays
+          </button>
+          <button
+            style={{
+              ...buttonBase,
+              background: showFullscreenPlayerDetails
+                ? "rgba(220,38,38,.88)"
+                : "rgba(2,6,23,.72)",
+              color: "white",
+              padding: "8px 10px",
+              fontSize: 10,
+              whiteSpace: "nowrap",
+            }}
+            onClick={() =>
+              setShowFullscreenPlayerDetails((current) => !current)
+            }
+            title="Show every control from the original Player panel"
+          >
+            {showFullscreenPlayerDetails ? "Compact" : "More"}
+          </button>
         </div>
       </div>
     ) : (
@@ -9160,6 +9254,7 @@ function CoachBoardWebApp() {
                     if (showFullscreenQuickToolbar) {
                       setShowFullscreenQuickToolbar(false);
                       setShowFullscreenPlayerPanel(false);
+                      setShowFullscreenPlayerDetails(false);
                       setShowFullscreenToolsPanel(false);
                     } else {
                       setShowFullscreenQuickToolbar(true);
@@ -9387,7 +9482,11 @@ function CoachBoardWebApp() {
                       onClick={() => {
                         setShowFullscreenPlayerPanel((current) => {
                           const next = !current;
-                          if (next) setShowFullscreenToolsPanel(false);
+                          if (next) {
+                            setShowFullscreenToolsPanel(false);
+                          } else {
+                            setShowFullscreenPlayerDetails(false);
+                          }
                           return next;
                         });
                       }}
@@ -9430,17 +9529,29 @@ function CoachBoardWebApp() {
                   left: "50%",
                   transform: "translateX(-50%)",
                   width:
-                    activePanelTab === "player"
-                      ? "min(860px, calc(100vw - 120px))"
-                      : "min(720px, calc(100vw - 100px))",
-                  maxHeight: activePanelTab === "player" ? "64px" : "210px",
+                    activePanelTab === "player" && !showFullscreenPlayerDetails
+                      ? "min(1040px, calc(100vw - 120px))"
+                      : "min(760px, calc(100vw - 100px))",
+                  maxHeight:
+                    activePanelTab === "player" && !showFullscreenPlayerDetails
+                      ? "64px"
+                      : "min(360px, 38vh)",
                   zIndex: 2147483645,
-                  padding: activePanelTab === "player" ? "8px 10px" : 10,
+                  padding:
+                    activePanelTab === "player" && !showFullscreenPlayerDetails
+                      ? "8px 10px"
+                      : 10,
                   display: "flex",
                   flexDirection: "column",
                   gap: 8,
-                  overflowY: activePanelTab === "player" ? "hidden" : "auto",
-                  background: "rgba(15,23,42,.34)",
+                  overflowY:
+                    activePanelTab === "player" && !showFullscreenPlayerDetails
+                      ? "hidden"
+                      : "auto",
+                  background:
+                    activePanelTab === "player" && !showFullscreenPlayerDetails
+                      ? "rgba(15,23,42,.34)"
+                      : "rgba(15,23,42,.48)",
                   backdropFilter: "blur(6px)",
                   border: "1px solid rgba(255,255,255,.09)",
                   boxShadow: "0 8px 24px rgba(0,0,0,.16)",
@@ -9449,7 +9560,9 @@ function CoachBoardWebApp() {
                 onPointerMove={(e) => e.stopPropagation()}
                 onPointerUp={(e) => e.stopPropagation()}
               >
-                {fullscreenPlayerPanelContent}
+                {activePanelTab === "player" && showFullscreenPlayerDetails
+                  ? playerPanelContent
+                  : fullscreenPlayerPanelContent}
               </div>
             )}
             {fieldFullscreen && showFullscreenToolsPanel && (
