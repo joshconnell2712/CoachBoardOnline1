@@ -13213,8 +13213,7 @@ function CoachBoardWebApp() {
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns:
-                              "repeat(auto-fit, minmax(300px, 1fr))",
+                            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                             gap: 10,
                             alignItems: "start",
                             width: "100%",
@@ -13250,9 +13249,9 @@ function CoachBoardWebApp() {
                                   style={{
                                     display: "grid",
                                     gridTemplateColumns: "minmax(0, 1fr) auto",
-                                    gap: 6,
+                                    gap: 5,
                                     alignItems: "center",
-                                    padding: "8px 9px",
+                                    padding: "7px 8px",
                                     background: "rgba(255,255,255,.025)",
                                     borderBottom:
                                       "1px solid rgba(255,255,255,.06)",
@@ -13266,11 +13265,14 @@ function CoachBoardWebApp() {
                                       textAlign: "left",
                                       padding: "7px 4px",
                                       fontSize:
-                                        formation.name.length > 18
-                                          ? 12
-                                          : formation.name.length > 12
-                                            ? 13
-                                            : 15,
+                                        formation.name.length > 22
+                                          ? 10.5
+                                          : formation.name.length > 16
+                                            ? 11.5
+                                            : formation.name.length > 11
+                                              ? 12.5
+                                              : 14,
+                                      lineHeight: 1.08,
                                       fontWeight: 900,
                                     }}
                                     onClick={() => {
@@ -13289,8 +13291,8 @@ function CoachBoardWebApp() {
                                       ...buttonBase,
                                       background: "#dc2626",
                                       color: "white",
-                                      padding: "8px 9px",
-                                      fontSize: 11,
+                                      padding: "7px 8px",
+                                      fontSize: 10.5,
                                       whiteSpace: "nowrap",
                                     }}
                                     onClick={() =>
@@ -13353,9 +13355,9 @@ function CoachBoardWebApp() {
                                     <div
                                       style={{
                                         color: "#9ca3af",
-                                        fontSize: 11,
-                                        lineHeight: 1.35,
-                                        padding: "3px 1px",
+                                        fontSize: 10.5,
+                                        lineHeight: 1.3,
+                                        padding: "2px 1px",
                                       }}
                                     >
                                       No plays yet. Click + New Play to load a
