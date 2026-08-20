@@ -11478,8 +11478,10 @@ function CoachBoardWebApp() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: 8,
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(250px, 1fr))",
+                  gap: 10,
+                  alignItems: "stretch",
                 }}
               >
                 {sortedOffensePresets.map((preset) => (
@@ -11497,15 +11499,23 @@ function CoachBoardWebApp() {
                     }}
                     onDragEnd={() => setDraggedTopPresetId(null)}
                     style={{
-                      background: "#090b10",
-                      borderRadius: 12,
-                      padding: 8,
+                      background:
+                        "linear-gradient(180deg, rgba(17,24,39,.98) 0%, rgba(9,11,16,.98) 100%)",
+                      borderRadius: 14,
+                      padding: 10,
                       display: "grid",
-                      gap: 6,
+                      gridTemplateRows: "auto auto",
+                      alignContent: "space-between",
+                      gap: 8,
+                      minWidth: 0,
+                      minHeight: 104,
                       opacity: draggedTopPresetId === preset.id ? 0.55 : 1,
                       border: preset.isMain
-                        ? "1px solid rgba(37,99,235,.7)"
-                        : "1px solid rgba(255,255,255,.08)",
+                        ? "1px solid rgba(59,130,246,.72)"
+                        : "1px solid rgba(255,255,255,.09)",
+                      boxShadow: preset.isMain
+                        ? "0 8px 22px rgba(37,99,235,.12), inset 0 1px 0 rgba(255,255,255,.04)"
+                        : "0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.035)",
                       cursor: preset.isMain ? "grab" : "default",
                     }}
                   >
@@ -11525,12 +11535,21 @@ function CoachBoardWebApp() {
                         }
                         style={{
                           width: "100%",
-                          background: "#090b10",
-                          border: "1px solid rgba(255,255,255,.12)",
-                          borderRadius: 8,
+                          minWidth: 0,
+                          height: 38,
+                          background: "rgba(2,6,23,.72)",
+                          border: "1px solid rgba(255,255,255,.11)",
+                          borderRadius: 9,
                           color: "white",
                           padding: "8px 10px",
-                          opacity: preset.isSystem ? 0.7 : 1,
+                          fontSize:
+                            preset.name.length > 20
+                              ? 11
+                              : preset.name.length > 14
+                                ? 12
+                                : 13,
+                          fontWeight: 800,
+                          opacity: preset.isSystem ? 0.72 : 1,
                         }}
                       />
                       <span
@@ -11549,14 +11568,17 @@ function CoachBoardWebApp() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                         gap: 6,
                       }}
                     >
                       <button
                         style={{
                           ...buttonBase,
-                          padding: "8px",
+                          padding: "8px 6px",
+                          minHeight: 36,
+                          fontSize: 11,
+                          lineHeight: 1.05,
                           background: preset.isMain ? "#dc2626" : "#2a303b",
                           color: "white",
                         }}
@@ -11568,7 +11590,10 @@ function CoachBoardWebApp() {
                         disabled={preset.isSystem}
                         style={{
                           ...buttonBase,
-                          padding: "8px",
+                          padding: "8px 6px",
+                          minHeight: 36,
+                          fontSize: 11,
+                          lineHeight: 1.05,
                           background: preset.isSystem ? "#1f242e" : "#2a303b",
                           color: "white",
                           opacity: preset.isSystem ? 0.55 : 1,
@@ -11581,7 +11606,10 @@ function CoachBoardWebApp() {
                         disabled={preset.isSystem}
                         style={{
                           ...buttonBase,
-                          padding: "8px",
+                          padding: "8px 6px",
+                          minHeight: 36,
+                          fontSize: 11,
+                          lineHeight: 1.05,
                           background: preset.isSystem ? "#1f242e" : "#7f1111",
                           color: "white",
                           opacity: preset.isSystem ? 0.55 : 1,
