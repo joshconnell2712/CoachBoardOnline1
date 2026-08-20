@@ -1756,6 +1756,14 @@ export default function AnalyticsPage() {
             <Metric label="Turnovers" value={stats.turnovers} danger={stats.turnovers > 0} />
             <Metric label="Penalties" value={stats.penalties} danger={stats.penalties > 0} />
             <Metric label="1st Downs Earned" value={stats.firstDownsEarned} />
+            <Metric
+              label="3rd Down"
+              value={`${stats.thirdDownConversions}/${stats.thirdDownAttempts} • ${stats.thirdDownConversionRate}%`}
+            />
+            <Metric
+              label="4th Down"
+              value={`${stats.fourthDownConversions}/${stats.fourthDownAttempts} • ${stats.fourthDownConversionRate}%`}
+            />
             <Metric label="Series Starts" value={stats.seriesStarts} />
             <Metric label="Success" value={`${stats.successRate}%`} />
             <Metric label="Explosive" value={`${stats.explosiveRate}%`} />
@@ -3362,6 +3370,9 @@ export default function AnalyticsPage() {
                 <div style={printDefinitionStyle}>
                   <strong>Big / Explosive Play:</strong> Run of 10+ yards or pass of 25+ yards.
                   “Big” and “Explosive” mean the same thing in CoachBoard.
+                  <br />
+                  <strong>3rd / 4th Down Conversion:</strong> A conversion is credited when the offense
+                  earns a first down or scores a touchdown on that down.
                 </div>
               )}
             </div>
@@ -3396,6 +3407,14 @@ export default function AnalyticsPage() {
                 <Metric label="Fumbles" value={reportStats.fumbles} danger={reportStats.fumbles > 0} />
                 <Metric label="Penalties" value={reportStats.penalties} danger={reportStats.penalties > 0} />
                 <Metric label="1st Downs" value={reportStats.firstDownsEarned} />
+                <Metric
+                  label="3rd Down"
+                  value={`${reportStats.thirdDownConversions}/${reportStats.thirdDownAttempts} • ${reportStats.thirdDownConversionRate}%`}
+                />
+                <Metric
+                  label="4th Down"
+                  value={`${reportStats.fourthDownConversions}/${reportStats.fourthDownAttempts} • ${reportStats.fourthDownConversionRate}%`}
+                />
                 <Metric label="Series Starts" value={reportStats.seriesStarts} />
                 <Metric label="Success" value={`${reportStats.successRate}%`} />
                 <Metric label="Explosive" value={`${reportStats.explosiveRate}%`} />
@@ -3895,6 +3914,24 @@ function calculateStats(rows: ChartPlay[]) {
     (play) => classify(play) === "explosive",
   ).length;
 
+  // Third- and fourth-down conversions are calculated directly from the
+  // charted down plus the final outcome of the play. A touchdown counts as a
+  // successful conversion even though CoachBoard intentionally does not also
+  // credit that play as an earned first down.
+  const thirdDownAttempts = statisticalRows.filter(
+    (play) => play.down === 3,
+  );
+  const thirdDownConversions = thirdDownAttempts.filter(
+    (play) => play.firstDown || play.touchdown,
+  );
+
+  const fourthDownAttempts = statisticalRows.filter(
+    (play) => play.down === 4,
+  );
+  const fourthDownConversions = fourthDownAttempts.filter(
+    (play) => play.firstDown || play.touchdown,
+  );
+
   return {
     total,
     chartedPlays: rows.length,
@@ -3919,6 +3956,23 @@ function calculateStats(rows: ChartPlay[]) {
     penalties: rows.filter((play) => play.penalty).length,
     firstDownsEarned: statisticalRows.filter((play) => play.firstDown).length,
     seriesStarts: rows.filter((play) => play.seriesStart).length,
+
+    thirdDownAttempts: thirdDownAttempts.length,
+    thirdDownConversions: thirdDownConversions.length,
+    thirdDownConversionRate: thirdDownAttempts.length
+      ? Math.round(
+          (thirdDownConversions.length / thirdDownAttempts.length) * 100,
+        )
+      : 0,
+
+    fourthDownAttempts: fourthDownAttempts.length,
+    fourthDownConversions: fourthDownConversions.length,
+    fourthDownConversionRate: fourthDownAttempts.length
+      ? Math.round(
+          (fourthDownConversions.length / fourthDownAttempts.length) * 100,
+        )
+      : 0,
+
     successRate: total ? Math.round((successCount / total) * 100) : 0,
     explosiveRate: total ? Math.round((explosiveCount / total) * 100) : 0,
     averageYards: total ? (yards / total).toFixed(1) : "0.0",
@@ -4974,6 +5028,8 @@ function GameBreakdownReport({
               <th style={modernThStyle}>Success</th>
               <th style={modernThStyle}>Explosive</th>
               <th style={modernThStyle}>1st Downs Earned</th>
+              <th style={modernThStyle}>3rd Down</th>
+              <th style={modernThStyle}>4th Down</th>
               <th style={modernThStyle}>Series Starts</th>
               <th style={modernThStyle}>TDs</th>
               <th style={modernThStyle}>Punts</th>
@@ -4985,7 +5041,7 @@ function GameBreakdownReport({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td style={emptyTdStyle} colSpan={14}>
+                <td style={emptyTdStyle} colSpan={16}>
                   No season game data yet.
                 </td>
               </tr>
@@ -5003,6 +5059,14 @@ function GameBreakdownReport({
                 <td style={modernTdStyle}>{stats.successRate}%</td>
                 <td style={modernTdStyle}>{stats.explosiveRate}%</td>
                 <td style={modernTdStyle}>{stats.firstDownsEarned}</td>
+                <td style={modernTdStyle}>
+                  {stats.thirdDownConversions}/{stats.thirdDownAttempts} •{" "}
+                  {stats.thirdDownConversionRate}%
+                </td>
+                <td style={modernTdStyle}>
+                  {stats.fourthDownConversions}/{stats.fourthDownAttempts} •{" "}
+                  {stats.fourthDownConversionRate}%
+                </td>
                 <td style={modernTdStyle}>{stats.seriesStarts}</td>
                 <td style={modernTdStyle}>{stats.tds}</td>
                 <td style={modernTdStyle}>{stats.punts}</td>
