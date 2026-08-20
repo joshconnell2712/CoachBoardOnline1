@@ -89,6 +89,7 @@ type CustomOffensePreset = {
   id: string;
   name: string;
   players: Player[];
+  middlePlayers?: Player[];
   ballSpot?: BallSpot;
   isMain?: boolean;
   isSystem?: boolean;
@@ -100,6 +101,7 @@ type SavedPlay = {
   playbookId?: string;
   formationId?: string;
   ballSpot?: BallSpot;
+  middleOffensePlayers?: Player[];
   folderId?: string;
   ownerId?: string;
   ownerName?: string;
@@ -363,6 +365,98 @@ const FIELD_HASH_PRESETS: Record<FieldTemplate, FieldHashPreset> = {
     description: "Tighter hashes for pro-style boards.",
   },
 };
+
+const MIDDLE_BALL_X = 54;
+const LEFT_NUMBER_X = 14;
+const RIGHT_NUMBER_X = 86;
+const LEFT_BOUNDARY_RECEIVER_X = LEFT_NUMBER_X / 2;
+const RIGHT_BOUNDARY_RECEIVER_X = (100 + RIGHT_NUMBER_X) / 2;
+
+function ballXForSpot(spot: BallSpot, hash: FieldHashPreset) {
+  if (spot === "leftHash") return hash.left;
+  if (spot === "rightHash") return hash.right;
+  return MIDDLE_BALL_X;
+}
+
+function boundaryReceiverId(players: Player[], spot: BallSpot) {
+  if (spot === "middle") return "";
+
+  const receiverCandidates = players.filter((player) =>
+    ["x", "y", "z", "h"].includes(player.id.toLowerCase()),
+  );
+
+  if (receiverCandidates.length === 0) return "";
+
+  return receiverCandidates.reduce((best, player) => {
+    if (spot === "leftHash") {
+      return player.x < best.x ? player : best;
+    }
+    return player.x > best.x ? player : best;
+  }, receiverCandidates[0]).id;
+}
+
+function positionOffenseForBallSpot(
+  middlePlayers: Player[],
+  spot: BallSpot,
+  hash: FieldHashPreset,
+) {
+  if (spot === "middle") {
+    return middlePlayers.map((player) => ({ ...player }));
+  }
+
+  const delta = ballXForSpot(spot, hash) - MIDDLE_BALL_X;
+  const boundaryId = boundaryReceiverId(middlePlayers, spot);
+
+  return middlePlayers.map((player) => {
+    let nextX = Math.max(4, Math.min(96, player.x + delta));
+
+    if (player.id === boundaryId) {
+      nextX =
+        spot === "leftHash"
+          ? LEFT_BOUNDARY_RECEIVER_X
+          : RIGHT_BOUNDARY_RECEIVER_X;
+    }
+
+    return { ...player, x: nextX };
+  });
+}
+
+function deriveMiddleAlignment(
+  displayedPlayers: Player[],
+  currentSpot: BallSpot,
+  hash: FieldHashPreset,
+  previousMiddlePlayers?: Player[],
+) {
+  if (currentSpot === "middle") {
+    return displayedPlayers.map((player) => ({ ...player }));
+  }
+
+  const delta = ballXForSpot(currentSpot, hash) - MIDDLE_BALL_X;
+  const previousMiddleById = new Map(
+    (previousMiddlePlayers ?? []).map((player) => [player.id, player]),
+  );
+  const boundaryId = boundaryReceiverId(
+    previousMiddlePlayers?.length ? previousMiddlePlayers : displayedPlayers,
+    currentSpot,
+  );
+
+  return displayedPlayers.map((player) => {
+    // The boundary WR is intentionally snapped to halfway between the
+    // sideline and the numbers. Preserve its middle-field base spacing.
+    if (player.id === boundaryId && previousMiddleById.has(player.id)) {
+      const previous = previousMiddleById.get(player.id)!;
+      return {
+        ...player,
+        x: previous.x,
+      };
+    }
+
+    return {
+      ...player,
+      x: Math.max(4, Math.min(96, player.x - delta)),
+    };
+  });
+}
 
 const OL_IDS = ["lt", "lg", "g1", "c", "g2", "rg", "rt"];
 const OL_SPACING = [46, 50, 54, 58, 62];
@@ -1076,6 +1170,7 @@ function makeDefaultOffensePresets(
     isMain,
     isSystem: true,
     ballSpot: "middle",
+    middlePlayers: base.map((p) => ({ ...p })),
     players: base.map((p) => {
       const spot = changes[p.id];
       return spot
@@ -1989,6 +2084,9 @@ function CoachBoardWebApp() {
   );
   const [coachFocus, setCoachFocus] = useState<CoachFocus>(DEFAULT_COACH_FOCUS);
   const [offensePlayers, setOffensePlayers] = useState<Player[]>(() =>
+    getDefaultOffensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE),
+  );
+  const middleOffensePlayersRef = useRef<Player[]>(
     getDefaultOffensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE),
   );
   const [defensePlayers, setDefensePlayers] = useState<Player[]>(() =>
@@ -7149,6 +7247,15 @@ function CoachBoardWebApp() {
         isMain: mainCount < 5,
         isSystem: false,
         ballSpot,
+        middlePlayers: normalizeOffenseOnLOS(
+          deriveMiddleAlignment(
+            offensePlayers,
+            ballSpot,
+            FIELD_HASH_PRESETS[fieldTemplate] ??
+              FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE],
+            middleOffensePlayersRef.current,
+          ),
+        ),
         players: normalizeOffenseOnLOS(offensePlayers),
       },
     ]);
@@ -7176,6 +7283,15 @@ function CoachBoardWebApp() {
       playbookId: activePlaybookBuildId || undefined,
       formationId: selectedPlayFormationId,
       ballSpot,
+      middleOffensePlayers: normalizeOffenseOnLOS(
+        deriveMiddleAlignment(
+          offensePlayers,
+          ballSpot,
+          FIELD_HASH_PRESETS[fieldTemplate] ??
+            FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE],
+          middleOffensePlayersRef.current,
+        ),
+      ),
       folderId: selectedLibraryFolderId,
       ownerId: user?.id,
       ownerName: getCoachDisplayName(user),
@@ -7206,7 +7322,23 @@ function CoachBoardWebApp() {
     const play = savedPlays.find((p) => p.id === id);
     if (!play) return;
 
-    setOffensePlayers(normalizeOffenseOnLOS(play.offensePlayers));
+    const nextBallSpot = play.ballSpot ?? "middle";
+    const activeHash =
+      FIELD_HASH_PRESETS[fieldTemplate] ??
+      FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
+    const middlePlayers = normalizeOffenseOnLOS(
+      (play.middleOffensePlayers ?? play.offensePlayers).map((player) => ({
+        ...player,
+      })),
+    );
+    const nextOffensePlayers = normalizeOffenseOnLOS(
+      positionOffenseForBallSpot(middlePlayers, nextBallSpot, activeHash),
+    );
+
+    middleOffensePlayersRef.current = middlePlayers.map((player) => ({
+      ...player,
+    }));
+    setOffensePlayers(nextOffensePlayers);
     applyDefensePlayers(play.defensePlayers.map((p) => ({ ...p })));
     setRoutes(play.routes.map((r) => ({ ...r })));
     setDrawnLines(
@@ -7217,7 +7349,7 @@ function CoachBoardWebApp() {
     );
     setSelectedPlayId(id);
     setSelectedPlayFormationId(play.formationId ?? "");
-    setBallSpot(play.ballSpot ?? "middle");
+    setBallSpot(nextBallSpot);
     setActivePlaybookBuildId(play.playbookId ?? "");
     if (play.playbookId) setSelectedPlaybookId(play.playbookId);
   }
@@ -7229,6 +7361,15 @@ function CoachBoardWebApp() {
           ? {
               ...play,
               ballSpot,
+              middleOffensePlayers: normalizeOffenseOnLOS(
+                deriveMiddleAlignment(
+                  offensePlayers,
+                  ballSpot,
+                  FIELD_HASH_PRESETS[fieldTemplate] ??
+                    FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE],
+                  middleOffensePlayersRef.current,
+                ),
+              ),
               offensePlayers: normalizeOffenseOnLOS(offensePlayers),
               defensePlayers: defensePlayers.map((p) => ({ ...p })),
               routes: routes.map((r) => ({ ...r })),
@@ -7608,7 +7749,27 @@ function CoachBoardWebApp() {
   }
 
   function applyBallSpot(nextSpot: BallSpot, broadcast = true) {
+    const activeHash =
+      FIELD_HASH_PRESETS[fieldTemplate] ??
+      FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
+
+    const refreshedMiddle = deriveMiddleAlignment(
+      offensePlayers,
+      ballSpot,
+      activeHash,
+      middleOffensePlayersRef.current,
+    );
+
+    middleOffensePlayersRef.current = refreshedMiddle.map((player) => ({
+      ...player,
+    }));
+
+    const shiftedPlayers = normalizeOffenseOnLOS(
+      positionOffenseForBallSpot(refreshedMiddle, nextSpot, activeHash),
+    );
+
     setBallSpot(nextSpot);
+    setOffensePlayers(shiftedPlayers);
 
     if (broadcast) {
       realtimeChannelRef.current?.send({
@@ -7619,6 +7780,15 @@ function CoachBoardWebApp() {
           ballSpot: nextSpot,
         },
       });
+
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_OFFENSE_PLAYERS",
+          offensePlayers: shiftedPlayers,
+        },
+      });
     }
   }
 
@@ -7626,8 +7796,22 @@ function CoachBoardWebApp() {
     const preset = customOffensePresets.find((p) => p.id === id);
 
     if (preset) {
-      const nextPlayers = normalizeOffenseOnLOS(preset.players);
+      const activeHash =
+        FIELD_HASH_PRESETS[fieldTemplate] ??
+        FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
+      const middlePlayers = normalizeOffenseOnLOS(
+        (preset.middlePlayers ?? preset.players).map((player) => ({
+          ...player,
+        })),
+      );
+      const nextBallSpot = preset.ballSpot ?? "middle";
+      const nextPlayers = normalizeOffenseOnLOS(
+        positionOffenseForBallSpot(middlePlayers, nextBallSpot, activeHash),
+      );
 
+      middleOffensePlayersRef.current = middlePlayers.map((player) => ({
+        ...player,
+      }));
       setOffensePlayers(nextPlayers);
       setSelectedPlayFormationId(id);
       setSelectedPresetDropdownId(id);
@@ -7635,7 +7819,6 @@ function CoachBoardWebApp() {
       setActivePlaybookBuildId("");
       setRoutes([]);
       setDrawnLines([]);
-      const nextBallSpot = preset.ballSpot ?? "middle";
       setBallSpot(nextBallSpot);
 
       realtimeChannelRef.current?.send({
@@ -7681,9 +7864,23 @@ function CoachBoardWebApp() {
       current.map((preset) => {
         if (preset.id !== id) return preset;
         if (preset.isSystem) return preset;
+        const nextMiddlePlayers = normalizeOffenseOnLOS(
+          deriveMiddleAlignment(
+            offensePlayers,
+            ballSpot,
+            FIELD_HASH_PRESETS[fieldTemplate] ??
+              FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE],
+            middleOffensePlayersRef.current,
+          ),
+        );
+        middleOffensePlayersRef.current = nextMiddlePlayers.map((player) => ({
+          ...player,
+        }));
+
         return {
           ...preset,
           ballSpot,
+          middlePlayers: nextMiddlePlayers,
           players: normalizeOffenseOnLOS(offensePlayers),
         };
       }),
@@ -8240,12 +8437,6 @@ function CoachBoardWebApp() {
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
 
-  const ballSpotX =
-    ballSpot === "leftHash"
-      ? activeFieldHash.left
-      : ballSpot === "rightHash"
-        ? activeFieldHash.right
-        : 54;
 
   const fieldSurfaceColor = fieldBlackWhiteMode
     ? "#f8fafc"
@@ -11341,43 +11532,6 @@ function CoachBoardWebApp() {
                   </button>
                 );
               })}
-              <div
-                title={
-                  ballSpot === "leftHash"
-                    ? "Ball on left hash"
-                    : ballSpot === "rightHash"
-                      ? "Ball on right hash"
-                      : "Ball in middle"
-                }
-                style={{
-                  position: "absolute",
-                  left: `${ballSpotX}%`,
-                  top: `${fieldYFromYards(LOS_YARDS)}%`,
-                  transform: "translate(-50%, -50%)",
-                  width: fieldFullscreen ? 18 : 14,
-                  height: fieldFullscreen ? 11 : 9,
-                  borderRadius: "55% / 70%",
-                  background: "#8b4513",
-                  border: "1px solid rgba(255,255,255,.95)",
-                  boxShadow: "0 2px 6px rgba(0,0,0,.55)",
-                  zIndex: 1900,
-                  pointerEvents: "none",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: "50%",
-                    width: "46%",
-                    height: 1,
-                    background: "white",
-                    transform: "translate(-50%, -50%)",
-                    opacity: 0.95,
-                  }}
-                />
-              </div>
-
               {offensePlayers.map((player) => (
                 <button
                   key={player.id}
