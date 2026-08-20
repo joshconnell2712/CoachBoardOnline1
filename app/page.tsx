@@ -12991,11 +12991,21 @@ function CoachBoardWebApp() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "220px minmax(0, 1fr)",
+                  gridTemplateColumns: "minmax(0, 1fr)",
                   gap: 12,
+                  width: "100%",
                 }}
               >
-                <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(170px, 1fr))",
+                    gap: 8,
+                    alignItems: "stretch",
+                    width: "100%",
+                  }}
+                >
                   {playbooks.length === 0 && (
                     <div
                       style={{
@@ -13014,10 +13024,19 @@ function CoachBoardWebApp() {
                       style={{
                         ...buttonBase,
                         background:
-                          selectedPlaybookId === book.id ? "#dc2626" : "#090b10",
+                          selectedPlaybookId === book.id
+                            ? "linear-gradient(180deg, #ef4444 0%, #b91c1c 100%)"
+                            : "linear-gradient(180deg, #1f2937 0%, #090b10 100%)",
                         color: "white",
-                        textAlign: "left",
+                        textAlign: "center",
                         padding: "10px 12px",
+                        minHeight: 46,
+                        border: selectedPlaybookId === book.id
+                          ? "1px solid rgba(248,113,113,.8)"
+                          : "1px solid rgba(255,255,255,.08)",
+                        boxShadow: selectedPlaybookId === book.id
+                          ? "0 8px 20px rgba(220,38,38,.18)"
+                          : "0 6px 16px rgba(0,0,0,.16)",
                       }}
                       onClick={() => setSelectedPlaybookId(book.id)}
                     >
@@ -13111,8 +13130,9 @@ function CoachBoardWebApp() {
                           style={{
                             display: "grid",
                             gridTemplateColumns:
-                              "repeat(auto-fit, minmax(130px, 1fr))",
-                            gap: 6,
+                              "repeat(auto-fit, minmax(155px, 1fr))",
+                            gap: 8,
+                            width: "100%",
                           }}
                         >
                           {sortedOffensePresets.map((formation) => {
@@ -13124,10 +13144,30 @@ function CoachBoardWebApp() {
                                 key={formation.id}
                                 style={{
                                   ...buttonBase,
-                                  padding: "8px",
-                                  background: added ? "#dc2626" : "#1f242e",
+                                  width: "100%",
+                                  minWidth: 0,
+                                  height: 46,
+                                  padding: "8px 10px",
+                                  background: added
+                                    ? "linear-gradient(180deg, #ef4444 0%, #dc2626 100%)"
+                                    : "linear-gradient(180deg, #252c37 0%, #1b2029 100%)",
                                   color: "white",
                                   textAlign: "left",
+                                  fontSize:
+                                    formation.name.length > 20
+                                      ? 11
+                                      : formation.name.length > 14
+                                        ? 12
+                                        : 13,
+                                  lineHeight: 1.05,
+                                  fontWeight: 900,
+                                  overflow: "hidden",
+                                  border: added
+                                    ? "1px solid rgba(248,113,113,.72)"
+                                    : "1px solid rgba(255,255,255,.08)",
+                                  boxShadow: added
+                                    ? "0 6px 16px rgba(220,38,38,.16)"
+                                    : "inset 0 1px 0 rgba(255,255,255,.03)",
                                 }}
                                 onClick={() =>
                                   toggleFormationInPlaybook(
@@ -13174,9 +13214,10 @@ function CoachBoardWebApp() {
                           style={{
                             display: "grid",
                             gridTemplateColumns:
-                              "repeat(2, minmax(0, 1fr))",
+                              "repeat(auto-fit, minmax(300px, 1fr))",
                             gap: 10,
                             alignItems: "start",
+                            width: "100%",
                           }}
                         >
                           {selectedPlaybook.formationIds.map((formationId) => {
