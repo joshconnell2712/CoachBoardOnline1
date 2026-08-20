@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import type { RealtimeChannel, User } from "@supabase/supabase-js";
 
 type Side = "offense" | "defense";
+type BallSpot = "leftHash" | "middle" | "rightHash";
 type RouteType =
   | "Go"
   | "Slant"
@@ -88,6 +89,7 @@ type CustomOffensePreset = {
   id: string;
   name: string;
   players: Player[];
+  ballSpot?: BallSpot;
   isMain?: boolean;
   isSystem?: boolean;
 };
@@ -97,6 +99,7 @@ type SavedPlay = {
   name: string;
   playbookId?: string;
   formationId?: string;
+  ballSpot?: BallSpot;
   folderId?: string;
   ownerId?: string;
   ownerName?: string;
@@ -1072,6 +1075,7 @@ function makeDefaultOffensePresets(
     name,
     isMain,
     isSystem: true,
+    ballSpot: "middle",
     players: base.map((p) => {
       const spot = changes[p.id];
       return spot
@@ -2099,6 +2103,7 @@ function CoachBoardWebApp() {
     DEFAULT_FIELD_TEMPLATE,
   );
   const [fieldBlackWhiteMode, setFieldBlackWhiteMode] = useState(false);
+  const [ballSpot, setBallSpot] = useState<BallSpot>("middle");
   const fieldRef = useRef<HTMLDivElement | null>(null);
 
   // ===============================
@@ -2355,6 +2360,10 @@ function CoachBoardWebApp() {
         setOffensePlayers(payload.offensePlayers);
       }
 
+      if (payload.type === "SET_BALL_SPOT") {
+        setBallSpot(payload.ballSpot);
+      }
+
       if (payload.type === "SET_DEFENSE_PLAYERS") {
         setDefensePlayers(payload.defensePlayers);
       }
@@ -2370,6 +2379,7 @@ function CoachBoardWebApp() {
         setSelectedPlayerId(payload.selectedPlayerId);
         setSelectedSide(payload.selectedSide);
         setActivePanelTab(payload.activePanelTab);
+        setBallSpot(payload.ballSpot ?? "middle");
         setRoutes(payload.routes);
         setDrawnLines(payload.drawnLines);
       }
@@ -3962,6 +3972,54 @@ function CoachBoardWebApp() {
           >
             Auto Space OL
           </button>
+
+          <div>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                color: "#9ca3af",
+                marginBottom: 8,
+              }}
+            >
+              BALL SPOT
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: 6,
+              }}
+            >
+              {(
+                [
+                  ["leftHash", "Left Hash"],
+                  ["middle", "Middle"],
+                  ["rightHash", "Right Hash"],
+                ] as [BallSpot, string][]
+              ).map(([spot, label]) => (
+                <button
+                  key={spot}
+                  style={{
+                    ...buttonBase,
+                    background: ballSpot === spot ? "#dc2626" : "#111827",
+                    color: "white",
+                    border:
+                      ballSpot === spot
+                        ? "1px solid rgba(248,113,113,.85)"
+                        : "1px solid rgba(255,255,255,.10)",
+                    padding: "9px 7px",
+                    fontSize: 11,
+                    whiteSpace: "nowrap",
+                  }}
+                  onClick={() => applyBallSpot(spot)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <div
               style={{
@@ -6010,6 +6068,7 @@ function CoachBoardWebApp() {
     setActivePanelTab(nextActivePanelTab);
     setSelectedPlayId("");
     setSelectedPlayFormationId("");
+    setBallSpot("middle");
     setRoutes([]);
     setDrawnLines([]);
 
@@ -6024,6 +6083,7 @@ function CoachBoardWebApp() {
         selectedPlayerId: nextSelectedPlayerId,
         selectedSide: nextSelectedSide,
         activePanelTab: nextActivePanelTab,
+        ballSpot: "middle",
         routes: [],
         drawnLines: [],
       },
@@ -7088,6 +7148,7 @@ function CoachBoardWebApp() {
         name,
         isMain: mainCount < 5,
         isSystem: false,
+        ballSpot,
         players: normalizeOffenseOnLOS(offensePlayers),
       },
     ]);
@@ -7114,6 +7175,7 @@ function CoachBoardWebApp() {
       name,
       playbookId: activePlaybookBuildId || undefined,
       formationId: selectedPlayFormationId,
+      ballSpot,
       folderId: selectedLibraryFolderId,
       ownerId: user?.id,
       ownerName: getCoachDisplayName(user),
@@ -7155,6 +7217,7 @@ function CoachBoardWebApp() {
     );
     setSelectedPlayId(id);
     setSelectedPlayFormationId(play.formationId ?? "");
+    setBallSpot(play.ballSpot ?? "middle");
     setActivePlaybookBuildId(play.playbookId ?? "");
     if (play.playbookId) setSelectedPlaybookId(play.playbookId);
   }
@@ -7165,6 +7228,7 @@ function CoachBoardWebApp() {
         play.id === id
           ? {
               ...play,
+              ballSpot,
               offensePlayers: normalizeOffenseOnLOS(offensePlayers),
               defensePlayers: defensePlayers.map((p) => ({ ...p })),
               routes: routes.map((r) => ({ ...r })),
@@ -7543,6 +7607,21 @@ function CoachBoardWebApp() {
     setDrawnLines([]);
   }
 
+  function applyBallSpot(nextSpot: BallSpot, broadcast = true) {
+    setBallSpot(nextSpot);
+
+    if (broadcast) {
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_BALL_SPOT",
+          ballSpot: nextSpot,
+        },
+      });
+    }
+  }
+
   function loadCustomOffensePreset(id: string) {
     const preset = customOffensePresets.find((p) => p.id === id);
 
@@ -7556,6 +7635,17 @@ function CoachBoardWebApp() {
       setActivePlaybookBuildId("");
       setRoutes([]);
       setDrawnLines([]);
+      const nextBallSpot = preset.ballSpot ?? "middle";
+      setBallSpot(nextBallSpot);
+
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_BALL_SPOT",
+          ballSpot: nextBallSpot,
+        },
+      });
 
       realtimeChannelRef.current?.send({
         type: "broadcast",
@@ -7591,7 +7681,11 @@ function CoachBoardWebApp() {
       current.map((preset) => {
         if (preset.id !== id) return preset;
         if (preset.isSystem) return preset;
-        return { ...preset, players: normalizeOffenseOnLOS(offensePlayers) };
+        return {
+          ...preset,
+          ballSpot,
+          players: normalizeOffenseOnLOS(offensePlayers),
+        };
       }),
     );
   }
@@ -8080,6 +8174,7 @@ function CoachBoardWebApp() {
       name: `${formation.name} - ${concept.name}`,
       playbookId: selectedPlaybookId || undefined,
       formationId,
+      ballSpot,
       offensePlayers: normalizeOffenseOnLOS(formation.players),
       defensePlayers: defensePlayers.map((p) => ({ ...p })),
       routes: mappedRoutes,
@@ -8144,6 +8239,13 @@ function CoachBoardWebApp() {
   const activeFieldHash =
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
+
+  const ballSpotX =
+    ballSpot === "leftHash"
+      ? activeFieldHash.left
+      : ballSpot === "rightHash"
+        ? activeFieldHash.right
+        : 54;
 
   const fieldSurfaceColor = fieldBlackWhiteMode
     ? "#f8fafc"
@@ -11239,6 +11341,43 @@ function CoachBoardWebApp() {
                   </button>
                 );
               })}
+              <div
+                title={
+                  ballSpot === "leftHash"
+                    ? "Ball on left hash"
+                    : ballSpot === "rightHash"
+                      ? "Ball on right hash"
+                      : "Ball in middle"
+                }
+                style={{
+                  position: "absolute",
+                  left: `${ballSpotX}%`,
+                  top: `${fieldYFromYards(LOS_YARDS)}%`,
+                  transform: "translate(-50%, -50%)",
+                  width: fieldFullscreen ? 18 : 14,
+                  height: fieldFullscreen ? 11 : 9,
+                  borderRadius: "55% / 70%",
+                  background: "#8b4513",
+                  border: "1px solid rgba(255,255,255,.95)",
+                  boxShadow: "0 2px 6px rgba(0,0,0,.55)",
+                  zIndex: 1900,
+                  pointerEvents: "none",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    width: "46%",
+                    height: 1,
+                    background: "white",
+                    transform: "translate(-50%, -50%)",
+                    opacity: 0.95,
+                  }}
+                />
+              </div>
+
               {offensePlayers.map((player) => (
                 <button
                   key={player.id}
