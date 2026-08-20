@@ -246,6 +246,9 @@ export default function AnalyticsPage() {
   const [newSeasonYear, setNewSeasonYear] = useState(
     String(new Date().getFullYear()),
   );
+  const [editingSeasonId, setEditingSeasonId] = useState<string | null>(null);
+  const [editingSeasonName, setEditingSeasonName] = useState("");
+  const [editingSeasonYear, setEditingSeasonYear] = useState("");
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [formations, setFormations] = useState<Formation[]>([]);
@@ -1518,6 +1521,131 @@ export default function AnalyticsPage() {
           : season,
       ),
     );
+  }
+
+  function startEditingSeason(season: Season) {
+    setEditingSeasonId(season.id);
+    setEditingSeasonName(season.name);
+    setEditingSeasonYear(String(season.year));
+    setMessage("");
+  }
+
+  function cancelEditingSeason() {
+    setEditingSeasonId(null);
+    setEditingSeasonName("");
+    setEditingSeasonYear("");
+  }
+
+  function saveEditedSeason(id: string) {
+    const year = Number(editingSeasonYear.trim());
+    const name = editingSeasonName.trim() || String(year);
+
+    if (!Number.isInteger(year) || year < 2000 || year > 2200) {
+      setMessage("Enter a valid season year.");
+      return;
+    }
+
+    const duplicate = seasons.some(
+      (season) =>
+        season.id !== id &&
+        (season.year === year ||
+          season.name.toLowerCase() === name.toLowerCase()),
+    );
+
+    if (duplicate) {
+      setMessage("Another season already uses that year or name.");
+      return;
+    }
+
+    setSeasons((current) =>
+      current
+        .map((season) =>
+          season.id === id
+            ? {
+                ...season,
+                year,
+                name,
+              }
+            : season,
+        )
+        .sort((a, b) => b.year - a.year),
+    );
+
+    setEditingSeasonId(null);
+    setEditingSeasonName("");
+    setEditingSeasonYear("");
+    setMessage(`${name} season updated.`);
+  }
+
+  function deleteSeason(id: string) {
+    const season = seasons.find((item) => item.id === id);
+    if (!season) return;
+
+    const seasonGameIds = new Set(
+      games
+        .filter((game) => game.seasonId === id)
+        .map((game) => game.id),
+    );
+
+    const gameCount = seasonGameIds.size;
+    const playCount = chartPlays.filter((play) =>
+      seasonGameIds.has(play.gameId),
+    ).length;
+
+    const confirmed = window.confirm(
+      `Delete ${season.name}? This permanently deletes ${gameCount} game${
+        gameCount === 1 ? "" : "s"
+      }, ${playCount} charted play${
+        playCount === 1 ? "" : "s"
+      }, the season roster, possessions, defense, and special teams data for this season. This cannot be undone.`,
+    );
+
+    if (!confirmed) return;
+
+    const remainingSeasons = seasons
+      .filter((item) => item.id !== id)
+      .sort((a, b) => b.year - a.year);
+
+    setSeasons(remainingSeasons);
+    setGames((current) =>
+      current.filter((game) => game.seasonId !== id),
+    );
+    setChartPlays((current) =>
+      current.filter((play) => !seasonGameIds.has(play.gameId)),
+    );
+    setPossessions((current) =>
+      current.filter(
+        (possession) => !seasonGameIds.has(possession.gameId),
+      ),
+    );
+    setSpecialTeamsEvents((current) =>
+      current.filter(
+        (event) => !seasonGameIds.has(event.gameId),
+      ),
+    );
+    setDefensiveEvents((current) =>
+      current.filter(
+        (event) => !seasonGameIds.has(event.gameId),
+      ),
+    );
+    setPlayers((current) =>
+      current.filter((player) => player.seasonId !== id),
+    );
+
+    if (selectedSeasonId === id) {
+      const nextSeason =
+        remainingSeasons.find((item) => !item.archived) ??
+        remainingSeasons[0];
+
+      setSelectedSeasonId(nextSeason?.id ?? "");
+      setSelectedGameId("");
+    }
+
+    if (editingSeasonId === id) {
+      cancelEditingSeason();
+    }
+
+    setMessage(`${season.name} season deleted.`);
   }
 
   function addGame() {
@@ -2999,38 +3127,114 @@ export default function AnalyticsPage() {
                       gap: 8,
                     }}
                   >
-                    <button
-                      style={{
-                        ...smallActionButtonStyle,
-                        width: "100%",
-                        fontWeight: 900,
-                      }}
-                      onClick={() => {
-                        setSelectedSeasonId(season.id);
-                        setReportScope("season");
-                      }}
-                    >
-                      {season.name}
-                    </button>
-                    <div style={{ color: "#64748b", fontSize: 12 }}>
-                      {season.archived ? "Archived" : "Active"} •{" "}
-                      {
-                        games.filter(
-                          (game) => game.seasonId === season.id,
-                        ).length
-                      }{" "}
-                      games
-                    </div>
-                    <button
-                      style={
-                        season.archived
-                          ? smallActionButtonStyle
-                          : dangerButtonStyle
-                      }
-                      onClick={() => toggleArchiveSeason(season.id)}
-                    >
-                      {season.archived ? "Unarchive" : "Archive Season"}
-                    </button>
+                    {editingSeasonId === season.id ? (
+                      <>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "110px minmax(0, 1fr)",
+                            gap: 7,
+                          }}
+                        >
+                          <input
+                            style={inputStyle}
+                            value={editingSeasonYear}
+                            onChange={(event) =>
+                              setEditingSeasonYear(event.target.value)
+                            }
+                            placeholder="Year"
+                          />
+                          <input
+                            style={inputStyle}
+                            value={editingSeasonName}
+                            onChange={(event) =>
+                              setEditingSeasonName(event.target.value)
+                            }
+                            placeholder="Season name"
+                          />
+                        </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 7,
+                          }}
+                        >
+                          <button
+                            style={smallActionButtonStyle}
+                            onClick={() => saveEditedSeason(season.id)}
+                          >
+                            Save Changes
+                          </button>
+                          <button
+                            style={dangerButtonStyle}
+                            onClick={cancelEditingSeason}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          style={{
+                            ...smallActionButtonStyle,
+                            width: "100%",
+                            fontWeight: 900,
+                          }}
+                          onClick={() => {
+                            setSelectedSeasonId(season.id);
+                            setReportScope("season");
+                          }}
+                        >
+                          {season.name}
+                        </button>
+
+                        <div style={{ color: "#64748b", fontSize: 12 }}>
+                          {season.archived ? "Archived" : "Active"} •{" "}
+                          {
+                            games.filter(
+                              (game) => game.seasonId === season.id,
+                            ).length
+                          }{" "}
+                          games
+                        </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr 1fr",
+                            gap: 7,
+                          }}
+                        >
+                          <button
+                            style={smallActionButtonStyle}
+                            onClick={() => startEditingSeason(season)}
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            style={
+                              season.archived
+                                ? smallActionButtonStyle
+                                : dangerButtonStyle
+                            }
+                            onClick={() => toggleArchiveSeason(season.id)}
+                          >
+                            {season.archived ? "Unarchive" : "Archive"}
+                          </button>
+
+                          <button
+                            style={dangerButtonStyle}
+                            onClick={() => deleteSeason(season.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
             </div>
