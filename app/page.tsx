@@ -4509,45 +4509,174 @@ function CoachBoardWebApp() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3,1fr)",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                 gap: 8,
               }}
             >
               {sortedOffensePresets
                 .filter((p) => p.isMain)
                 .slice(0, 5)
-                .map((preset, index) => (
-                  <SmallButton
-                    key={preset.id}
-                    label={`${index + 1}. ${preset.name}`}
-                    onClick={() => loadCustomOffensePreset(preset.id)}
-                  />
-                ))}
-              <select
-                value={selectedPresetDropdownId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setSelectedPresetDropdownId(id);
-                  if (id) loadCustomOffensePreset(id);
-                }}
+                .map((preset, index) => {
+                  const formationName = preset.name.trim();
+                  const nameLength = formationName.length;
+                  const formationFontSize =
+                    nameLength <= 8
+                      ? 17
+                      : nameLength <= 13
+                        ? 15
+                        : nameLength <= 18
+                          ? 13
+                          : nameLength <= 24
+                            ? 11.5
+                            : 10.5;
+                  const activeFormation =
+                    selectedPlayFormationId === preset.id ||
+                    selectedPresetDropdownId === preset.id;
+
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => loadCustomOffensePreset(preset.id)}
+                      title={formationName}
+                      style={{
+                        ...buttonBase,
+                        position: "relative",
+                        width: "100%",
+                        height: 82,
+                        minWidth: 0,
+                        padding: "12px 10px 10px",
+                        display: "grid",
+                        placeItems: "center",
+                        overflow: "hidden",
+                        borderRadius: 15,
+                        background: activeFormation
+                          ? "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)"
+                          : "linear-gradient(180deg, rgba(31,41,55,.96) 0%, rgba(9,11,16,.98) 100%)",
+                        color: "white",
+                        border: activeFormation
+                          ? "1px solid rgba(248,113,113,.92)"
+                          : "1px solid rgba(255,255,255,.10)",
+                        boxShadow: activeFormation
+                          ? "0 0 0 1px rgba(255,255,255,.10) inset, 0 10px 24px rgba(220,38,38,.28)"
+                          : "inset 0 1px 0 rgba(255,255,255,.05), 0 8px 18px rgba(0,0,0,.24)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: 7,
+                          left: 9,
+                          minWidth: 20,
+                          height: 20,
+                          padding: "0 5px",
+                          borderRadius: 999,
+                          display: "grid",
+                          placeItems: "center",
+                          background: activeFormation
+                            ? "rgba(255,255,255,.16)"
+                            : "rgba(255,255,255,.07)",
+                          border: "1px solid rgba(255,255,255,.09)",
+                          color: activeFormation ? "#ffffff" : "#cbd5e1",
+                          fontSize: 9,
+                          fontWeight: 950,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {index + 1}
+                      </span>
+
+                      <span
+                        style={{
+                          maxWidth: "100%",
+                          fontSize: formationFontSize,
+                          fontWeight: 950,
+                          lineHeight: 1.08,
+                          letterSpacing:
+                            nameLength <= 12 ? "-0.015em" : "-0.025em",
+                          textAlign: "center",
+                          whiteSpace: "normal",
+                          overflowWrap: "break-word",
+                          wordBreak: "normal",
+                          padding: "6px 2px 0",
+                        }}
+                      >
+                        {formationName}
+                      </span>
+                    </button>
+                  );
+                })}
+
+              <div
                 style={{
-                  background: "#090b10",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 14,
-                  padding: "10px 8px",
-                  fontWeight: 700,
+                  position: "relative",
+                  width: "100%",
+                  height: 82,
+                  minWidth: 0,
                 }}
               >
-                <option value="">More...</option>
-                {sortedOffensePresets
-                  .filter((p) => !p.isMain)
-                  .map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.name}
-                    </option>
-                  ))}
-              </select>
+                <select
+                  value={
+                    sortedOffensePresets.some(
+                      (preset) =>
+                        !preset.isMain &&
+                        preset.id === selectedPresetDropdownId,
+                    )
+                      ? selectedPresetDropdownId
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedPresetDropdownId(id);
+                    if (id) loadCustomOffensePreset(id);
+                  }}
+                  title="More offensive formations"
+                  style={{
+                    ...buttonBase,
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                    width: "100%",
+                    height: "100%",
+                    minWidth: 0,
+                    padding: "14px 28px 12px 12px",
+                    borderRadius: 15,
+                    background:
+                      "linear-gradient(180deg, rgba(31,41,55,.96) 0%, rgba(9,11,16,.98) 100%)",
+                    color: "white",
+                    border: "1px solid rgba(255,255,255,.10)",
+                    boxShadow:
+                      "inset 0 1px 0 rgba(255,255,255,.05), 0 8px 18px rgba(0,0,0,.24)",
+                    fontSize: 14,
+                    fontWeight: 950,
+                    textAlign: "center",
+                    textAlignLast: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">More...</option>
+                  {sortedOffensePresets
+                    .filter((p) => !p.isMain)
+                    .map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name}
+                      </option>
+                    ))}
+                </select>
+
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    right: 11,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#94a3b8",
+                    fontSize: 10,
+                    pointerEvents: "none",
+                  }}
+                >
+                  ▼
+                </span>
+              </div>
             </div>
           </div>
 
