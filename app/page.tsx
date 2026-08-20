@@ -4863,101 +4863,110 @@ function CoachBoardWebApp() {
     </>
   );
 
-  const fullscreenPlayerPanelContent =
-    activePanelTab === "player" ? (
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "auto minmax(130px, .55fr) minmax(300px, 1.35fr) auto",
-          alignItems: "center",
-          gap: 10,
-          width: "100%",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+  const fullscreenPanelTabs = (
+    <div
+      style={{
+        display: "flex",
+        gap: 5,
+        alignItems: "center",
+        flexWrap: "nowrap",
+      }}
+    >
+      {(
+        [
+          ["player", "Player"],
+          ["routes", "Routes"],
+          ["formations", "Forms"],
+          ["defense", "Def"],
+          ["plays", "Plays"],
+        ] as [PanelTab, string][]
+      ).map(([tab, label]) => (
+        <button
+          key={tab}
+          style={{
+            ...buttonBase,
+            background:
+              activePanelTab === tab ? "rgba(220,38,38,.88)" : "rgba(2,6,23,.62)",
+            color: "white",
+            padding: "7px 9px",
+            fontSize: 10,
+            minWidth: 58,
+            whiteSpace: "nowrap",
+          }}
+          onClick={() => {
+            setShowFullscreenPlayerDetails(false);
+            setActivePanelTab(tab);
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const fullscreenPlayerPanelContent = (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateRows: "auto auto",
+        gap: 6,
+        width: "100%",
+        minWidth: 0,
+      }}
+    >
+      {fullscreenPanelTabs}
+
+      {activePanelTab === "player" && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "auto minmax(120px,.55fr) minmax(250px,1.15fr) auto auto",
+            alignItems: "center",
+            gap: 8,
+            minWidth: 0,
+          }}
+        >
           <div
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 11,
+              width: 34,
+              height: 34,
+              borderRadius: 10,
               display: "grid",
               placeItems: "center",
               background: "rgba(220,38,38,.82)",
-              border: "1px solid rgba(255,255,255,.16)",
+              border: "1px solid rgba(255,255,255,.15)",
               color: "white",
               fontWeight: 950,
-              fontSize: 18,
-              boxShadow: "0 6px 16px rgba(0,0,0,.18)",
+              fontSize: 16,
             }}
           >
             {selectedPlayer.position}
           </div>
-          <div>
-            <div
-              style={{
-                color: "#f87171",
-                fontSize: 9,
-                fontWeight: 950,
-                letterSpacing: ".12em",
-                textTransform: "uppercase",
-              }}
-            >
-              Player
-            </div>
-            <div style={{ color: "white", fontSize: 12, fontWeight: 850 }}>
-              {selectedPlayer.position}
-            </div>
-          </div>
-        </div>
 
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              color: "#cbd5e1",
-              fontSize: 9,
-              fontWeight: 900,
-              letterSpacing: ".08em",
-              marginBottom: 3,
-            }}
-          >
-            LABEL
-          </div>
           <input
             value={selectedPlayer.position}
             onChange={(e) => updateSelectedPlayerLabel(e.target.value)}
+            title="Player label"
             style={{
               width: "100%",
-              height: 34,
+              height: 32,
               background: "rgba(2,6,23,.46)",
               border: "1px solid rgba(255,255,255,.10)",
               borderRadius: 9,
               color: "white",
-              padding: "0 10px",
+              padding: "0 9px",
               fontWeight: 850,
               outline: "none",
             }}
           />
-        </div>
 
-        <div style={{ minWidth: 0 }}>
           <div
             style={{
-              color: "#cbd5e1",
-              fontSize: 9,
-              fontWeight: 900,
-              letterSpacing: ".08em",
-              marginBottom: 3,
-            }}
-          >
-            COLOR
-          </div>
-          <div
-            style={{
-              transform: "scale(.68)",
+              transform: "scale(.62)",
               transformOrigin: "left center",
-              width: "147%",
-              height: 34,
+              width: "160%",
+              height: 32,
               display: "flex",
               alignItems: "center",
             }}
@@ -4970,18 +4979,8 @@ function CoachBoardWebApp() {
               onSelect={updateSelectedPlayerColor}
             />
           </div>
-        </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 5,
-            justifyContent: "flex-end",
-            alignItems: "center",
-            flexWrap: "nowrap",
-          }}
-        >
-          {selectedSide === "offense" && (
+          {selectedSide === "offense" ? (
             <button
               style={{
                 ...buttonBase,
@@ -4997,9 +4996,7 @@ function CoachBoardWebApp() {
             >
               Auto Space
             </button>
-          )}
-
-          {selectedSide === "defense" && (
+          ) : (
             <button
               style={{
                 ...buttonBase,
@@ -5041,98 +5038,470 @@ function CoachBoardWebApp() {
           <button
             style={{
               ...buttonBase,
-              background: "rgba(2,6,23,.60)",
+              background: "rgba(127,29,29,.72)",
               color: "white",
               padding: "8px 9px",
-              fontSize: 10,
-              whiteSpace: "nowrap",
-            }}
-            onClick={() => {
-              setShowFullscreenPlayerDetails(false);
-              setActivePanelTab("routes");
-            }}
-          >
-            Routes
-          </button>
-          <button
-            style={{
-              ...buttonBase,
-              background: "rgba(2,6,23,.60)",
-              color: "white",
-              padding: "8px 9px",
-              fontSize: 10,
-              whiteSpace: "nowrap",
-            }}
-            onClick={() => {
-              setShowFullscreenPlayerDetails(false);
-              setActivePanelTab("formations");
-            }}
-          >
-            Forms
-          </button>
-          <button
-            style={{
-              ...buttonBase,
-              background: "rgba(2,6,23,.60)",
-              color: "white",
-              padding: "8px 9px",
-              fontSize: 10,
-              whiteSpace: "nowrap",
-            }}
-            onClick={() => {
-              setShowFullscreenPlayerDetails(false);
-              setActivePanelTab("defense");
-            }}
-          >
-            Def
-          </button>
-          <button
-            style={{
-              ...buttonBase,
-              background: "rgba(2,6,23,.60)",
-              color: "white",
-              padding: "8px 9px",
-              fontSize: 10,
-              whiteSpace: "nowrap",
-            }}
-            onClick={() => {
-              setShowFullscreenPlayerDetails(false);
-              setActivePanelTab("plays");
-            }}
-          >
-            Plays
-          </button>
-          <button
-            style={{
-              ...buttonBase,
-              background: showFullscreenPlayerDetails
-                ? "rgba(220,38,38,.88)"
-                : "rgba(2,6,23,.72)",
-              color: "white",
-              padding: "8px 10px",
               fontSize: 10,
               whiteSpace: "nowrap",
             }}
             onClick={() =>
-              setShowFullscreenPlayerDetails((current) => !current)
+              clearAllBoardMarkup({ broadcast: true, pushUndo: true })
             }
-            title="Show every original Player control in the compact panel"
+            title="Clear drawings, routes, zones, and man assignments"
           >
-            {showFullscreenPlayerDetails ? "Compact" : "More"}
+            Clear All
           </button>
         </div>
-      </div>
-    ) : (
-      <div
-        style={{
-          zoom: 0.68,
-          width: "147%",
-          minWidth: 0,
-        }}
-      >
-        {playerPanelContent}
-      </div>
-    );
+      )}
+
+      {activePanelTab === "routes" && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "140px minmax(150px,1fr) minmax(150px,1fr) auto auto auto auto",
+            gap: 7,
+            alignItems: "center",
+            minWidth: 0,
+          }}
+        >
+          <select
+            value={routeType}
+            onChange={(e) => setRouteType(e.target.value as RouteType)}
+            style={{
+              height: 32,
+              background: "rgba(2,6,23,.56)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,.10)",
+              borderRadius: 9,
+              padding: "0 8px",
+              fontWeight: 800,
+            }}
+            disabled={selectedSide !== "offense"}
+            title="Route type"
+          >
+            {(
+              [
+                "Go",
+                "Slant",
+                "Out",
+                "In",
+                "Post",
+                "Corner",
+                "Curl",
+                "Comeback",
+              ] as RouteType[]
+            ).map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+
+          <label style={{ display: "grid", gap: 2, minWidth: 0, fontSize: 9 }}>
+            <span>Break {breakDepth} yd</span>
+            <input
+              type="range"
+              min={1}
+              max={25}
+              value={breakDepth}
+              onChange={(e) => setBreakDepth(Number(e.target.value))}
+              disabled={selectedSide !== "offense"}
+              style={{ width: "100%" }}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: 2, minWidth: 0, fontSize: 9 }}>
+            <span>Finish {finishDepth} yd</span>
+            <input
+              type="range"
+              min={1}
+              max={25}
+              value={finishDepth}
+              onChange={(e) => setFinishDepth(Number(e.target.value))}
+              disabled={selectedSide !== "offense"}
+              style={{ width: "100%" }}
+            />
+          </label>
+
+          <button
+            style={{
+              ...buttonBase,
+              background: "#dc2626",
+              color: "white",
+              padding: "8px 9px",
+              fontSize: 10,
+            }}
+            onClick={applyRoute}
+            disabled={selectedSide !== "offense"}
+          >
+            Apply
+          </button>
+
+          <button
+            style={{
+              ...buttonBase,
+              background: undoStack.length ? "#111827" : "rgba(15,23,42,.40)",
+              color: undoStack.length ? "white" : "rgba(255,255,255,.40)",
+              padding: "8px 9px",
+              fontSize: 10,
+            }}
+            onClick={undoLastAction}
+            disabled={!undoStack.length}
+          >
+            Undo
+          </button>
+
+          <button
+            style={{
+              ...buttonBase,
+              background:
+                selectedFieldItem?.type === "route"
+                  ? "#7f1d1d"
+                  : "rgba(127,29,29,.35)",
+              color:
+                selectedFieldItem?.type === "route"
+                  ? "white"
+                  : "rgba(255,255,255,.40)",
+              padding: "8px 9px",
+              fontSize: 10,
+            }}
+            onClick={deleteSelectedFieldItem}
+            disabled={selectedFieldItem?.type !== "route"}
+          >
+            Delete
+          </button>
+
+          <button
+            style={{
+              ...buttonBase,
+              background: routes.length ? "#7f1111" : "rgba(127,29,29,.35)",
+              color: routes.length ? "white" : "rgba(255,255,255,.40)",
+              padding: "8px 9px",
+              fontSize: 10,
+            }}
+            onClick={() => {
+              if (!routes.length) return;
+              pushUndoSnapshot();
+              setRoutes([]);
+              if (selectedFieldItem?.type === "route") setSelectedFieldItem(null);
+            }}
+            disabled={!routes.length}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {activePanelTab === "formations" && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr auto",
+            gap: 8,
+            alignItems: "center",
+            minWidth: 0,
+          }}
+        >
+          <select
+            value={selectedPresetDropdownId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedPresetDropdownId(id);
+              if (id) loadCustomOffensePreset(id);
+            }}
+            style={{
+              height: 32,
+              minWidth: 0,
+              background: "rgba(2,6,23,.56)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,.10)",
+              borderRadius: 9,
+              padding: "0 8px",
+              fontWeight: 800,
+            }}
+          >
+            <option value="">Offensive Formation...</option>
+            {sortedOffensePresets.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedDefenseFront}
+            onChange={(e) => loadDefensePreset(e.target.value as DefensePreset)}
+            disabled={footballTeamSize !== "11man"}
+            style={{
+              height: 32,
+              minWidth: 0,
+              background: "rgba(2,6,23,.56)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,.10)",
+              borderRadius: 9,
+              padding: "0 8px",
+              fontWeight: 800,
+            }}
+          >
+            {footballTeamSize === "11man" ? (
+              DEFENSIVE_FRONTS_11.map((front) => (
+                <option key={front} value={front}>
+                  {front}
+                </option>
+              ))
+            ) : (
+              <option>Custom defense only</option>
+            )}
+          </select>
+
+          <button
+            style={{
+              ...buttonBase,
+              background: "rgba(2,6,23,.60)",
+              color: "white",
+              padding: "8px 10px",
+              fontSize: 10,
+            }}
+            onClick={() => setActivePanelTab("player")}
+          >
+            Done
+          </button>
+        </div>
+      )}
+
+      {activePanelTab === "defense" && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "135px 95px 130px minmax(160px,1fr) 140px auto auto auto",
+            gap: 6,
+            alignItems: "center",
+            minWidth: 0,
+          }}
+        >
+          <select
+            value={selectedDefenseFront}
+            onChange={(e) => loadDefensePreset(e.target.value as DefensePreset)}
+            disabled={footballTeamSize !== "11man"}
+            style={{
+              height: 32,
+              minWidth: 0,
+              background: "rgba(2,6,23,.56)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,.10)",
+              borderRadius: 9,
+              padding: "0 7px",
+              fontWeight: 800,
+            }}
+          >
+            {footballTeamSize === "11man" ? (
+              DEFENSIVE_FRONTS_11.map((front) => (
+                <option key={front} value={front}>
+                  {front}
+                </option>
+              ))
+            ) : (
+              <option>Custom</option>
+            )}
+          </select>
+
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              const value = e.target.value as Technique;
+              if (value) applyTechnique(value);
+              e.currentTarget.value = "";
+            }}
+            disabled={selectedSide !== "defense"}
+            style={{
+              height: 32,
+              background: "rgba(2,6,23,.56)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,.10)",
+              borderRadius: 9,
+              padding: "0 7px",
+              fontWeight: 800,
+            }}
+          >
+            <option value="">Technique</option>
+            {(
+              ["0", "1", "2i", "2", "3", "4i", "4", "5", "6i", "6", "7", "9"] as Technique[]
+            ).map((tech) => (
+              <option key={tech} value={tech}>
+                {tech}
+              </option>
+            ))}
+          </select>
+
+          <button
+            style={{
+              ...buttonBase,
+              background: "rgba(2,6,23,.60)",
+              color: "white",
+              padding: "8px 8px",
+              fontSize: 10,
+              whiteSpace: "nowrap",
+            }}
+            onClick={() => {
+              setManAssignments({});
+              setZoneAssignments([]);
+            }}
+          >
+            Clear Coverage
+          </button>
+
+          <input
+            value={defensivePackageName}
+            onChange={(e) => setDefensivePackageName(e.target.value)}
+            placeholder="Package name"
+            style={{
+              width: "100%",
+              height: 32,
+              minWidth: 0,
+              background: "rgba(2,6,23,.46)",
+              border: "1px solid rgba(255,255,255,.10)",
+              borderRadius: 9,
+              color: "white",
+              padding: "0 8px",
+            }}
+          />
+
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) loadDefensivePackage(e.target.value);
+            }}
+            style={{
+              height: 32,
+              minWidth: 0,
+              background: "rgba(2,6,23,.56)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,.10)",
+              borderRadius: 9,
+              padding: "0 7px",
+              fontWeight: 800,
+            }}
+          >
+            <option value="">Saved Package...</option>
+            {savedDefensivePackages.map((pkg) => (
+              <option key={pkg.id} value={pkg.id}>
+                {pkg.name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            style={{
+              ...buttonBase,
+              background: "#dc2626",
+              color: "white",
+              padding: "8px 8px",
+              fontSize: 10,
+            }}
+            onClick={saveDefensivePackage}
+          >
+            Save
+          </button>
+
+          <button
+            style={{
+              ...buttonBase,
+              background: "#374151",
+              color: "white",
+              padding: "8px 8px",
+              fontSize: 10,
+            }}
+            onClick={() => {
+              const selected = savedDefensivePackages.find(
+                (pkg) => pkg.name === defensivePackageName,
+              );
+              if (selected) overwriteDefensivePackage(selected.id);
+            }}
+            disabled={
+              !savedDefensivePackages.some(
+                (pkg) => pkg.name === defensivePackageName,
+              )
+            }
+          >
+            Update
+          </button>
+
+          <button
+            style={{
+              ...buttonBase,
+              background: "#7f1111",
+              color: "white",
+              padding: "8px 8px",
+              fontSize: 10,
+            }}
+            onClick={() => {
+              const selected = savedDefensivePackages.find(
+                (pkg) => pkg.name === defensivePackageName,
+              );
+              if (selected) deleteDefensivePackage(selected.id);
+            }}
+            disabled={
+              !savedDefensivePackages.some(
+                (pkg) => pkg.name === defensivePackageName,
+              )
+            }
+          >
+            Delete
+          </button>
+        </div>
+      )}
+
+      {activePanelTab === "plays" && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(260px,1fr) auto",
+            gap: 8,
+            alignItems: "center",
+            minWidth: 0,
+          }}
+        >
+          <select
+            value={selectedPlayId}
+            onChange={(e) => loadPlay(e.target.value)}
+            style={{
+              height: 32,
+              minWidth: 0,
+              background: "rgba(2,6,23,.56)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,.10)",
+              borderRadius: 9,
+              padding: "0 8px",
+              fontWeight: 800,
+            }}
+          >
+            <option value="">Saved Play...</option>
+            {visibleSavedPlays.map((play) => (
+              <option key={play.id} value={play.id}>
+                {play.preloadOnOpen ? "★ " : ""}
+                {play.name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            style={{
+              ...buttonBase,
+              background: "rgba(2,6,23,.60)",
+              color: "white",
+              padding: "8px 10px",
+              fontSize: 10,
+            }}
+            onClick={() => setActivePanelTab("player")}
+          >
+            Done
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
   useEffect(() => {
     function updateFieldSize() {
@@ -9537,31 +9906,19 @@ function CoachBoardWebApp() {
                   left: "50%",
                   transform: "translateX(-50%)",
                   width: "min(1040px, calc(100vw - 120px))",
-                  height:
-                    activePanelTab === "player" && !showFullscreenPlayerDetails
-                      ? "64px"
-                      : "88px",
-                  maxHeight:
-                    activePanelTab === "player" && !showFullscreenPlayerDetails
-                      ? "64px"
-                      : "88px",
+                  height: activePanelTab === "player" ? "92px" : "88px",
+                  maxHeight: activePanelTab === "player" ? "92px" : "88px",
                   zIndex: 2147483645,
-                  padding:
-                    activePanelTab === "player" && !showFullscreenPlayerDetails
-                      ? "8px 10px"
-                      : "5px 8px",
+                  padding: "6px 8px",
                   display: "flex",
                   flexDirection: "column",
                   gap: 4,
-                  overflowY:
-                    activePanelTab === "player" && !showFullscreenPlayerDetails
-                      ? "hidden"
-                      : "auto",
+                  overflowY: "hidden",
                   overflowX: "hidden",
                   background:
-                    activePanelTab === "player" && !showFullscreenPlayerDetails
-                      ? "rgba(15,23,42,.34)"
-                      : "rgba(15,23,42,.30)",
+                    activePanelTab === "player"
+                      ? "rgba(15,23,42,.32)"
+                      : "rgba(15,23,42,.28)",
                   backdropFilter: "blur(6px)",
                   border: "1px solid rgba(255,255,255,.08)",
                   boxShadow: "0 7px 20px rgba(0,0,0,.14)",
@@ -9570,9 +9927,7 @@ function CoachBoardWebApp() {
                 onPointerMove={(e) => e.stopPropagation()}
                 onPointerUp={(e) => e.stopPropagation()}
               >
-                {activePanelTab === "player" && showFullscreenPlayerDetails
-                  ? playerPanelContent
-                  : fullscreenPlayerPanelContent}
+                {fullscreenPlayerPanelContent}
               </div>
             )}
             {fieldFullscreen && showFullscreenToolsPanel && (
