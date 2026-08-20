@@ -8,6 +8,7 @@ import type { RealtimeChannel, User } from "@supabase/supabase-js";
 type Section = "command" | "setup" | "games" | "reports";
 type GameCenterSection = "offense" | "defense" | "specialTeams";
 type ReportSection = "offense" | "defense" | "specialTeams";
+type ReportScope = "game" | "season" | "allTime";
 type PlayType = "Run" | "Pass" | "Punt" | "RPO" | "Screen" | "Other";
 type Grade = "negative" | "normal" | "success" | "explosive";
 
@@ -17,6 +18,15 @@ type Player = {
   lastName: string;
   jersey: string;
   position: string;
+  seasonId?: string;
+};
+
+type Season = {
+  id: string;
+  name: string;
+  year: number;
+  archived: boolean;
+  createdAt: string;
 };
 
 type Formation = {
@@ -42,6 +52,7 @@ type PlayCall = {
 
 type Game = {
   id: string;
+  seasonId?: string;
   week: string;
   opponent: string;
   date: string;
@@ -160,6 +171,8 @@ type EditPlayDraft = {
 };
 
 type SavedState = {
+  seasons?: Season[];
+  selectedSeasonId?: string;
   players: Player[];
   formations: Formation[];
   motions: Motion[];
@@ -197,7 +210,7 @@ const defaultGames: Game[] = [];
 export default function AnalyticsPage() {
   const [activeSection, setActiveSection] = useState<Section>("command");
   const [gameCenterSection, setGameCenterSection] = useState<GameCenterSection>("offense");
-  const [reportScope, setReportScope] = useState<"game" | "season">("game");
+  const [reportScope, setReportScope] = useState<ReportScope>("game");
   const [reportSection, setReportSection] = useState<ReportSection>("offense");
   const [showPrintOptions, setShowPrintOptions] = useState(false);
   const [printSelections, setPrintSelections] = useState<Record<string, boolean>>({
@@ -215,6 +228,7 @@ export default function AnalyticsPage() {
     playTag: true,
     formationPlayTag: true,
     gameBreakdown: true,
+    yearOverYear: true,
     defense: true,
     specialTeams: true,
   });
@@ -225,6 +239,13 @@ export default function AnalyticsPage() {
   const [activeTeamName, setActiveTeamName] = useState("");
   const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
   const [syncingAnalytics, setSyncingAnalytics] = useState(false);
+
+  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [selectedSeasonId, setSelectedSeasonId] = useState("");
+  const [newSeasonName, setNewSeasonName] = useState("");
+  const [newSeasonYear, setNewSeasonYear] = useState(
+    String(new Date().getFullYear()),
+  );
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [formations, setFormations] = useState<Formation[]>([]);
@@ -431,6 +452,8 @@ export default function AnalyticsPage() {
     if (!analyticsLoaded || !activeTeamId || !user) return;
 
     const state: SavedState = {
+      seasons,
+      selectedSeasonId,
       players,
       formations,
       motions,
@@ -472,6 +495,8 @@ export default function AnalyticsPage() {
     analyticsLoaded,
     activeTeamId,
     user,
+    seasons,
+    selectedSeasonId,
     players,
     formations,
     motions,
@@ -517,8 +542,64 @@ export default function AnalyticsPage() {
   }, [activeTeamId, user?.id]);
 
   function applySavedAnalyticsState(saved: SavedState) {
-    const savedPlayers = saved.players ?? [];
-    const savedGames = saved.games ?? [];
+    const rawPlayers = saved.players ?? [];
+    const rawGames = saved.games ?? [];
+
+    const inferredLegacyYear = (() => {
+      const datedGame = rawGames.find((game) => {
+        if (!game.date) return false;
+        const year = new Date(`${game.date}T12:00:00`).getFullYear();
+        return Number.isFinite(year) && year > 2000;
+      });
+
+      if (datedGame?.date) {
+        return new Date(`${datedGame.date}T12:00:00`).getFullYear();
+      }
+
+      return new Date().getFullYear();
+    })();
+
+    let normalizedSeasons = Array.isArray(saved.seasons)
+      ? saved.seasons.map((season) => ({
+          ...season,
+          archived: season.archived ?? false,
+          createdAt: season.createdAt ?? new Date().toISOString(),
+        }))
+      : [];
+
+    let legacySeasonId = normalizedSeasons[0]?.id ?? "";
+
+    if (normalizedSeasons.length === 0) {
+      legacySeasonId = createId();
+      normalizedSeasons = [
+        {
+          id: legacySeasonId,
+          name: String(inferredLegacyYear),
+          year: inferredLegacyYear,
+          archived: false,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+    }
+
+    const seasonIds = new Set(normalizedSeasons.map((season) => season.id));
+
+    const normalizedGames = rawGames.map((game) => ({
+      ...game,
+      seasonId:
+        game.seasonId && seasonIds.has(game.seasonId)
+          ? game.seasonId
+          : legacySeasonId,
+    }));
+
+    const normalizedPlayers = rawPlayers.map((player) => ({
+      ...player,
+      seasonId:
+        player.seasonId && seasonIds.has(player.seasonId)
+          ? player.seasonId
+          : legacySeasonId,
+    }));
+
     const savedChartPlays = (saved.chartPlays ?? []).map((play) => {
       const normalizedTouchdown =
         play.touchdown === true ||
@@ -528,42 +609,86 @@ export default function AnalyticsPage() {
         ...play,
         motion: play.motion ?? "",
         tags: Array.isArray(play.tags) ? play.tags : [],
-        rusher: resolvePlayerInput(play.rusher, savedPlayers),
-        passer: resolvePlayerInput(play.passer, savedPlayers),
-        receiver: resolvePlayerInput(play.receiver, savedPlayers),
+        rusher: resolvePlayerInput(play.rusher, normalizedPlayers),
+        passer: resolvePlayerInput(play.passer, normalizedPlayers),
+        receiver: resolvePlayerInput(play.receiver, normalizedPlayers),
         penaltyType: play.penaltyType ?? "",
         seriesStart: play.seriesStart ?? false,
         touchdown: normalizedTouchdown,
-        // A touchdown ends the play/drive outcome and should not also be
-        // credited as an earned first down in the statistical totals.
         firstDown: normalizedTouchdown ? false : (play.firstDown ?? false),
       };
     });
 
-    setPlayers(savedPlayers);
+    const requestedSeasonIsValid = normalizedSeasons.some(
+      (season) => season.id === saved.selectedSeasonId,
+    );
+
+    const defaultSeason =
+      [...normalizedSeasons]
+        .filter((season) => !season.archived)
+        .sort((a, b) => b.year - a.year)[0] ??
+      [...normalizedSeasons].sort((a, b) => b.year - a.year)[0];
+
+    const nextSeasonId = requestedSeasonIsValid
+      ? saved.selectedSeasonId!
+      : defaultSeason?.id ?? legacySeasonId;
+
+    const seasonGames = normalizedGames.filter(
+      (game) => game.seasonId === nextSeasonId,
+    );
+
+    const savedSelectionIsValid = seasonGames.some(
+      (game) => game.id === saved.selectedGameId,
+    );
+
+    setSeasons(normalizedSeasons);
+    setSelectedSeasonId(nextSeasonId);
+    setPlayers(normalizedPlayers);
     setFormations(saved.formations ?? []);
     setMotions(saved.motions ?? []);
     setPlays(saved.plays ?? []);
     setTags(saved.tags ?? []);
-    setGames(savedGames);
+    setGames(normalizedGames);
     setChartPlays(savedChartPlays);
     setPossessions(saved.possessions ?? []);
     setSpecialTeamsEvents(saved.specialTeamsEvents ?? []);
     setDefensiveEvents(saved.defensiveEvents ?? []);
     setQuarterLengthMinutes(saved.quarterLengthMinutes === 15 ? 15 : 12);
 
-    const savedSelectionIsValid = savedGames.some(
-      (game) => game.id === saved.selectedGameId,
-    );
-
     setSelectedGameId(
       savedSelectionIsValid
         ? saved.selectedGameId
-        : savedGames[0]?.id ?? "",
+        : seasonGames[0]?.id ?? "",
     );
   }
 
-  const selectedGame = games.find((game) => game.id === selectedGameId) ?? games[0];
+  const selectedSeason =
+    seasons.find((season) => season.id === selectedSeasonId) ??
+    seasons[0];
+
+  const seasonGames = useMemo(
+    () =>
+      games
+        .filter((game) => game.seasonId === selectedSeasonId)
+        .sort((a, b) => Number(a.week || 0) - Number(b.week || 0)),
+    [games, selectedSeasonId],
+  );
+
+  const seasonPlayers = useMemo(
+    () => players.filter((player) => player.seasonId === selectedSeasonId),
+    [players, selectedSeasonId],
+  );
+
+  useEffect(() => {
+    if (!selectedSeasonId) return;
+    if (seasonGames.some((game) => game.id === selectedGameId)) return;
+    setSelectedGameId(seasonGames[0]?.id ?? "");
+  }, [selectedSeasonId, seasonGames, selectedGameId]);
+
+
+  const selectedGame =
+    games.find((game) => game.id === selectedGameId) ??
+    seasonGames[0];
 
   const currentGamePlays = useMemo(
     () =>
@@ -581,9 +706,17 @@ export default function AnalyticsPage() {
     [possessions, selectedGameId],
   );
 
+  const seasonGameIdSet = useMemo(
+    () => new Set(seasonGames.map((game) => game.id)),
+    [seasonGames],
+  );
+
   const seasonPossessions = useMemo(
-    () => possessions,
-    [possessions],
+    () =>
+      possessions.filter((possession) =>
+        seasonGameIdSet.has(possession.gameId),
+      ),
+    [possessions, seasonGameIdSet],
   );
 
   const currentGameSpecialTeams = useMemo(
@@ -596,11 +729,35 @@ export default function AnalyticsPage() {
     [defensiveEvents, selectedGameId],
   );
 
+  const seasonSpecialTeams = useMemo(
+    () =>
+      specialTeamsEvents.filter((event) =>
+        seasonGameIdSet.has(event.gameId),
+      ),
+    [specialTeamsEvents, seasonGameIdSet],
+  );
+
+  const seasonDefense = useMemo(
+    () =>
+      defensiveEvents.filter((event) =>
+        seasonGameIdSet.has(event.gameId),
+      ),
+    [defensiveEvents, seasonGameIdSet],
+  );
+
   const reportSpecialTeams =
-    reportScope === "season" ? specialTeamsEvents : currentGameSpecialTeams;
+    reportScope === "game"
+      ? currentGameSpecialTeams
+      : reportScope === "season"
+        ? seasonSpecialTeams
+        : specialTeamsEvents;
 
   const reportDefense =
-    reportScope === "season" ? defensiveEvents : currentGameDefense;
+    reportScope === "game"
+      ? currentGameDefense
+      : reportScope === "season"
+        ? seasonDefense
+        : defensiveEvents;
 
   const specialTeamsStats = useMemo(
     () => calculateSpecialTeamsStats(currentGameSpecialTeams),
@@ -614,19 +771,43 @@ export default function AnalyticsPage() {
 
   const seasonPlays = useMemo(
     () =>
+      chartPlays
+        .filter((play) => seasonGameIdSet.has(play.gameId))
+        .sort((a, b) => {
+          const gameA = games.find((game) => game.id === a.gameId);
+          const gameB = games.find((game) => game.id === b.gameId);
+          const weekA = Number(gameA?.week ?? 0);
+          const weekB = Number(gameB?.week ?? 0);
+
+          if (weekA !== weekB) return weekA - weekB;
+          return a.playNumber - b.playNumber;
+        }),
+    [chartPlays, games, seasonGameIdSet],
+  );
+
+  const allTimePlays = useMemo(
+    () =>
       [...chartPlays].sort((a, b) => {
         const gameA = games.find((game) => game.id === a.gameId);
         const gameB = games.find((game) => game.id === b.gameId);
-        const weekA = Number(gameA?.week ?? 0);
-        const weekB = Number(gameB?.week ?? 0);
+        const seasonA = seasons.find((season) => season.id === gameA?.seasonId);
+        const seasonB = seasons.find((season) => season.id === gameB?.seasonId);
 
-        if (weekA !== weekB) return weekA - weekB;
-        return a.playNumber - b.playNumber;
+        if ((seasonA?.year ?? 0) !== (seasonB?.year ?? 0)) {
+          return (seasonA?.year ?? 0) - (seasonB?.year ?? 0);
+        }
+
+        return Number(gameA?.week ?? 0) - Number(gameB?.week ?? 0);
       }),
-    [chartPlays, games],
+    [chartPlays, games, seasons],
   );
 
-  const reportPlays = reportScope === "season" ? seasonPlays : currentGamePlays;
+  const reportPlays =
+    reportScope === "game"
+      ? currentGamePlays
+      : reportScope === "season"
+        ? seasonPlays
+        : allTimePlays;
 
   const stats = useMemo(() => calculateStats(currentGamePlays), [currentGamePlays]);
   const reportStats = useMemo(() => calculateStats(reportPlays), [reportPlays]);
@@ -637,7 +818,11 @@ export default function AnalyticsPage() {
   );
 
   const reportPossessions =
-    reportScope === "season" ? seasonPossessions : currentGamePossessions;
+    reportScope === "game"
+      ? currentGamePossessions
+      : reportScope === "season"
+        ? seasonPossessions
+        : possessions;
 
   const reportPossessionStats = useMemo(
     () => calculatePossessionStats(reportPossessions),
@@ -726,7 +911,7 @@ export default function AnalyticsPage() {
 
   const gameBreakdown = useMemo(
     () =>
-      games
+      seasonGames
         .map((game) => {
           const rows = chartPlays.filter((play) => play.gameId === game.id);
           return {
@@ -734,10 +919,42 @@ export default function AnalyticsPage() {
             stats: calculateStats(rows),
           };
         })
-        .filter((item) => item.stats.total > 0)
-        .sort((a, b) => Number(a.game.week || 0) - Number(b.game.week || 0)),
-    [games, chartPlays],
+        .filter((item) => item.stats.total > 0),
+    [seasonGames, chartPlays],
   );
+
+  const yearOverYear = useMemo(
+    () =>
+      [...seasons]
+        .sort((a, b) => a.year - b.year)
+        .map((season) => {
+          const seasonGameIds = new Set(
+            games
+              .filter((game) => game.seasonId === season.id)
+              .map((game) => game.id),
+          );
+
+          const rows = chartPlays.filter((play) =>
+            seasonGameIds.has(play.gameId),
+          );
+
+          return {
+            season,
+            games: seasonGameIds.size,
+            stats: calculateStats(rows),
+          };
+        })
+        .filter((row) => row.games > 0 || row.stats.chartedPlays > 0),
+    [seasons, games, chartPlays],
+  );
+
+  const reportScopeLabel =
+    reportScope === "game"
+      ? "Current Game"
+      : reportScope === "season"
+        ? selectedSeason?.name ?? "Season"
+        : "All-Time";
+
 
   function updateEntry(key: keyof EntryState, value: string) {
     setEntry((current) => ({ ...current, [key]: value }));
@@ -997,9 +1214,9 @@ export default function AnalyticsPage() {
       tags: savedTags,
       playType,
       yards,
-      rusher: isPunt ? "" : resolvePlayerInput(entry.rusher, players),
-      passer: isPunt ? "" : resolvePlayerInput(entry.passer, players),
-      receiver: isPunt ? "" : resolvePlayerInput(entry.receiver, players),
+      rusher: isPunt ? "" : resolvePlayerInput(entry.rusher, seasonPlayers),
+      passer: isPunt ? "" : resolvePlayerInput(entry.passer, seasonPlayers),
+      receiver: isPunt ? "" : resolvePlayerInput(entry.receiver, seasonPlayers),
       result:
         [
           isTouchdown ? "TD" : "",
@@ -1165,7 +1382,7 @@ export default function AnalyticsPage() {
       id: createId(),
       gameId: selectedGameId,
       type,
-      player: resolvePlayerInput(specialTeamsEntry.player, players),
+      player: resolvePlayerInput(specialTeamsEntry.player, seasonPlayers),
       yards,
       made:
         type === "Field Goal" || type === "Extra Point"
@@ -1205,7 +1422,7 @@ export default function AnalyticsPage() {
       return;
     }
 
-    const player = resolvePlayerInput(defenseEntry.player, players);
+    const player = resolvePlayerInput(defenseEntry.player, seasonPlayers);
 
     if (!player) {
       setMessage("Enter a defensive player's jersey number.");
@@ -1255,15 +1472,74 @@ export default function AnalyticsPage() {
     );
   }
 
+  function createSeason() {
+    const year = Number(newSeasonYear.trim());
+    if (!Number.isInteger(year) || year < 2000 || year > 2200) {
+      setMessage("Enter a valid season year.");
+      return;
+    }
+
+    const name = newSeasonName.trim() || String(year);
+
+    if (
+      seasons.some(
+        (season) =>
+          season.name.toLowerCase() === name.toLowerCase() ||
+          season.year === year,
+      )
+    ) {
+      setMessage("That season already exists.");
+      return;
+    }
+
+    const season: Season = {
+      id: createId(),
+      name,
+      year,
+      archived: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    setSeasons((current) =>
+      [...current, season].sort((a, b) => b.year - a.year),
+    );
+    setSelectedSeasonId(season.id);
+    setSelectedGameId("");
+    setNewSeasonName("");
+    setNewSeasonYear(String(year + 1));
+    setMessage(`${name} season created.`);
+  }
+
+  function toggleArchiveSeason(id: string) {
+    setSeasons((current) =>
+      current.map((season) =>
+        season.id === id
+          ? { ...season, archived: !season.archived }
+          : season,
+      ),
+    );
+  }
+
   function addGame() {
     if (!newOpponent.trim()) {
       setMessage("Type an opponent.");
       return;
     }
 
+    if (!selectedSeasonId) {
+      setMessage("Create or select a season before adding a game.");
+      return;
+    }
+
+    if (selectedSeason?.archived) {
+      setMessage("Unarchive this season before adding a game.");
+      return;
+    }
+
     const newGame: Game = {
       id: createId(),
-      week: newWeek.trim() || `${games.length + 1}`,
+      seasonId: selectedSeasonId,
+      week: newWeek.trim() || `${seasonGames.length + 1}`,
       opponent: newOpponent.trim(),
       date: newGameDate,
     };
@@ -1283,12 +1559,18 @@ export default function AnalyticsPage() {
       return;
     }
 
+    if (!selectedSeasonId) {
+      setMessage("Create or select a season before adding players.");
+      return;
+    }
+
     const newPlayer: Player = {
       id: createId(),
       firstName: playerFirst.trim() || "Player",
       lastName: playerLast.trim(),
       jersey: playerNumber.trim(),
       position: playerPosition.trim(),
+      seasonId: selectedSeasonId,
     };
 
     setPlayers((current) =>
@@ -1478,13 +1760,13 @@ export default function AnalyticsPage() {
               yards,
               rusher: isPunt
                 ? ""
-                : resolvePlayerInput(editPlayDraft.rusher, players),
+                : resolvePlayerInput(editPlayDraft.rusher, seasonPlayers),
               passer: isPunt
                 ? ""
-                : resolvePlayerInput(editPlayDraft.passer, players),
+                : resolvePlayerInput(editPlayDraft.passer, seasonPlayers),
               receiver: isPunt
                 ? ""
-                : resolvePlayerInput(editPlayDraft.receiver, players),
+                : resolvePlayerInput(editPlayDraft.receiver, seasonPlayers),
               result: resultUpper,
               touchdown: isTouchdown,
               firstDown: isTouchdown ? false : editPlayDraft.firstDown,
@@ -1574,6 +1856,8 @@ export default function AnalyticsPage() {
   function clearAllData() {
     if (!window.confirm("Clear all shared analytics data for this team? This affects every coach in the program.")) return;
 
+    setSeasons([]);
+    setSelectedSeasonId("");
     setPlayers([]);
     setFormations([]);
     setMotions([]);
@@ -1614,6 +1898,7 @@ export default function AnalyticsPage() {
             "playTag",
             "formationPlayTag",
             ...(reportScope === "season" ? ["gameBreakdown"] : []),
+            ...(reportScope === "allTime" ? ["yearOverYear"] : []),
           ]
         : reportSection === "defense"
           ? ["defense"]
@@ -1647,6 +1932,9 @@ export default function AnalyticsPage() {
           ...(reportScope === "season"
             ? [["gameBreakdown", "Game-by-Game Breakdown"]]
             : []),
+          ...(reportScope === "allTime"
+            ? [["yearOverYear", "Year-over-Year Comparison"]]
+            : []),
         ]
       : reportSection === "defense"
         ? [["defense", "Defense Report"]]
@@ -1660,6 +1948,7 @@ export default function AnalyticsPage() {
           <h1 style={titleStyle}>Analytics</h1>
           <p style={subTitleStyle}>
             {activeTeamName ? `${activeTeamName} • ` : ""}
+            {selectedSeason ? `${selectedSeason.name} • ` : ""}
             {selectedGame
               ? `Week ${selectedGame.week} vs ${selectedGame.opponent}`
               : "No game selected"}
@@ -1667,9 +1956,41 @@ export default function AnalyticsPage() {
           </p>
         </div>
 
-        <Link href="/" style={backButtonStyle}>
-          Back to CoachBoard
-        </Link>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+          }}
+        >
+          <select
+            value={selectedSeasonId}
+            onChange={(event) => {
+              setSelectedSeasonId(event.target.value);
+              setReportScope("season");
+            }}
+            style={{
+              ...gameSelectStyle,
+              minWidth: 150,
+            }}
+            title="Active analytics season"
+          >
+            {seasons.length === 0 && <option value="">No season</option>}
+            {[...seasons]
+              .sort((a, b) => b.year - a.year)
+              .map((season) => (
+                <option key={season.id} value={season.id}>
+                  {season.name}{season.archived ? " (Archived)" : ""}
+                </option>
+              ))}
+          </select>
+
+          <Link href="/" style={backButtonStyle}>
+            Back to CoachBoard
+          </Link>
+        </div>
       </header>
 
       {message && <div style={messageStyle}>{message}</div>}
@@ -1784,10 +2105,10 @@ export default function AnalyticsPage() {
                   value={selectedGameId}
                   onChange={(event) => setSelectedGameId(event.target.value)}
                 >
-                  {games.length === 0 && (
+                  {seasonGames.length === 0 && (
                     <option value="">Add a game first</option>
                   )}
-                  {games.map((game) => (
+                  {seasonGames.map((game) => (
                     <option key={game.id} value={game.id}>
                       Week {game.week} vs {game.opponent}
                     </option>
@@ -1948,7 +2269,7 @@ export default function AnalyticsPage() {
               </datalist>
 
               <datalist id="player-options">
-                {players.map((player) => (
+                {seasonPlayers.map((player) => (
                   <option key={player.id} value={playerLabel(player)} />
                 ))}
               </datalist>
@@ -2090,7 +2411,7 @@ export default function AnalyticsPage() {
                   <tbody>
                     {currentGamePlays.length === 0 && (
                       <tr>
-                        <td style={emptyTdStyle} colSpan={16}>
+                        <td style={emptyTdStyle} colSpan={17}>
                           No plays entered yet. Type a play and press SAVE PLAY.
                         </td>
                       </tr>
@@ -2622,69 +2943,173 @@ export default function AnalyticsPage() {
       )}
 
       {activeSection === "games" && (
-        <section style={panelStyle}>
-          <div style={smallRedStyle}>SCHEDULE</div>
-          <h2 style={panelTitleStyle}>Games</h2>
+        <div style={{ display: "grid", gap: 14 }}>
+          <section style={panelStyle}>
+            <div style={smallRedStyle}>SEASONS</div>
+            <h2 style={panelTitleStyle}>Season Manager</h2>
 
-          <div style={formThreeStyle}>
-            <input
-              style={inputStyle}
-              placeholder="Week"
-              value={newWeek}
-              onChange={(event) => setNewWeek(event.target.value)}
-            />
-            <input
-              style={inputStyle}
-              placeholder="Opponent"
-              value={newOpponent}
-              onChange={(event) => setNewOpponent(event.target.value)}
-            />
-            <input
-              style={inputStyle}
-              type="date"
-              value={newGameDate}
-              onChange={(event) => setNewGameDate(event.target.value)}
-            />
-          </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "150px minmax(180px, 1fr) auto",
+                gap: 8,
+                alignItems: "center",
+              }}
+            >
+              <input
+                style={inputStyle}
+                placeholder="Year"
+                value={newSeasonYear}
+                onChange={(event) => setNewSeasonYear(event.target.value)}
+              />
+              <input
+                style={inputStyle}
+                placeholder="Season name (optional)"
+                value={newSeasonName}
+                onChange={(event) => setNewSeasonName(event.target.value)}
+              />
+              <button style={primaryButtonStyle} onClick={createSeason}>
+                Create Season
+              </button>
+            </div>
 
-          <button style={primaryButtonStyle} onClick={addGame}>
-            Add Game
-          </button>
-
-          <List>
-            {games.length === 0 && (
-              <Row>
-                <span>No games have been added yet.</span>
-              </Row>
-            )}
-
-            {games.map((game) => (
-              <Row key={game.id}>
-                <span>
-                  Week {game.week} vs {game.opponent}
-                  {game.date ? ` • ${game.date}` : ""}
-                </span>
-
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    style={smallActionButtonStyle}
-                    onClick={() => {
-                      setSelectedGameId(game.id);
-                      setActiveSection("command");
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(190px, 1fr))",
+                gap: 8,
+                marginTop: 12,
+              }}
+            >
+              {[...seasons]
+                .sort((a, b) => b.year - a.year)
+                .map((season) => (
+                  <div
+                    key={season.id}
+                    style={{
+                      padding: 10,
+                      borderRadius: 12,
+                      border:
+                        selectedSeasonId === season.id
+                          ? "2px solid #dc2626"
+                          : "1px solid rgba(15,23,42,.10)",
+                      background: "#f8fafc",
+                      display: "grid",
+                      gap: 8,
                     }}
                   >
-                    Open
-                  </button>
+                    <button
+                      style={{
+                        ...smallActionButtonStyle,
+                        width: "100%",
+                        fontWeight: 900,
+                      }}
+                      onClick={() => {
+                        setSelectedSeasonId(season.id);
+                        setReportScope("season");
+                      }}
+                    >
+                      {season.name}
+                    </button>
+                    <div style={{ color: "#64748b", fontSize: 12 }}>
+                      {season.archived ? "Archived" : "Active"} •{" "}
+                      {
+                        games.filter(
+                          (game) => game.seasonId === season.id,
+                        ).length
+                      }{" "}
+                      games
+                    </div>
+                    <button
+                      style={
+                        season.archived
+                          ? smallActionButtonStyle
+                          : dangerButtonStyle
+                      }
+                      onClick={() => toggleArchiveSeason(season.id)}
+                    >
+                      {season.archived ? "Unarchive" : "Archive Season"}
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </section>
 
-                  <button style={dangerButtonStyle} onClick={() => deleteGame(game.id)}>
-                    Delete
-                  </button>
-                </div>
-              </Row>
-            ))}
-          </List>
-        </section>
+          <section style={panelStyle}>
+            <div style={smallRedStyle}>SCHEDULE</div>
+            <h2 style={panelTitleStyle}>
+              {selectedSeason?.name ?? "Season"} Games
+            </h2>
+
+            <div style={formThreeStyle}>
+              <input
+                style={inputStyle}
+                placeholder="Week"
+                value={newWeek}
+                onChange={(event) => setNewWeek(event.target.value)}
+              />
+              <input
+                style={inputStyle}
+                placeholder="Opponent"
+                value={newOpponent}
+                onChange={(event) => setNewOpponent(event.target.value)}
+              />
+              <input
+                style={inputStyle}
+                type="date"
+                value={newGameDate}
+                onChange={(event) => setNewGameDate(event.target.value)}
+              />
+            </div>
+
+            <button
+              style={primaryButtonStyle}
+              onClick={addGame}
+              disabled={!selectedSeasonId || selectedSeason?.archived}
+            >
+              Add Game
+            </button>
+
+            <List>
+              {seasonGames.length === 0 && (
+                <Row>
+                  <span>No games have been added to this season yet.</span>
+                </Row>
+              )}
+
+              {seasonGames.map((game) => (
+                <Row key={game.id}>
+                  <span>
+                    Week {game.week} vs {game.opponent}
+                    {game.date ? ` • ${game.date}` : ""}
+                  </span>
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      style={smallActionButtonStyle}
+                      onClick={() => {
+                        setSelectedGameId(game.id);
+                        setActiveSection("command");
+                      }}
+                    >
+                      Open
+                    </button>
+
+                    <button
+                      style={dangerButtonStyle}
+                      onClick={() => deleteGame(game.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </Row>
+              ))}
+            </List>
+          </section>
+        </div>
       )}
+
 
       {activeSection === "command" && gameCenterSection === "specialTeams" && (
         <section style={panelStyle}>
@@ -3015,7 +3440,9 @@ export default function AnalyticsPage() {
         <section style={setupGridStyle}>
           <div style={panelStyle}>
             <div style={smallRedStyle}>ROSTER</div>
-            <h2 style={panelTitleStyle}>Players</h2>
+            <h2 style={panelTitleStyle}>
+              {selectedSeason?.name ?? "Season"} Players
+            </h2>
 
             <div style={formFourStyle}>
               <input
@@ -3049,7 +3476,7 @@ export default function AnalyticsPage() {
             </button>
 
             <List>
-              {players.map((player) => (
+              {seasonPlayers.map((player) => (
                 <Row key={player.id}>
                   <span>{playerLabel(player)}</span>
                   <button
@@ -3217,7 +3644,11 @@ export default function AnalyticsPage() {
             <div>
               <div style={smallRedStyle}>REPORT VIEW</div>
               <h2 style={panelTitleStyle}>
-                {reportScope === "season" ? "Season Analytics" : "Current Game Analytics"}
+                {reportScope === "game"
+                  ? "Current Game Analytics"
+                  : reportScope === "season"
+                    ? `${selectedSeason?.name ?? "Season"} Analytics`
+                    : "All-Time Program Analytics"}
               </h2>
               {reportSection === "offense" && (
                 <div style={reportDefinitionStyle}>
@@ -3246,7 +3677,17 @@ export default function AnalyticsPage() {
                   }}
                   onClick={() => setReportScope("season")}
                 >
-                  Full Season
+                  Selected Season
+                </button>
+
+                <button
+                  style={{
+                    ...scopeButtonStyle,
+                    ...(reportScope === "allTime" ? scopeButtonActiveStyle : {}),
+                  }}
+                  onClick={() => setReportScope("allTime")}
+                >
+                  All-Time
                 </button>
               </div>
 
@@ -3362,9 +3803,29 @@ export default function AnalyticsPage() {
             <div>
               <div style={eyebrowStyle}>COACHBOARD ANALYTICS</div>
               <h1 style={{ ...titleStyle, fontSize: 30 }}>
-                {reportScope === "season"
-                  ? `${reportSection === "offense" ? "Offensive" : reportSection === "defense" ? "Defensive" : "Special Teams"} Season Analytics Report`
-                  : `Week ${selectedGame?.week ?? "-"} vs ${selectedGame?.opponent ?? "Opponent"} — ${reportSection === "offense" ? "Offense" : reportSection === "defense" ? "Defense" : "Special Teams"}`}
+                {reportScope === "game"
+                  ? `Week ${selectedGame?.week ?? "-"} vs ${selectedGame?.opponent ?? "Opponent"} — ${
+                      reportSection === "offense"
+                        ? "Offense"
+                        : reportSection === "defense"
+                          ? "Defense"
+                          : "Special Teams"
+                    }`
+                  : reportScope === "season"
+                    ? `${selectedSeason?.name ?? "Season"} ${
+                        reportSection === "offense"
+                          ? "Offensive"
+                          : reportSection === "defense"
+                            ? "Defensive"
+                            : "Special Teams"
+                      } Analytics Report`
+                    : `All-Time ${
+                        reportSection === "offense"
+                          ? "Offensive"
+                          : reportSection === "defense"
+                            ? "Defensive"
+                            : "Special Teams"
+                      } Analytics Report`}
               </h1>
               {reportSection === "offense" && (
                 <div style={printDefinitionStyle}>
@@ -3452,7 +3913,7 @@ export default function AnalyticsPage() {
                     rushing={rushingReport}
                     passing={passingReport}
                     receiving={receivingReport}
-                    scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
+                    scopeLabel={reportScopeLabel}
                   />
                 </PrintableExpandableReport>
 
@@ -3470,7 +3931,7 @@ export default function AnalyticsPage() {
                   <PossessionAnalyticsReport
                     possessions={reportPossessions}
                     games={games}
-                    scopeLabel={reportScope === "season" ? "Season" : "Current Game"}
+                    scopeLabel={reportScopeLabel}
                   />
                 </PrintableExpandableReport>
 
@@ -3506,6 +3967,16 @@ export default function AnalyticsPage() {
                     fullWidth
                   >
                     <GameBreakdownReport rows={gameBreakdown} />
+                  </PrintableExpandableReport>
+                )}
+
+                {reportScope === "allTime" && (
+                  <PrintableExpandableReport
+                    title="Year-over-Year Comparison"
+                    printSelected={printSelections.yearOverYear}
+                    fullWidth
+                  >
+                    <YearOverYearReport rows={yearOverYear} />
                   </PrintableExpandableReport>
                 )}
               </section>
@@ -4992,6 +5463,82 @@ function PlayerStatTable({
                     {cell}
                   </td>
                 ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function YearOverYearReport({
+  rows,
+}: {
+  rows: Array<{
+    season: Season;
+    games: number;
+    stats: ReturnType<typeof calculateStats>;
+  }>;
+}) {
+  return (
+    <div style={panelStyle}>
+      <div style={smallRedStyle}>PROGRAM HISTORY</div>
+      <h2 style={panelTitleStyle}>Year-over-Year Comparison</h2>
+
+      <div style={tableWrapStyle}>
+        <table style={modernTableStyle}>
+          <thead>
+            <tr>
+              <th style={modernThStyle}>Season</th>
+              <th style={modernThStyle}>Games</th>
+              <th style={modernThStyle}>Plays</th>
+              <th style={modernThStyle}>Yards</th>
+              <th style={modernThStyle}>Yards/Game</th>
+              <th style={modernThStyle}>Rush</th>
+              <th style={modernThStyle}>Pass</th>
+              <th style={modernThStyle}>TDs</th>
+              <th style={modernThStyle}>Success</th>
+              <th style={modernThStyle}>Explosive</th>
+              <th style={modernThStyle}>3rd Down Conversion</th>
+              <th style={modernThStyle}>4th Down Conversion</th>
+              <th style={modernThStyle}>Turnovers</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td style={emptyTdStyle} colSpan={13}>
+                  Season comparisons will appear after games are charted.
+                </td>
+              </tr>
+            )}
+
+            {rows.map(({ season, games, stats }) => (
+              <tr key={season.id}>
+                <td style={modernTdStyle}>
+                  {season.name}{season.archived ? " (Archived)" : ""}
+                </td>
+                <td style={modernTdStyle}>{games}</td>
+                <td style={modernTdStyle}>{stats.total}</td>
+                <td style={modernTdStyle}>{stats.yards}</td>
+                <td style={modernTdStyle}>
+                  {games ? (stats.yards / games).toFixed(1) : "0.0"}
+                </td>
+                <td style={modernTdStyle}>{stats.rushYards}</td>
+                <td style={modernTdStyle}>{stats.passYards}</td>
+                <td style={modernTdStyle}>{stats.tds}</td>
+                <td style={modernTdStyle}>{stats.successRate}%</td>
+                <td style={modernTdStyle}>{stats.explosiveRate}%</td>
+                <td style={modernTdStyle}>
+                  {stats.thirdDownConversions}/{stats.thirdDownAttempts} •{" "}
+                  {stats.thirdDownConversionRate}%
+                </td>
+                <td style={modernTdStyle}>
+                  {stats.fourthDownConversions}/{stats.fourthDownAttempts} •{" "}
+                  {stats.fourthDownConversionRate}%
+                </td>
+                <td style={modernTdStyle}>{stats.turnovers}</td>
               </tr>
             ))}
           </tbody>
