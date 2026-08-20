@@ -2186,6 +2186,8 @@ function CoachBoardWebApp() {
   const [showManageConcepts, setShowManageConcepts] = useState(false);
   const [selectedPresetDropdownId, setSelectedPresetDropdownId] = useState("");
   const [formationsHydrated, setFormationsHydrated] = useState(false);
+  const [startupRankOneFormationId, setStartupRankOneFormationId] =
+    useState("");
   const didOpenRankOneFormationRef = useRef(false);
   const [savedPlayName, setSavedPlayName] = useState("");
   const [savedPlays, setSavedPlays] = useState<SavedPlay[]>([]);
@@ -5850,6 +5852,7 @@ function CoachBoardWebApp() {
 
   useEffect(() => {
     setFormationsHydrated(false);
+    setStartupRankOneFormationId("");
     didOpenRankOneFormationRef.current = false;
 
     const savedPresets = window.localStorage.getItem(
@@ -5882,6 +5885,7 @@ function CoachBoardWebApp() {
       ).filter(
         (preset) => !deletedSystemFormationIdSet.has(preset.id),
       );
+
       const parsedPresets = savedPresets
         ? (JSON.parse(savedPresets) as CustomOffensePreset[])
         : [];
@@ -5912,8 +5916,11 @@ function CoachBoardWebApp() {
         }
       }
 
+      let hydratedPresets: CustomOffensePreset[];
+
       if (rankedIds.length > 0) {
         const rankSet = new Set(rankedIds);
+
         const rankedPresets = rankedIds
           .map((id) => merged.find((preset) => preset.id === id))
           .filter(Boolean)
@@ -5923,19 +5930,33 @@ function CoachBoardWebApp() {
           .filter((preset) => !rankSet.has(preset.id))
           .map((preset) => ({ ...preset, isMain: false }));
 
-        setCustomOffensePresets([...rankedPresets, ...remainingPresets]);
+        hydratedPresets = [...rankedPresets, ...remainingPresets];
       } else {
-        setCustomOffensePresets(merged);
+        hydratedPresets = merged;
       }
+
+      const rankOne =
+        hydratedPresets.find((preset) => preset.isMain) ??
+        hydratedPresets[0];
+
+      setCustomOffensePresets(hydratedPresets);
+      setStartupRankOneFormationId(rankOne?.id ?? "");
+      setFormationsHydrated(true);
     } catch {
-      setCustomOffensePresets(makeDefaultOffensePresets(footballTeamSize));
-    } finally {
+      const fallbackPresets = makeDefaultOffensePresets(footballTeamSize);
+      const rankOne =
+        fallbackPresets.find((preset) => preset.isMain) ??
+        fallbackPresets[0];
+
+      setCustomOffensePresets(fallbackPresets);
+      setStartupRankOneFormationId(rankOne?.id ?? "");
       setFormationsHydrated(true);
     }
   }, [footballTeamSize]);
 
   useEffect(() => {
     if (!formationsHydrated) return;
+    if (!didOpenRankOneFormationRef.current) return;
 
     const userOnly = customOffensePresets.filter((preset) => !preset.isSystem);
     window.localStorage.setItem(
@@ -5957,16 +5978,21 @@ function CoachBoardWebApp() {
   useEffect(() => {
     if (!formationsHydrated) return;
     if (didOpenRankOneFormationRef.current) return;
+    if (!startupRankOneFormationId) return;
 
-    const rankedFormation =
-      customOffensePresets.filter((preset) => preset.isMain)[0] ??
-      customOffensePresets[0];
+    const rankedFormation = customOffensePresets.find(
+      (preset) => preset.id === startupRankOneFormationId,
+    );
 
     if (!rankedFormation) return;
 
     didOpenRankOneFormationRef.current = true;
     loadCustomOffensePreset(rankedFormation.id);
-  }, [customOffensePresets, formationsHydrated]);
+  }, [
+    customOffensePresets,
+    formationsHydrated,
+    startupRankOneFormationId,
+  ]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coachboard_saved_plays");
