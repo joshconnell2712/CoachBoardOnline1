@@ -4652,11 +4652,20 @@ function CoachBoardWebApp() {
                     cursor: "pointer",
                   }}
                 >
-                  <option value="">More...</option>
+                  <option
+                    value=""
+                    style={{ background: "#ffffff", color: "#111827" }}
+                  >
+                    More...
+                  </option>
                   {sortedOffensePresets
                     .filter((p) => !p.isMain)
                     .map((preset) => (
-                      <option key={preset.id} value={preset.id}>
+                      <option
+                        key={preset.id}
+                        value={preset.id}
+                        style={{ background: "#ffffff", color: "#111827" }}
+                      >
                         {preset.name}
                       </option>
                     ))}
