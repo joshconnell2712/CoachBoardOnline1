@@ -2109,6 +2109,8 @@ function CoachBoardWebApp() {
   const [footballTeamSize, setFootballTeamSize] = useState<FootballTeamSize>(
     DEFAULT_FOOTBALL_TEAM_SIZE,
   );
+  const [footballTeamSizeHydrated, setFootballTeamSizeHydrated] =
+    useState(false);
   const [coachFocus, setCoachFocus] = useState<CoachFocus>(DEFAULT_COACH_FOCUS);
   const [offensePlayers, setOffensePlayers] = useState<Player[]>(() =>
     getDefaultOffensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE),
@@ -5851,6 +5853,8 @@ function CoachBoardWebApp() {
   }, [fieldFullscreen]);
 
   useEffect(() => {
+    if (!footballTeamSizeHydrated) return;
+
     setFormationsHydrated(false);
     setStartupRankOneFormationId("");
     didOpenRankOneFormationRef.current = false;
@@ -5952,7 +5956,7 @@ function CoachBoardWebApp() {
       setStartupRankOneFormationId(rankOne?.id ?? "");
       setFormationsHydrated(true);
     }
-  }, [footballTeamSize]);
+  }, [footballTeamSize, footballTeamSizeHydrated]);
 
   useEffect(() => {
     if (!formationsHydrated) return;
@@ -5976,6 +5980,7 @@ function CoachBoardWebApp() {
   }, [customOffensePresets, formationsHydrated]);
 
   useEffect(() => {
+    if (!footballTeamSizeHydrated) return;
     if (!formationsHydrated) return;
     if (didOpenRankOneFormationRef.current) return;
     if (!startupRankOneFormationId) return;
@@ -5990,6 +5995,7 @@ function CoachBoardWebApp() {
     loadCustomOffensePreset(rankedFormation.id);
   }, [
     customOffensePresets,
+    footballTeamSizeHydrated,
     formationsHydrated,
     startupRankOneFormationId,
   ]);
@@ -6191,33 +6197,43 @@ function CoachBoardWebApp() {
       "coachboard_football_team_size",
     ) as FootballTeamSize | null;
 
-    if (saved && FOOTBALL_TEAM_SIZE_OPTIONS[saved]) {
-      const nextOffensePlayers = getDefaultOffensePlayers(saved);
-      const nextDefensePlayers = getDefaultDefensePlayers(saved);
-      setFootballTeamSize(saved);
-      middleOffensePlayersRef.current = nextOffensePlayers.map((player) => ({
-        ...player,
-      }));
-      middleDefensePlayersRef.current = nextDefensePlayers.map((player) => ({
-        ...player,
-      }));
-      setOffensePlayers(nextOffensePlayers);
-      applyDefensePlayers(nextDefensePlayers);
-      setSelectedPlayerId(getDefaultOffensePlayers(saved)[0]?.id ?? "x");
-      setSelectedSide("offense");
-      setSelectedPlayId("");
-      setSelectedPlayFormationId("");
-      setRoutes([]);
-      setDrawnLines([]);
-    }
+    const startupTeamSize =
+      saved && FOOTBALL_TEAM_SIZE_OPTIONS[saved]
+        ? saved
+        : DEFAULT_FOOTBALL_TEAM_SIZE;
+
+    const nextOffensePlayers = getDefaultOffensePlayers(startupTeamSize);
+    const nextDefensePlayers = getDefaultDefensePlayers(startupTeamSize);
+
+    setFootballTeamSize(startupTeamSize);
+    middleOffensePlayersRef.current = nextOffensePlayers.map((player) => ({
+      ...player,
+    }));
+    middleDefensePlayersRef.current = nextDefensePlayers.map((player) => ({
+      ...player,
+    }));
+    setOffensePlayers(nextOffensePlayers);
+    applyDefensePlayers(nextDefensePlayers);
+    setSelectedPlayerId(nextOffensePlayers[0]?.id ?? "x");
+    setSelectedSide("offense");
+    setSelectedPlayId("");
+    setSelectedPlayFormationId("");
+    setRoutes([]);
+    setDrawnLines([]);
+
+    // Only after the saved football type is established do we allow
+    // formation hydration to load the coach's true #1 ranked formation.
+    setFootballTeamSizeHydrated(true);
   }, []);
 
   useEffect(() => {
+    if (!footballTeamSizeHydrated) return;
+
     window.localStorage.setItem(
       "coachboard_football_team_size",
       footballTeamSize,
     );
-  }, [footballTeamSize]);
+  }, [footballTeamSize, footballTeamSizeHydrated]);
 
   function clearAllBoardMarkup(options?: { broadcast?: boolean; pushUndo?: boolean }) {
     const shouldBroadcast = options?.broadcast ?? true;
