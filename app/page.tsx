@@ -4860,6 +4860,178 @@ function CoachBoardWebApp() {
     </>
   );
 
+  const fullscreenPlayerPanelContent =
+    activePanelTab === "player" ? (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "auto minmax(130px, .55fr) minmax(300px, 1.35fr) auto",
+          alignItems: "center",
+          gap: 10,
+          width: "100%",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 11,
+              display: "grid",
+              placeItems: "center",
+              background: "rgba(220,38,38,.82)",
+              border: "1px solid rgba(255,255,255,.16)",
+              color: "white",
+              fontWeight: 950,
+              fontSize: 18,
+              boxShadow: "0 6px 16px rgba(0,0,0,.18)",
+            }}
+          >
+            {selectedPlayer.position}
+          </div>
+          <div>
+            <div
+              style={{
+                color: "#f87171",
+                fontSize: 9,
+                fontWeight: 950,
+                letterSpacing: ".12em",
+                textTransform: "uppercase",
+              }}
+            >
+              Player
+            </div>
+            <div style={{ color: "white", fontSize: 12, fontWeight: 850 }}>
+              {selectedPlayer.position}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              color: "#cbd5e1",
+              fontSize: 9,
+              fontWeight: 900,
+              letterSpacing: ".08em",
+              marginBottom: 3,
+            }}
+          >
+            LABEL
+          </div>
+          <input
+            value={selectedPlayer.position}
+            onChange={(e) => updateSelectedPlayerLabel(e.target.value)}
+            style={{
+              width: "100%",
+              height: 34,
+              background: "rgba(2,6,23,.46)",
+              border: "1px solid rgba(255,255,255,.10)",
+              borderRadius: 9,
+              color: "white",
+              padding: "0 10px",
+              fontWeight: 850,
+              outline: "none",
+            }}
+          />
+        </div>
+
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              color: "#cbd5e1",
+              fontSize: 9,
+              fontWeight: 900,
+              letterSpacing: ".08em",
+              marginBottom: 3,
+            }}
+          >
+            COLOR
+          </div>
+          <div
+            style={{
+              transform: "scale(.68)",
+              transformOrigin: "left center",
+              width: "147%",
+              height: 34,
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <ColorSwatches
+              selectedColor={
+                selectedPlayer.color ??
+                (selectedSide === "defense" ? "#dc2626" : "#f3f4f6")
+              }
+              onSelect={updateSelectedPlayerColor}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+          {selectedSide === "offense" && (
+            <button
+              style={{
+                ...buttonBase,
+                background: "rgba(220,38,38,.78)",
+                color: "white",
+                padding: "8px 10px",
+                fontSize: 10,
+                whiteSpace: "nowrap",
+              }}
+              onClick={() =>
+                setOffensePlayers((players) => autoSpaceOffensiveLine(players))
+              }
+            >
+              Auto Space
+            </button>
+          )}
+
+          {selectedSide === "defense" && (
+            <button
+              style={{
+                ...buttonBase,
+                background: defensiveReadPlayerIds.includes(selectedPlayer.id)
+                  ? "linear-gradient(180deg, #a855f7 0%, #6d28d9 100%)"
+                  : "rgba(2,6,23,.58)",
+                color: "white",
+                padding: "8px 10px",
+                fontSize: 10,
+                whiteSpace: "nowrap",
+              }}
+              onClick={() => {
+                const nextReadPlayerIds = defensiveReadPlayerIds.includes(
+                  selectedPlayer.id,
+                )
+                  ? defensiveReadPlayerIds.filter(
+                      (id) => id !== selectedPlayer.id,
+                    )
+                  : [...defensiveReadPlayerIds, selectedPlayer.id];
+
+                setDefensiveReadPlayerIds(nextReadPlayerIds);
+
+                realtimeChannelRef.current?.send({
+                  type: "broadcast",
+                  event: "board-event",
+                  payload: {
+                    type: "SET_READ_KEY",
+                    defensiveReadPlayerIds: nextReadPlayerIds,
+                  },
+                });
+              }}
+            >
+              {defensiveReadPlayerIds.includes(selectedPlayer.id)
+                ? "Read Key"
+                : "Mark Read"}
+            </button>
+          )}
+        </div>
+      </div>
+    ) : (
+      playerPanelContent
+    );
+
   useEffect(() => {
     function updateFieldSize() {
       if (fieldRef.current) {
@@ -9254,27 +9426,30 @@ function CoachBoardWebApp() {
                 style={{
                   ...cardStyle,
                   position: "fixed",
-                  top: 90,
+                  top: 92,
                   left: "50%",
                   transform: "translateX(-50%)",
-                  width: "min(720px, calc(100vw - 100px))",
-                  maxHeight: "210px",
+                  width:
+                    activePanelTab === "player"
+                      ? "min(860px, calc(100vw - 120px))"
+                      : "min(720px, calc(100vw - 100px))",
+                  maxHeight: activePanelTab === "player" ? "64px" : "210px",
                   zIndex: 2147483645,
-                  padding: 10,
+                  padding: activePanelTab === "player" ? "8px 10px" : 10,
                   display: "flex",
                   flexDirection: "column",
                   gap: 8,
-                  overflowY: "auto",
-                  background: "rgba(15,23,42,.60)",
-                  backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(255,255,255,.12)",
-                  boxShadow: "0 14px 38px rgba(0,0,0,.26)",
+                  overflowY: activePanelTab === "player" ? "hidden" : "auto",
+                  background: "rgba(15,23,42,.34)",
+                  backdropFilter: "blur(6px)",
+                  border: "1px solid rgba(255,255,255,.09)",
+                  boxShadow: "0 8px 24px rgba(0,0,0,.16)",
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onPointerMove={(e) => e.stopPropagation()}
                 onPointerUp={(e) => e.stopPropagation()}
               >
-                {playerPanelContent}
+                {fullscreenPlayerPanelContent}
               </div>
             )}
             {fieldFullscreen && showFullscreenToolsPanel && (
