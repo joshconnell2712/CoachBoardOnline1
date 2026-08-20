@@ -8859,18 +8859,47 @@ function CoachBoardWebApp() {
       ? nextOrganization.field_template
       : DEFAULT_FIELD_TEMPLATE;
 
-    setFootballTeamSize(nextFootballType);
+    const footballTypeChanged = nextFootballType !== footballTeamSize;
+
     setFieldTemplate(nextFieldTemplate);
-    setOffensePlayers(getDefaultOffensePlayers(nextFootballType));
-    applyDefensePlayers(getDefaultDefensePlayers(nextFootballType));
-    setSelectedPlayerId(
-      getDefaultOffensePlayers(nextFootballType)[0]?.id ?? "x",
-    );
-    setSelectedSide("offense");
-    setSelectedPlayId("");
-    setSelectedPlayFormationId("");
-    setRoutes([]);
-    setDrawnLines([]);
+
+    // IMPORTANT:
+    // Organization data loads asynchronously after the page has already started.
+    // Previously this function always reset the field back to the system default
+    // formation, which overwrote the coach's #1 ranked formation after it loaded.
+    //
+    // Only reset the player count when the organization's football type actually
+    // changed. If it did not change, leave the currently loaded #1 formation alone.
+    if (footballTypeChanged) {
+      const nextOffensePlayers = getDefaultOffensePlayers(nextFootballType);
+      const nextDefensePlayers = getDefaultDefensePlayers(nextFootballType);
+
+      setFootballTeamSize(nextFootballType);
+      middleOffensePlayersRef.current = nextOffensePlayers.map((player) => ({
+        ...player,
+      }));
+      middleDefensePlayersRef.current = nextDefensePlayers.map((player) => ({
+        ...player,
+      }));
+      setOffensePlayers(nextOffensePlayers);
+      applyDefensePlayers(nextDefensePlayers);
+      setSelectedPlayerId(nextOffensePlayers[0]?.id ?? "x");
+      setSelectedSide("offense");
+      setSelectedPlayId("");
+      setSelectedPlayFormationId("");
+      setRoutes([]);
+      setDrawnLines([]);
+
+      // Changing football type causes the formation hydration effect to run again,
+      // and that effect will then load the coach's saved #1 formation for the
+      // correct player count.
+      return;
+    }
+
+    // Same football type: do NOT touch offensePlayers, defensePlayers,
+    // selectedPlayFormationId, routes, or drawings. The coach's #1 formation
+    // remains the startup board.
+    setFootballTeamSize(nextFootballType);
   }
 
   async function refreshOrganization() {
