@@ -486,6 +486,33 @@ function offenseCanBeOnLOS(player: Player) {
   return OFFENSE_CAN_ALIGN_ON_LOS.includes(player.id);
 }
 
+function positionDefenseForBallSpot(
+  middlePlayers: Player[],
+  spot: BallSpot,
+  hash: FieldHashPreset,
+) {
+  const delta = ballXForSpot(spot, hash) - MIDDLE_BALL_X;
+
+  return middlePlayers.map((player) => ({
+    ...player,
+    x: Math.max(4, Math.min(96, player.x + delta)),
+  }));
+}
+
+function deriveMiddleDefenseAlignment(
+  displayedPlayers: Player[],
+  currentSpot: BallSpot,
+  hash: FieldHashPreset,
+) {
+  const delta = ballXForSpot(currentSpot, hash) - MIDDLE_BALL_X;
+
+  return displayedPlayers.map((player) => ({
+    ...player,
+    x: Math.max(4, Math.min(96, player.x - delta)),
+  }));
+}
+
+
 function offenseMustBeOnLOS(player: Player) {
   return OFFENSE_ALWAYS_ON_LOS.includes(player.id);
 }
@@ -2092,6 +2119,9 @@ function CoachBoardWebApp() {
   const [defensePlayers, setDefensePlayers] = useState<Player[]>(() =>
     getDefaultDefensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE),
   );
+  const middleDefensePlayersRef = useRef<Player[]>(
+    getDefaultDefensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE),
+  );
   const [selectedDefenseFront, setSelectedDefenseFront] =
     useState<DefensePreset>("4-3 Over");
   const [selectedDefensiveCoverage, setSelectedDefensiveCoverage] =
@@ -2155,6 +2185,7 @@ function CoachBoardWebApp() {
   const [showCreateConcept, setShowCreateConcept] = useState(false);
   const [showManageConcepts, setShowManageConcepts] = useState(false);
   const [selectedPresetDropdownId, setSelectedPresetDropdownId] = useState("");
+  const didOpenRankOneFormationRef = useRef(false);
   const [savedPlayName, setSavedPlayName] = useState("");
   const [savedPlays, setSavedPlays] = useState<SavedPlay[]>([]);
   const [playFolders, setPlayFolders] = useState<PlayFolder[]>([]);
@@ -5847,6 +5878,20 @@ function CoachBoardWebApp() {
   }, [customOffensePresets]);
 
   useEffect(() => {
+    if (didOpenRankOneFormationRef.current) return;
+    if (customOffensePresets.length === 0) return;
+
+    const rankedFormation =
+      customOffensePresets.find((preset) => preset.isMain) ??
+      customOffensePresets[0];
+
+    if (!rankedFormation) return;
+
+    didOpenRankOneFormationRef.current = true;
+    loadCustomOffensePreset(rankedFormation.id);
+  }, [customOffensePresets]);
+
+  useEffect(() => {
     const saved = window.localStorage.getItem("coachboard_saved_plays");
     if (!saved) return;
 
@@ -5855,20 +5900,8 @@ function CoachBoardWebApp() {
       if (!Array.isArray(parsed)) return;
       setSavedPlays(parsed);
 
-      const preload = parsed.find((play) => play.preloadOnOpen);
-      if (preload) {
-        setOffensePlayers(normalizeOffenseOnLOS(preload.offensePlayers));
-        applyDefensePlayers(preload.defensePlayers.map((p) => ({ ...p })));
-        setRoutes(preload.routes.map((r) => ({ ...r })));
-        setDrawnLines(
-          preload.drawnLines.map((line) => ({
-            ...line,
-            points: line.points.map((point) => ({ ...point })),
-          })),
-        );
-        setSelectedPlayId(preload.id);
-        setSelectedPlayFormationId(preload.formationId ?? "");
-      }
+      // CoachBoard now opens to the #1 ranked formation instead of
+      // automatically opening a previously marked preload play.
     } catch {
       setSavedPlays([]);
     }
@@ -6056,9 +6089,17 @@ function CoachBoardWebApp() {
     ) as FootballTeamSize | null;
 
     if (saved && FOOTBALL_TEAM_SIZE_OPTIONS[saved]) {
+      const nextOffensePlayers = getDefaultOffensePlayers(saved);
+      const nextDefensePlayers = getDefaultDefensePlayers(saved);
       setFootballTeamSize(saved);
-      setOffensePlayers(getDefaultOffensePlayers(saved));
-      applyDefensePlayers(getDefaultDefensePlayers(saved));
+      middleOffensePlayersRef.current = nextOffensePlayers.map((player) => ({
+        ...player,
+      }));
+      middleDefensePlayersRef.current = nextDefensePlayers.map((player) => ({
+        ...player,
+      }));
+      setOffensePlayers(nextOffensePlayers);
+      applyDefensePlayers(nextDefensePlayers);
       setSelectedPlayerId(getDefaultOffensePlayers(saved)[0]?.id ?? "x");
       setSelectedSide("offense");
       setSelectedPlayId("");
@@ -7338,8 +7379,18 @@ function CoachBoardWebApp() {
     middleOffensePlayersRef.current = middlePlayers.map((player) => ({
       ...player,
     }));
+
+    const loadedDefensePlayers = play.defensePlayers.map((player) => ({
+      ...player,
+    }));
+    middleDefensePlayersRef.current = deriveMiddleDefenseAlignment(
+      loadedDefensePlayers,
+      nextBallSpot,
+      activeHash,
+    );
+
     setOffensePlayers(nextOffensePlayers);
-    applyDefensePlayers(play.defensePlayers.map((p) => ({ ...p })));
+    applyDefensePlayers(loadedDefensePlayers);
     setRoutes(play.routes.map((r) => ({ ...r })));
     setDrawnLines(
       play.drawnLines.map((line) => ({
@@ -7753,23 +7804,43 @@ function CoachBoardWebApp() {
       FIELD_HASH_PRESETS[fieldTemplate] ??
       FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
 
-    const refreshedMiddle = deriveMiddleAlignment(
+    const refreshedMiddleOffense = deriveMiddleAlignment(
       offensePlayers,
       ballSpot,
       activeHash,
       middleOffensePlayersRef.current,
     );
 
-    middleOffensePlayersRef.current = refreshedMiddle.map((player) => ({
+    const refreshedMiddleDefense = deriveMiddleDefenseAlignment(
+      defensePlayers,
+      ballSpot,
+      activeHash,
+    );
+
+    middleOffensePlayersRef.current = refreshedMiddleOffense.map((player) => ({
+      ...player,
+    }));
+    middleDefensePlayersRef.current = refreshedMiddleDefense.map((player) => ({
       ...player,
     }));
 
-    const shiftedPlayers = normalizeOffenseOnLOS(
-      positionOffenseForBallSpot(refreshedMiddle, nextSpot, activeHash),
+    const shiftedOffensePlayers = normalizeOffenseOnLOS(
+      positionOffenseForBallSpot(
+        refreshedMiddleOffense,
+        nextSpot,
+        activeHash,
+      ),
+    );
+
+    const shiftedDefensePlayers = positionDefenseForBallSpot(
+      refreshedMiddleDefense,
+      nextSpot,
+      activeHash,
     );
 
     setBallSpot(nextSpot);
-    setOffensePlayers(shiftedPlayers);
+    setOffensePlayers(shiftedOffensePlayers);
+    setDefensePlayers(shiftedDefensePlayers);
 
     if (broadcast) {
       realtimeChannelRef.current?.send({
@@ -7786,7 +7857,16 @@ function CoachBoardWebApp() {
         event: "board-event",
         payload: {
           type: "SET_OFFENSE_PLAYERS",
-          offensePlayers: shiftedPlayers,
+          offensePlayers: shiftedOffensePlayers,
+        },
+      });
+
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_DEFENSE_PLAYERS",
+          defensePlayers: shiftedDefensePlayers,
         },
       });
     }
@@ -7812,7 +7892,23 @@ function CoachBoardWebApp() {
       middleOffensePlayersRef.current = middlePlayers.map((player) => ({
         ...player,
       }));
+
+      const refreshedMiddleDefense = deriveMiddleDefenseAlignment(
+        defensePlayers,
+        ballSpot,
+        activeHash,
+      );
+      const nextDefensePlayers = positionDefenseForBallSpot(
+        refreshedMiddleDefense,
+        nextBallSpot,
+        activeHash,
+      );
+      middleDefensePlayersRef.current = refreshedMiddleDefense.map((player) => ({
+        ...player,
+      }));
+
       setOffensePlayers(nextPlayers);
+      setDefensePlayers(nextDefensePlayers);
       setSelectedPlayFormationId(id);
       setSelectedPresetDropdownId(id);
       setSelectedPlayId("");
@@ -7836,6 +7932,15 @@ function CoachBoardWebApp() {
         payload: {
           type: "SET_OFFENSE_PLAYERS",
           offensePlayers: nextPlayers,
+        },
+      });
+
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_DEFENSE_PLAYERS",
+          defensePlayers: nextDefensePlayers,
         },
       });
 
