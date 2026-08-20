@@ -11478,10 +11478,8 @@ function CoachBoardWebApp() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns:
-                    "repeat(auto-fit, minmax(250px, 1fr))",
-                  gap: 10,
-                  alignItems: "stretch",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: 8,
                 }}
               >
                 {sortedOffensePresets.map((preset) => (
@@ -11499,23 +11497,15 @@ function CoachBoardWebApp() {
                     }}
                     onDragEnd={() => setDraggedTopPresetId(null)}
                     style={{
-                      background:
-                        "linear-gradient(180deg, rgba(17,24,39,.98) 0%, rgba(9,11,16,.98) 100%)",
-                      borderRadius: 14,
-                      padding: 10,
+                      background: "#090b10",
+                      borderRadius: 12,
+                      padding: 8,
                       display: "grid",
-                      gridTemplateRows: "auto auto",
-                      alignContent: "space-between",
-                      gap: 8,
-                      minWidth: 0,
-                      minHeight: 104,
+                      gap: 6,
                       opacity: draggedTopPresetId === preset.id ? 0.55 : 1,
                       border: preset.isMain
-                        ? "1px solid rgba(59,130,246,.72)"
-                        : "1px solid rgba(255,255,255,.09)",
-                      boxShadow: preset.isMain
-                        ? "0 8px 22px rgba(37,99,235,.12), inset 0 1px 0 rgba(255,255,255,.04)"
-                        : "0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.035)",
+                        ? "1px solid rgba(37,99,235,.7)"
+                        : "1px solid rgba(255,255,255,.08)",
                       cursor: preset.isMain ? "grab" : "default",
                     }}
                   >
@@ -11535,21 +11525,12 @@ function CoachBoardWebApp() {
                         }
                         style={{
                           width: "100%",
-                          minWidth: 0,
-                          height: 38,
-                          background: "rgba(2,6,23,.72)",
-                          border: "1px solid rgba(255,255,255,.11)",
-                          borderRadius: 9,
+                          background: "#090b10",
+                          border: "1px solid rgba(255,255,255,.12)",
+                          borderRadius: 8,
                           color: "white",
                           padding: "8px 10px",
-                          fontSize:
-                            preset.name.length > 20
-                              ? 11
-                              : preset.name.length > 14
-                                ? 12
-                                : 13,
-                          fontWeight: 800,
-                          opacity: preset.isSystem ? 0.72 : 1,
+                          opacity: preset.isSystem ? 0.7 : 1,
                         }}
                       />
                       <span
@@ -11568,17 +11549,14 @@ function CoachBoardWebApp() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                        gridTemplateColumns: "1fr 1fr 1fr",
                         gap: 6,
                       }}
                     >
                       <button
                         style={{
                           ...buttonBase,
-                          padding: "8px 6px",
-                          minHeight: 36,
-                          fontSize: 11,
-                          lineHeight: 1.05,
+                          padding: "8px",
                           background: preset.isMain ? "#dc2626" : "#2a303b",
                           color: "white",
                         }}
@@ -11590,10 +11568,7 @@ function CoachBoardWebApp() {
                         disabled={preset.isSystem}
                         style={{
                           ...buttonBase,
-                          padding: "8px 6px",
-                          minHeight: 36,
-                          fontSize: 11,
-                          lineHeight: 1.05,
+                          padding: "8px",
                           background: preset.isSystem ? "#1f242e" : "#2a303b",
                           color: "white",
                           opacity: preset.isSystem ? 0.55 : 1,
@@ -11606,10 +11581,7 @@ function CoachBoardWebApp() {
                         disabled={preset.isSystem}
                         style={{
                           ...buttonBase,
-                          padding: "8px 6px",
-                          minHeight: 36,
-                          fontSize: 11,
-                          lineHeight: 1.05,
+                          padding: "8px",
                           background: preset.isSystem ? "#1f242e" : "#7f1111",
                           color: "white",
                           opacity: preset.isSystem ? 0.55 : 1,
@@ -13198,7 +13170,15 @@ function CoachBoardWebApp() {
                           button.
                         </div>
                       ) : (
-                        <div style={{ display: "grid", gap: 8 }}>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "repeat(auto-fit, minmax(320px, 1fr))",
+                            gap: 12,
+                            alignItems: "start",
+                          }}
+                        >
                           {selectedPlaybook.formationIds.map((formationId) => {
                             const formation = customOffensePresets.find(
                               (preset) => preset.id === formationId,
@@ -13215,20 +13195,26 @@ function CoachBoardWebApp() {
                               <div
                                 key={formationId}
                                 style={{
-                                  borderRadius: 14,
-                                  background: "#111827",
-                                  border: "1px solid rgba(255,255,255,.08)",
+                                  borderRadius: 16,
+                                  background:
+                                    "linear-gradient(180deg, rgba(17,24,39,.98) 0%, rgba(9,11,16,.98) 100%)",
+                                  border: "1px solid rgba(255,255,255,.09)",
                                   overflow: "hidden",
+                                  minWidth: 0,
+                                  boxShadow:
+                                    "0 10px 24px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.03)",
                                 }}
                               >
                                 <div
                                   style={{
                                     display: "grid",
-                                    gridTemplateColumns: "1fr auto auto",
-                                    gap: 6,
+                                    gridTemplateColumns: "minmax(0, 1fr) auto",
+                                    gap: 8,
                                     alignItems: "center",
-                                    padding: "9px 10px",
+                                    padding: "10px 11px",
                                     background: "rgba(255,255,255,.025)",
+                                    borderBottom:
+                                      "1px solid rgba(255,255,255,.06)",
                                   }}
                                 >
                                   <button
@@ -13238,7 +13224,12 @@ function CoachBoardWebApp() {
                                       color: "white",
                                       textAlign: "left",
                                       padding: "7px 4px",
-                                      fontSize: 15,
+                                      fontSize:
+                                        formation.name.length > 18
+                                          ? 12
+                                          : formation.name.length > 12
+                                            ? 13
+                                            : 15,
                                       fontWeight: 900,
                                     }}
                                     onClick={() => {
@@ -13251,43 +13242,6 @@ function CoachBoardWebApp() {
                                   >
                                     🏈 {formation.name}
                                   </button>
-
-                                  {playConcepts.length > 0 && (
-                                    <select
-                                      defaultValue=""
-                                      onChange={(e) => {
-                                        const conceptId = e.target.value;
-                                        if (!conceptId) return;
-                                        applyConceptFromPlaybook(
-                                          selectedPlaybook.id,
-                                          formationId,
-                                          conceptId,
-                                        );
-                                        e.currentTarget.value = "";
-                                      }}
-                                      style={{
-                                        height: 36,
-                                        background: "#1f2937",
-                                        color: "white",
-                                        border:
-                                          "1px solid rgba(255,255,255,.12)",
-                                        borderRadius: 9,
-                                        padding: "0 9px",
-                                        fontWeight: 800,
-                                      }}
-                                      title="Apply a saved concept to this formation"
-                                    >
-                                      <option value="">Apply Concept...</option>
-                                      {playConcepts.map((concept) => (
-                                        <option
-                                          key={concept.id}
-                                          value={concept.id}
-                                        >
-                                          {concept.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  )}
 
                                   <button
                                     style={{
@@ -13311,10 +13265,48 @@ function CoachBoardWebApp() {
                                 <div
                                   style={{
                                     display: "grid",
-                                    gap: 6,
+                                    gap: 8,
                                     padding: 10,
                                   }}
                                 >
+                                  {playConcepts.length > 0 && (
+                                    <select
+                                      defaultValue=""
+                                      onChange={(e) => {
+                                        const conceptId = e.target.value;
+                                        if (!conceptId) return;
+                                        applyConceptFromPlaybook(
+                                          selectedPlaybook.id,
+                                          formationId,
+                                          conceptId,
+                                        );
+                                        e.currentTarget.value = "";
+                                      }}
+                                      style={{
+                                        width: "100%",
+                                        height: 36,
+                                        background: "#1f2937",
+                                        color: "white",
+                                        border:
+                                          "1px solid rgba(255,255,255,.10)",
+                                        borderRadius: 9,
+                                        padding: "0 9px",
+                                        fontWeight: 800,
+                                      }}
+                                      title="Apply a saved concept to this formation"
+                                    >
+                                      <option value="">Apply Concept...</option>
+                                      {playConcepts.map((concept) => (
+                                        <option
+                                          key={concept.id}
+                                          value={concept.id}
+                                        >
+                                          {concept.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+
                                   {formationPlays.length === 0 ? (
                                     <div
                                       style={{
