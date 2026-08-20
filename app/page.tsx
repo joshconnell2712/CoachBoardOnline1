@@ -95,6 +95,7 @@ type CustomOffensePreset = {
 type SavedPlay = {
   id: string;
   name: string;
+  playbookId?: string;
   formationId?: string;
   folderId?: string;
   ownerId?: string;
@@ -2066,6 +2067,7 @@ function CoachBoardWebApp() {
   const [playbookName, setPlaybookName] = useState("");
   const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
   const [selectedPlaybookId, setSelectedPlaybookId] = useState("");
+  const [activePlaybookBuildId, setActivePlaybookBuildId] = useState("");
   const [conceptName, setConceptName] = useState("");
   const [playConcepts, setPlayConcepts] = useState<PlayConcept[]>([]);
   const [selectedConceptId, setSelectedConceptId] = useState("");
@@ -6972,6 +6974,7 @@ function CoachBoardWebApp() {
     const play: SavedPlay = {
       id: crypto.randomUUID(),
       name,
+      playbookId: activePlaybookBuildId || undefined,
       formationId: selectedPlayFormationId,
       folderId: selectedLibraryFolderId,
       ownerId: user?.id,
@@ -7014,6 +7017,8 @@ function CoachBoardWebApp() {
     );
     setSelectedPlayId(id);
     setSelectedPlayFormationId(play.formationId ?? "");
+    setActivePlaybookBuildId(play.playbookId ?? "");
+    if (play.playbookId) setSelectedPlaybookId(play.playbookId);
   }
 
   function overwritePlay(id: string) {
@@ -7395,6 +7400,7 @@ function CoachBoardWebApp() {
   function clearLoadedPlay() {
     setSelectedPlayId("");
     setSelectedPlayFormationId("");
+    setActivePlaybookBuildId("");
     setRoutes([]);
     setDrawnLines([]);
   }
@@ -7409,6 +7415,7 @@ function CoachBoardWebApp() {
       setSelectedPlayFormationId(id);
       setSelectedPresetDropdownId(id);
       setSelectedPlayId("");
+      setActivePlaybookBuildId("");
       setRoutes([]);
       setDrawnLines([]);
 
@@ -7790,6 +7797,52 @@ function CoachBoardWebApp() {
   function deletePlaybook(id: string) {
     setPlaybooks((current) => current.filter((book) => book.id !== id));
     if (selectedPlaybookId === id) setSelectedPlaybookId("");
+    if (activePlaybookBuildId === id) setActivePlaybookBuildId("");
+  }
+
+  function startNewPlayFromFormation(
+    playbookId: string,
+    formationId: string,
+  ) {
+    setSelectedPlaybookId(playbookId);
+    loadCustomOffensePreset(formationId);
+    setActivePlaybookBuildId(playbookId);
+    setSavedPlayName("");
+    setShowCreatePlay(true);
+    setShowPlaybooks(false);
+  }
+
+  function openPlaybookPlay(playbookId: string, playId: string) {
+    setSelectedPlaybookId(playbookId);
+    setActivePlaybookBuildId(playbookId);
+    loadPlay(playId);
+    setShowPlaybooks(false);
+  }
+
+  function applyConceptFromPlaybook(
+    playbookId: string,
+    formationId: string,
+    conceptId: string,
+  ) {
+    const generated = buildConceptForFormation(formationId, conceptId);
+    if (!generated) return;
+
+    setSelectedPlaybookId(playbookId);
+    setActivePlaybookBuildId(playbookId);
+    setSelectedPlayFormationId(formationId);
+    setSelectedPresetDropdownId(formationId);
+    setSelectedPlayId("");
+    setSavedPlayName("");
+    setOffensePlayers(normalizeOffenseOnLOS(generated.offensePlayers));
+    setRoutes(generated.routes.map((route) => ({ ...route })));
+    setDrawnLines(
+      generated.drawnLines.map((line) => ({
+        ...line,
+        points: line.points.map((point) => ({ ...point })),
+      })),
+    );
+    setShowCreatePlay(true);
+    setShowPlaybooks(false);
   }
 
   function toggleFormationInPlaybook(playbookId: string, formationId: string) {
@@ -7887,6 +7940,7 @@ function CoachBoardWebApp() {
     return {
       id: crypto.randomUUID(),
       name: `${formation.name} - ${concept.name}`,
+      playbookId: selectedPlaybookId || undefined,
       formationId,
       offensePlayers: normalizeOffenseOnLOS(formation.players),
       defensePlayers: defensePlayers.map((p) => ({ ...p })),
@@ -12753,10 +12807,15 @@ function CoachBoardWebApp() {
             <div
               style={{ ...cardStyle, padding: 16, display: "grid", gap: 12 }}
             >
-              <div style={{ fontSize: 18, fontWeight: 800 }}>Playbooks</div>
-              <div style={{ color: "#9ca3af", fontSize: 13 }}>
-                Open a playbook folder, view formations inside it, then load
-                plays under each formation.
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900 }}>
+                  Offensive Playbooks
+                </div>
+                <div style={{ color: "#9ca3af", fontSize: 13, marginTop: 3 }}>
+                  Build each playbook by formation. Open a formation, start with a
+                  clean alignment, draw the play, and save it directly underneath
+                  that formation.
+                </div>
               </div>
 
               <div
@@ -12769,7 +12828,7 @@ function CoachBoardWebApp() {
                 <input
                   value={playbookName}
                   onChange={(e) => setPlaybookName(e.target.value)}
-                  placeholder="Example: Varsity Offense"
+                  placeholder="Example: 2026 Varsity Offense"
                   style={{
                     width: "100%",
                     background: "#090b10",
@@ -12794,26 +12853,37 @@ function CoachBoardWebApp() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "220px 1fr",
+                  gridTemplateColumns: "220px minmax(0, 1fr)",
                   gap: 12,
                 }}
               >
                 <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
+                  {playbooks.length === 0 && (
+                    <div
+                      style={{
+                        color: "#9ca3af",
+                        fontSize: 13,
+                        padding: "10px 4px",
+                      }}
+                    >
+                      Create your first offensive playbook.
+                    </div>
+                  )}
+
                   {playbooks.map((book) => (
                     <button
                       key={book.id}
                       style={{
                         ...buttonBase,
                         background:
-                          selectedPlaybookId === book.id
-                            ? "#dc2626"
-                            : "#090b10",
+                          selectedPlaybookId === book.id ? "#dc2626" : "#090b10",
                         color: "white",
                         textAlign: "left",
+                        padding: "10px 12px",
                       }}
                       onClick={() => setSelectedPlaybookId(book.id)}
                     >
-                      📁 {book.name}
+                      📘 {book.name}
                     </button>
                   ))}
                 </div>
@@ -12824,20 +12894,22 @@ function CoachBoardWebApp() {
                     borderRadius: 16,
                     padding: 12,
                     display: "grid",
-                    gap: 6,
+                    gap: 12,
+                    minWidth: 0,
                   }}
                 >
                   {!selectedPlaybook ? (
                     <div style={{ color: "#9ca3af" }}>
-                      Select or create a playbook folder.
+                      Select or create a playbook.
                     </div>
                   ) : (
                     <>
                       <div
                         style={{
                           display: "grid",
-                          gridTemplateColumns: "1fr auto auto",
+                          gridTemplateColumns: "1fr auto",
                           gap: 8,
+                          alignItems: "center",
                         }}
                       >
                         <input
@@ -12847,33 +12919,21 @@ function CoachBoardWebApp() {
                           }
                           style={{
                             width: "100%",
-                            background: "#090b10",
+                            background: "#111827",
                             border: "1px solid rgba(255,255,255,.12)",
                             borderRadius: 10,
                             color: "white",
-                            padding: "8px 10px",
-                            fontWeight: 800,
+                            padding: "9px 10px",
+                            fontWeight: 900,
+                            fontSize: 16,
                           }}
                         />
                         <button
                           style={{
                             ...buttonBase,
-                            background: "#b91c1c",
-                            color: "white",
-                            padding: "8px 10px",
-                          }}
-                          onClick={() =>
-                            autoGeneratePlaybookPlays(selectedPlaybook.id)
-                          }
-                        >
-                          Auto Generate Plays
-                        </button>
-                        <button
-                          style={{
-                            ...buttonBase,
                             background: "#7f1111",
                             color: "white",
-                            padding: "8px 10px",
+                            padding: "9px 11px",
                           }}
                           onClick={() => deletePlaybook(selectedPlaybook.id)}
                         >
@@ -12883,319 +12943,283 @@ function CoachBoardWebApp() {
 
                       <div
                         style={{
-                          fontSize: 12,
-                          color: "#9ca3af",
-                          fontWeight: 800,
+                          display: "grid",
+                          gap: 6,
+                          padding: 10,
+                          borderRadius: 12,
+                          background: "#111827",
+                          border: "1px solid rgba(255,255,255,.08)",
                         }}
                       >
-                        ADD FORMATIONS TO THIS PLAYBOOK
+                        <div
+                          style={{
+                            color: "#f87171",
+                            fontWeight: 900,
+                            fontSize: 11,
+                            letterSpacing: ".08em",
+                          }}
+                        >
+                          1. ADD FORMATIONS
+                        </div>
+                        <div
+                          style={{
+                            color: "#9ca3af",
+                            fontSize: 12,
+                          }}
+                        >
+                          Choose the formations you want included in this playbook.
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "repeat(auto-fit, minmax(130px, 1fr))",
+                            gap: 6,
+                          }}
+                        >
+                          {sortedOffensePresets.map((formation) => {
+                            const added =
+                              selectedPlaybook.formationIds.includes(formation.id);
+
+                            return (
+                              <button
+                                key={formation.id}
+                                style={{
+                                  ...buttonBase,
+                                  padding: "8px",
+                                  background: added ? "#dc2626" : "#1f242e",
+                                  color: "white",
+                                  textAlign: "left",
+                                }}
+                                onClick={() =>
+                                  toggleFormationInPlaybook(
+                                    selectedPlaybook.id,
+                                    formation.id,
+                                  )
+                                }
+                              >
+                                {added ? "✓ " : "+ "}
+                                {formation.name}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
+
                       <div
                         style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(3, 1fr)",
-                          gap: 6,
+                          color: "#f87171",
+                          fontWeight: 900,
+                          fontSize: 11,
+                          letterSpacing: ".08em",
                         }}
                       >
-                        {sortedOffensePresets.map((formation) => {
-                          const added = selectedPlaybook.formationIds.includes(
-                            formation.id,
-                          );
-                          useEffect(() => {
-                            const channel = supabase.channel("test-room");
+                        2. BUILD PLAYS BY FORMATION
+                      </div>
 
-                            channel.on(
-                              "broadcast",
-                              { event: "test" },
-                              (payload) => {
-                                console.log("SUPABASE MESSAGE:", payload);
-                              },
+                      {selectedPlaybook.formationIds.length === 0 ? (
+                        <div
+                          style={{
+                            padding: 16,
+                            borderRadius: 12,
+                            background: "#111827",
+                            color: "#9ca3af",
+                            textAlign: "center",
+                          }}
+                        >
+                          Add at least one formation above. It will appear here with
+                          a <strong style={{ color: "white" }}>+ New Play</strong>{" "}
+                          button.
+                        </div>
+                      ) : (
+                        <div style={{ display: "grid", gap: 8 }}>
+                          {selectedPlaybook.formationIds.map((formationId) => {
+                            const formation = customOffensePresets.find(
+                              (preset) => preset.id === formationId,
+                            );
+                            if (!formation) return null;
+
+                            const formationPlays = savedPlays.filter(
+                              (play) =>
+                                play.formationId === formationId &&
+                                play.playbookId === selectedPlaybook.id,
                             );
 
-                            channel.subscribe((status) => {
-                              console.log("SUPABASE STATUS:", status);
-
-                              if (status === "SUBSCRIBED") {
-                                channel.send({
-                                  type: "broadcast",
-                                  event: "test",
-                                  payload: {
-                                    message: "hello from coachboard",
-                                  },
-                                });
-                              }
-                            });
-
-                            return () => {
-                              supabase.removeChannel(channel);
-                            };
-                          }, []);
-                          return (
-                            <button
-                              key={formation.id}
-                              style={{
-                                ...buttonBase,
-                                padding: "8px",
-                                background: added ? "#dc2626" : "#1f242e",
-                                color: "white",
-                              }}
-                              onClick={() =>
-                                toggleFormationInPlaybook(
-                                  selectedPlaybook.id,
-                                  formation.id,
-                                )
-                              }
-                            >
-                              {added ? "✓ " : "+ "}
-                              {formation.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "#9ca3af",
-                          fontWeight: 800,
-                        }}
-                      >
-                        PLAYBOOK CONTENTS
-                      </div>
-                      <div style={{ display: "grid", gap: 6 }}>
-                        {selectedPlaybook.formationIds.map((formationId) => {
-                          const formation = customOffensePresets.find(
-                            (p) => p.id === formationId,
-                          );
-                          const formationPlays = savedPlays.filter(
-                            (play) => play.formationId === formationId,
-                          );
-                          if (!formation) return null;
-
-                          return (
-                            <div
-                              key={formationId}
-                              style={{
-                                background: "#090b10",
-                                borderRadius: 14,
-                                padding: "5px 8px",
-                                display: "grid",
-                                gap: 8,
-                              }}
-                            >
+                            return (
                               <div
+                                key={formationId}
                                 style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "1fr auto",
-                                  gap: 6,
+                                  borderRadius: 14,
+                                  background: "#111827",
+                                  border: "1px solid rgba(255,255,255,.08)",
+                                  overflow: "hidden",
                                 }}
                               >
-                                <button
+                                <div
                                   style={{
-                                    ...buttonBase,
-                                    background:
-                                      selectedPlayFormationId === formationId
-                                        ? "#dc2626"
-                                        : "#2a303b",
-                                    color: "white",
-                                    textAlign: "left",
-                                  }}
-                                  onClick={() =>
-                                    loadCustomOffensePreset(formationId)
-                                  }
-                                >
-                                  🏈 {formation.name}
-                                </button>
-                                <button
-                                  style={{
-                                    ...buttonBase,
-                                    background: "#b91c1c",
-                                    color: "white",
-                                    padding: "8px 10px",
-                                  }}
-                                  onClick={() => {
-                                    loadCustomOffensePreset(formationId);
-                                    setShowCreatePlay(true);
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr auto auto",
+                                    gap: 6,
+                                    alignItems: "center",
+                                    padding: "9px 10px",
+                                    background: "rgba(255,255,255,.025)",
                                   }}
                                 >
-                                  + Play
-                                </button>
-                                <button
-                                  style={{
-                                    ...buttonBase,
-                                    background: "#ef4444",
-                                    color: "white",
-                                    padding: "8px 10px",
-                                  }}
-                                  onClick={() => {
-                                    loadCustomOffensePreset(formationId);
-                                    setShowManageConcepts(true);
-                                  }}
-                                >
-                                  + Concept
-                                </button>
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: 12,
-                                  color: "#9ca3af",
-                                  fontWeight: 800,
-                                }}
-                              >
-                                CONCEPTS
-                              </div>
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "repeat(2, 1fr)",
-                                  gap: 6,
-                                }}
-                              >
-                                {playConcepts.map((concept) => {
-                                  const conceptIds =
-                                    selectedPlaybook.formationConcepts?.[
-                                      formationId
-                                    ] ?? [];
-                                  const added = conceptIds.includes(concept.id);
-                                  return (
-                                    <button
-                                      key={concept.id}
-                                      style={{
-                                        ...buttonBase,
-                                        background: added
-                                          ? "#991b1b"
-                                          : "#1f242e",
-                                        color: "white",
-                                        textAlign: "left",
-                                        padding: "8px",
-                                      }}
-                                      onClick={() =>
-                                        toggleConceptInFormation(
+                                  <button
+                                    style={{
+                                      ...buttonBase,
+                                      background: "transparent",
+                                      color: "white",
+                                      textAlign: "left",
+                                      padding: "7px 4px",
+                                      fontSize: 15,
+                                      fontWeight: 900,
+                                    }}
+                                    onClick={() => {
+                                      loadCustomOffensePreset(formationId);
+                                      setActivePlaybookBuildId(
+                                        selectedPlaybook.id,
+                                      );
+                                      setShowPlaybooks(false);
+                                    }}
+                                  >
+                                    🏈 {formation.name}
+                                  </button>
+
+                                  {playConcepts.length > 0 && (
+                                    <select
+                                      defaultValue=""
+                                      onChange={(e) => {
+                                        const conceptId = e.target.value;
+                                        if (!conceptId) return;
+                                        applyConceptFromPlaybook(
                                           selectedPlaybook.id,
                                           formationId,
-                                          concept.id,
-                                        )
-                                      }
+                                          conceptId,
+                                        );
+                                        e.currentTarget.value = "";
+                                      }}
+                                      style={{
+                                        height: 36,
+                                        background: "#1f2937",
+                                        color: "white",
+                                        border:
+                                          "1px solid rgba(255,255,255,.12)",
+                                        borderRadius: 9,
+                                        padding: "0 9px",
+                                        fontWeight: 800,
+                                      }}
+                                      title="Apply a saved concept to this formation"
                                     >
-                                      {added ? "✓ " : "+ "}
-                                      {concept.name}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                              {(
-                                selectedPlaybook.formationConcepts?.[
-                                  formationId
-                                ] ?? []
-                              ).length > 0 && (
+                                      <option value="">Apply Concept...</option>
+                                      {playConcepts.map((concept) => (
+                                        <option
+                                          key={concept.id}
+                                          value={concept.id}
+                                        >
+                                          {concept.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+
+                                  <button
+                                    style={{
+                                      ...buttonBase,
+                                      background: "#dc2626",
+                                      color: "white",
+                                      padding: "9px 12px",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                    onClick={() =>
+                                      startNewPlayFromFormation(
+                                        selectedPlaybook.id,
+                                        formationId,
+                                      )
+                                    }
+                                  >
+                                    + New Play
+                                  </button>
+                                </div>
+
                                 <div
                                   style={{
                                     display: "grid",
-                                    gridTemplateColumns: "repeat(2, 1fr)",
                                     gap: 6,
+                                    padding: 10,
                                   }}
                                 >
-                                  {(
-                                    selectedPlaybook.formationConcepts?.[
-                                      formationId
-                                    ] ?? []
-                                  ).map((conceptId) => {
-                                    const concept = playConcepts.find(
-                                      (c) => c.id === conceptId,
-                                    );
-                                    if (!concept) return null;
-                                    return (
-                                      <button
-                                        key={concept.id}
+                                  {formationPlays.length === 0 ? (
+                                    <div
+                                      style={{
+                                        color: "#9ca3af",
+                                        fontSize: 13,
+                                        padding: "5px 2px",
+                                      }}
+                                    >
+                                      No plays yet. Click + New Play to load a
+                                      clean {formation.name} alignment.
+                                    </div>
+                                  ) : (
+                                    formationPlays.map((play) => (
+                                      <div
+                                        key={play.id}
                                         style={{
-                                          ...buttonBase,
-                                          background: "#7f1d1d",
-                                          color: "white",
-                                          textAlign: "left",
-                                          padding: "8px",
-                                        }}
-                                        onClick={() => {
-                                          loadCustomOffensePreset(formationId);
-                                          applyConcept(concept.id);
+                                          display: "grid",
+                                          gridTemplateColumns: "1fr auto",
+                                          gap: 6,
+                                          alignItems: "center",
+                                          padding: "6px 8px",
+                                          borderRadius: 10,
+                                          background: "#090b10",
+                                          border:
+                                            "1px solid rgba(255,255,255,.06)",
                                         }}
                                       >
-                                        🧠 {concept.name}
-                                      </button>
-                                    );
-                                  })}
+                                        <button
+                                          style={{
+                                            ...buttonBase,
+                                            background: "transparent",
+                                            color: "white",
+                                            textAlign: "left",
+                                            padding: "6px 4px",
+                                            fontWeight: 800,
+                                          }}
+                                          onClick={() =>
+                                            openPlaybookPlay(
+                                              selectedPlaybook.id,
+                                              play.id,
+                                            )
+                                          }
+                                        >
+                                          ↳ {play.name}
+                                        </button>
+                                        <button
+                                          style={{
+                                            ...buttonBase,
+                                            background: "#1f2937",
+                                            color: "white",
+                                            padding: "7px 9px",
+                                            fontSize: 11,
+                                          }}
+                                          onClick={() =>
+                                            openPlaybookPlay(
+                                              selectedPlaybook.id,
+                                              play.id,
+                                            )
+                                          }
+                                        >
+                                          Open
+                                        </button>
+                                      </div>
+                                    ))
+                                  )}
                                 </div>
-                              )}
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "repeat(2, 1fr)",
-                                  gap: 6,
-                                }}
-                              >
-                                {(
-                                  selectedPlaybook.formationConcepts?.[
-                                    formationId
-                                  ] ?? []
-                                ).map((conceptId) => {
-                                  const concept = playConcepts.find(
-                                    (c) => c.id === conceptId,
-                                  );
-                                  if (!concept) return null;
-
-                                  return (
-                                    <button
-                                      key={`${concept.id}-generate`}
-                                      style={{
-                                        ...buttonBase,
-                                        background: "#b91c1c",
-                                        color: "white",
-                                        textAlign: "left",
-                                        padding: "8px",
-                                      }}
-                                      onClick={() =>
-                                        generatePlayFromConcept(
-                                          formationId,
-                                          concept.id,
-                                        )
-                                      }
-                                    >
-                                      Generate: {concept.name}
-                                    </button>
-                                  );
-                                })}
                               </div>
-                              {formationPlays.length === 0 ? (
-                                <div style={{ color: "#9ca3af", fontSize: 13 }}>
-                                  No saved plays under this formation yet.
-                                </div>
-                              ) : (
-                                <div
-                                  style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "repeat(2, 1fr)",
-                                    gap: 6,
-                                  }}
-                                >
-                                  {formationPlays.map((play) => (
-                                    <button
-                                      key={play.id}
-                                      style={{
-                                        ...buttonBase,
-                                        background: "#090b10",
-                                        color: "white",
-                                        textAlign: "left",
-                                      }}
-                                      onClick={() => loadPlay(play.id)}
-                                    >
-                                      ↳ {play.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
