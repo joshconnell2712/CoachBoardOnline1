@@ -5116,7 +5116,7 @@ function CoachBoardWebApp() {
             onClick={() =>
               setShowFullscreenPlayerDetails((current) => !current)
             }
-            title="Show every control from the original Player panel"
+            title="Show every original Player control in the compact panel"
           >
             {showFullscreenPlayerDetails ? "Compact" : "More"}
           </button>
@@ -9528,33 +9528,35 @@ function CoachBoardWebApp() {
                   top: 92,
                   left: "50%",
                   transform: "translateX(-50%)",
-                  width:
+                  width: "min(1040px, calc(100vw - 120px))",
+                  height:
                     activePanelTab === "player" && !showFullscreenPlayerDetails
-                      ? "min(1040px, calc(100vw - 120px))"
-                      : "min(760px, calc(100vw - 100px))",
+                      ? "64px"
+                      : "118px",
                   maxHeight:
                     activePanelTab === "player" && !showFullscreenPlayerDetails
                       ? "64px"
-                      : "min(360px, 38vh)",
+                      : "118px",
                   zIndex: 2147483645,
                   padding:
                     activePanelTab === "player" && !showFullscreenPlayerDetails
                       ? "8px 10px"
-                      : 10,
+                      : "8px 10px",
                   display: "flex",
                   flexDirection: "column",
-                  gap: 8,
+                  gap: 6,
                   overflowY:
                     activePanelTab === "player" && !showFullscreenPlayerDetails
                       ? "hidden"
                       : "auto",
+                  overflowX: "hidden",
                   background:
                     activePanelTab === "player" && !showFullscreenPlayerDetails
                       ? "rgba(15,23,42,.34)"
-                      : "rgba(15,23,42,.48)",
+                      : "rgba(15,23,42,.38)",
                   backdropFilter: "blur(6px)",
-                  border: "1px solid rgba(255,255,255,.09)",
-                  boxShadow: "0 8px 24px rgba(0,0,0,.16)",
+                  border: "1px solid rgba(255,255,255,.08)",
+                  boxShadow: "0 7px 20px rgba(0,0,0,.14)",
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onPointerMove={(e) => e.stopPropagation()}
