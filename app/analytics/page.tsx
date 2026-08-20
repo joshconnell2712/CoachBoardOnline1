@@ -1757,11 +1757,11 @@ export default function AnalyticsPage() {
             <Metric label="Penalties" value={stats.penalties} danger={stats.penalties > 0} />
             <Metric label="1st Downs Earned" value={stats.firstDownsEarned} />
             <Metric
-              label="3rd Down"
+              label="3rd Down Conversion"
               value={`${stats.thirdDownConversions}/${stats.thirdDownAttempts} • ${stats.thirdDownConversionRate}%`}
             />
             <Metric
-              label="4th Down"
+              label="4th Down Conversion"
               value={`${stats.fourthDownConversions}/${stats.fourthDownAttempts} • ${stats.fourthDownConversionRate}%`}
             />
             <Metric label="Series Starts" value={stats.seriesStarts} />
@@ -3408,11 +3408,11 @@ export default function AnalyticsPage() {
                 <Metric label="Penalties" value={reportStats.penalties} danger={reportStats.penalties > 0} />
                 <Metric label="1st Downs" value={reportStats.firstDownsEarned} />
                 <Metric
-                  label="3rd Down"
+                  label="3rd Down Conversion"
                   value={`${reportStats.thirdDownConversions}/${reportStats.thirdDownAttempts} • ${reportStats.thirdDownConversionRate}%`}
                 />
                 <Metric
-                  label="4th Down"
+                  label="4th Down Conversion"
                   value={`${reportStats.fourthDownConversions}/${reportStats.fourthDownAttempts} • ${reportStats.fourthDownConversionRate}%`}
                 />
                 <Metric label="Series Starts" value={reportStats.seriesStarts} />
@@ -5028,8 +5028,8 @@ function GameBreakdownReport({
               <th style={modernThStyle}>Success</th>
               <th style={modernThStyle}>Explosive</th>
               <th style={modernThStyle}>1st Downs Earned</th>
-              <th style={modernThStyle}>3rd Down</th>
-              <th style={modernThStyle}>4th Down</th>
+              <th style={modernThStyle}>3rd Down Conversion</th>
+              <th style={modernThStyle}>4th Down Conversion</th>
               <th style={modernThStyle}>Series Starts</th>
               <th style={modernThStyle}>TDs</th>
               <th style={modernThStyle}>Punts</th>
