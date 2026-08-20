@@ -2185,6 +2185,7 @@ function CoachBoardWebApp() {
   const [showCreateConcept, setShowCreateConcept] = useState(false);
   const [showManageConcepts, setShowManageConcepts] = useState(false);
   const [selectedPresetDropdownId, setSelectedPresetDropdownId] = useState("");
+  const [formationsHydrated, setFormationsHydrated] = useState(false);
   const didOpenRankOneFormationRef = useRef(false);
   const [savedPlayName, setSavedPlayName] = useState("");
   const [savedPlays, setSavedPlays] = useState<SavedPlay[]>([]);
@@ -2308,10 +2309,14 @@ function CoachBoardWebApp() {
     selectedSide,
   ]);
 
-  // This must be declared before playerPanelContent because that JSX uses it immediately during render.
-  const sortedOffensePresets = [...customOffensePresets].sort(
-    (a, b) => Number(!!a.isSystem) - Number(!!b.isSystem),
-  );
+  // Keep the coach's Top 5 in its exact ranked order (1-5).
+  // Non-ranked formations can still be grouped cleanly afterward.
+  const sortedOffensePresets = [
+    ...customOffensePresets.filter((preset) => preset.isMain).slice(0, 5),
+    ...customOffensePresets
+      .filter((preset) => !preset.isMain)
+      .sort((a, b) => Number(!!a.isSystem) - Number(!!b.isSystem)),
+  ];
 
   const visiblePlayFolders = useMemo(() => {
     const userEmail = user?.email?.toLowerCase() ?? "";
@@ -5844,52 +5849,124 @@ function CoachBoardWebApp() {
   }, [fieldFullscreen]);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(
+    setFormationsHydrated(false);
+    didOpenRankOneFormationRef.current = false;
+
+    const savedPresets = window.localStorage.getItem(
       "coachboard_custom_offense_presets",
     );
-    if (!saved) {
-      setCustomOffensePresets(makeDefaultOffensePresets(footballTeamSize));
-      return;
-    }
+    const savedRankOrder = window.localStorage.getItem(
+      "coachboard_top_formation_order",
+    );
+    const savedDeletedSystemFormationIds = window.localStorage.getItem(
+      "coachboard_deleted_system_formation_ids",
+    );
+
     try {
-      const parsed = JSON.parse(saved) as CustomOffensePreset[];
-      const systemPresets = makeDefaultOffensePresets(footballTeamSize);
-      const userPresets = Array.isArray(parsed)
-        ? parsed
-            .filter((p) => !p.id.startsWith("default-"))
-            .map((p) => ({
-              ...p,
+      let deletedSystemFormationIds: string[] = [];
+      if (savedDeletedSystemFormationIds) {
+        const parsedDeleted = JSON.parse(savedDeletedSystemFormationIds);
+        if (Array.isArray(parsedDeleted)) {
+          deletedSystemFormationIds = parsedDeleted.filter(
+            (id): id is string => typeof id === "string",
+          );
+        }
+      }
+
+      const deletedSystemFormationIdSet = new Set(
+        deletedSystemFormationIds,
+      );
+
+      const systemPresets = makeDefaultOffensePresets(
+        footballTeamSize,
+      ).filter(
+        (preset) => !deletedSystemFormationIdSet.has(preset.id),
+      );
+      const parsedPresets = savedPresets
+        ? (JSON.parse(savedPresets) as CustomOffensePreset[])
+        : [];
+
+      const userPresets = Array.isArray(parsedPresets)
+        ? parsedPresets
+            .filter((preset) => !preset.id.startsWith("default-"))
+            .map((preset) => ({
+              ...preset,
               isSystem: false,
-              players: normalizeOffenseOnLOS(p.players),
+              players: normalizeOffenseOnLOS(preset.players),
+              middlePlayers: preset.middlePlayers
+                ? normalizeOffenseOnLOS(preset.middlePlayers)
+                : undefined,
             }))
         : [];
-      setCustomOffensePresets([...systemPresets, ...userPresets]);
+
+      const merged = [...systemPresets, ...userPresets];
+
+      let rankedIds: string[] = [];
+      if (savedRankOrder) {
+        const parsedRankOrder = JSON.parse(savedRankOrder);
+        if (Array.isArray(parsedRankOrder)) {
+          rankedIds = parsedRankOrder
+            .filter((id): id is string => typeof id === "string")
+            .slice(0, 5)
+            .filter((id) => merged.some((preset) => preset.id === id));
+        }
+      }
+
+      if (rankedIds.length > 0) {
+        const rankSet = new Set(rankedIds);
+        const rankedPresets = rankedIds
+          .map((id) => merged.find((preset) => preset.id === id))
+          .filter(Boolean)
+          .map((preset) => ({ ...preset!, isMain: true }));
+
+        const remainingPresets = merged
+          .filter((preset) => !rankSet.has(preset.id))
+          .map((preset) => ({ ...preset, isMain: false }));
+
+        setCustomOffensePresets([...rankedPresets, ...remainingPresets]);
+      } else {
+        setCustomOffensePresets(merged);
+      }
     } catch {
       setCustomOffensePresets(makeDefaultOffensePresets(footballTeamSize));
+    } finally {
+      setFormationsHydrated(true);
     }
   }, [footballTeamSize]);
 
   useEffect(() => {
+    if (!formationsHydrated) return;
+
     const userOnly = customOffensePresets.filter((preset) => !preset.isSystem);
     window.localStorage.setItem(
       "coachboard_custom_offense_presets",
       JSON.stringify(userOnly),
     );
-  }, [customOffensePresets]);
+
+    const rankedIds = customOffensePresets
+      .filter((preset) => preset.isMain)
+      .slice(0, 5)
+      .map((preset) => preset.id);
+
+    window.localStorage.setItem(
+      "coachboard_top_formation_order",
+      JSON.stringify(rankedIds),
+    );
+  }, [customOffensePresets, formationsHydrated]);
 
   useEffect(() => {
+    if (!formationsHydrated) return;
     if (didOpenRankOneFormationRef.current) return;
-    if (customOffensePresets.length === 0) return;
 
     const rankedFormation =
-      customOffensePresets.find((preset) => preset.isMain) ??
+      customOffensePresets.filter((preset) => preset.isMain)[0] ??
       customOffensePresets[0];
 
     if (!rankedFormation) return;
 
     didOpenRankOneFormationRef.current = true;
     loadCustomOffensePreset(rankedFormation.id);
-  }, [customOffensePresets]);
+  }, [customOffensePresets, formationsHydrated]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coachboard_saved_plays");
@@ -7307,6 +7384,10 @@ function CoachBoardWebApp() {
     const systemPresets = makeDefaultOffensePresets(footballTeamSize);
     setCustomOffensePresets(systemPresets);
     window.localStorage.removeItem("coachboard_custom_offense_presets");
+    window.localStorage.removeItem(
+      "coachboard_deleted_system_formation_ids",
+    );
+    window.localStorage.removeItem("coachboard_top_formation_order");
   }
 
   function savePlay() {
@@ -7993,9 +8074,64 @@ function CoachBoardWebApp() {
   }
 
   function deleteCustomOffensePreset(id: string) {
-    setCustomOffensePresets((current) =>
-      current.filter((preset) => preset.id !== id || preset.isSystem),
+    const presetToDelete = customOffensePresets.find(
+      (preset) => preset.id === id,
     );
+    if (!presetToDelete) return;
+
+    if (presetToDelete.isSystem) {
+      try {
+        const saved = window.localStorage.getItem(
+          "coachboard_deleted_system_formation_ids",
+        );
+        const parsed = saved ? JSON.parse(saved) : [];
+        const deletedIds = Array.isArray(parsed)
+          ? parsed.filter((value): value is string => typeof value === "string")
+          : [];
+
+        if (!deletedIds.includes(id)) {
+          window.localStorage.setItem(
+            "coachboard_deleted_system_formation_ids",
+            JSON.stringify([...deletedIds, id]),
+          );
+        }
+      } catch {
+        window.localStorage.setItem(
+          "coachboard_deleted_system_formation_ids",
+          JSON.stringify([id]),
+        );
+      }
+    }
+
+    setCustomOffensePresets((current) =>
+      current.filter((preset) => preset.id !== id),
+    );
+
+    // Remove the deleted formation from any playbooks that referenced it.
+    setPlaybooks((current) =>
+      current.map((book) => {
+        const nextFormationConcepts = {
+          ...(book.formationConcepts ?? {}),
+        };
+        delete nextFormationConcepts[id];
+
+        return {
+          ...book,
+          formationIds: book.formationIds.filter(
+            (formationId) => formationId !== id,
+          ),
+          formationConcepts: nextFormationConcepts,
+        };
+      }),
+    );
+
+    if (selectedPlayFormationId === id) {
+      setSelectedPlayFormationId("");
+      setSelectedPresetDropdownId("");
+      setSelectedPlayId("");
+      setRoutes([]);
+      setDrawnLines([]);
+    }
   }
 
   function renameCustomOffensePreset(id: string, name: string) {
@@ -11941,7 +12077,7 @@ function CoachBoardWebApp() {
                           fontWeight: 800,
                         }}
                       >
-                        {preset.isSystem ? "SYSTEM" : "MY"}
+                        {preset.isSystem ? "SYSTEM DEFAULT" : "MY"}
                       </span>
                     </div>
                     <div
@@ -11976,15 +12112,19 @@ function CoachBoardWebApp() {
                         Update
                       </button>
                       <button
-                        disabled={preset.isSystem}
                         style={{
                           ...buttonBase,
                           padding: "8px",
-                          background: preset.isSystem ? "#1f242e" : "#7f1111",
+                          background: "#7f1111",
                           color: "white",
-                          opacity: preset.isSystem ? 0.55 : 1,
+                          opacity: 1,
                         }}
                         onClick={() => deleteCustomOffensePreset(preset.id)}
+                        title={
+                          preset.isSystem
+                            ? "Remove this system formation from your CoachBoard setup"
+                            : "Delete this formation"
+                        }
                       >
                         Delete
                       </button>
