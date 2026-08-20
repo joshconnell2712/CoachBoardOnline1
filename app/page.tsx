@@ -13174,8 +13174,8 @@ function CoachBoardWebApp() {
                           style={{
                             display: "grid",
                             gridTemplateColumns:
-                              "repeat(auto-fit, minmax(320px, 1fr))",
-                            gap: 12,
+                              "repeat(2, minmax(0, 1fr))",
+                            gap: 10,
                             alignItems: "start",
                           }}
                         >
@@ -13195,7 +13195,7 @@ function CoachBoardWebApp() {
                               <div
                                 key={formationId}
                                 style={{
-                                  borderRadius: 16,
+                                  borderRadius: 14,
                                   background:
                                     "linear-gradient(180deg, rgba(17,24,39,.98) 0%, rgba(9,11,16,.98) 100%)",
                                   border: "1px solid rgba(255,255,255,.09)",
@@ -13209,9 +13209,9 @@ function CoachBoardWebApp() {
                                   style={{
                                     display: "grid",
                                     gridTemplateColumns: "minmax(0, 1fr) auto",
-                                    gap: 8,
+                                    gap: 6,
                                     alignItems: "center",
-                                    padding: "10px 11px",
+                                    padding: "8px 9px",
                                     background: "rgba(255,255,255,.025)",
                                     borderBottom:
                                       "1px solid rgba(255,255,255,.06)",
@@ -13248,7 +13248,8 @@ function CoachBoardWebApp() {
                                       ...buttonBase,
                                       background: "#dc2626",
                                       color: "white",
-                                      padding: "9px 12px",
+                                      padding: "8px 9px",
+                                      fontSize: 11,
                                       whiteSpace: "nowrap",
                                     }}
                                     onClick={() =>
@@ -13266,7 +13267,7 @@ function CoachBoardWebApp() {
                                   style={{
                                     display: "grid",
                                     gap: 8,
-                                    padding: 10,
+                                    padding: 8,
                                   }}
                                 >
                                   {playConcepts.length > 0 && (
@@ -13311,8 +13312,9 @@ function CoachBoardWebApp() {
                                     <div
                                       style={{
                                         color: "#9ca3af",
-                                        fontSize: 13,
-                                        padding: "5px 2px",
+                                        fontSize: 11,
+                                        lineHeight: 1.35,
+                                        padding: "3px 1px",
                                       }}
                                     >
                                       No plays yet. Click + New Play to load a
