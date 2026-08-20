@@ -5865,6 +5865,9 @@ function CoachBoardWebApp() {
     const savedRankOrder = window.localStorage.getItem(
       "coachboard_top_formation_order",
     );
+    const savedRankOneFormationId = window.localStorage.getItem(
+      "coachboard_rank1_formation_id",
+    );
     const savedDeletedSystemFormationIds = window.localStorage.getItem(
       "coachboard_deleted_system_formation_ids",
     );
@@ -5918,6 +5921,17 @@ function CoachBoardWebApp() {
             .slice(0, 5)
             .filter((id) => merged.some((preset) => preset.id === id));
         }
+      }
+
+      // A coach's explicitly saved #1 formation wins over the system defaults.
+      if (
+        savedRankOneFormationId &&
+        merged.some((preset) => preset.id === savedRankOneFormationId)
+      ) {
+        rankedIds = [
+          savedRankOneFormationId,
+          ...rankedIds.filter((id) => id !== savedRankOneFormationId),
+        ].slice(0, 5);
       }
 
       let hydratedPresets: CustomOffensePreset[];
@@ -5977,6 +5991,15 @@ function CoachBoardWebApp() {
       "coachboard_top_formation_order",
       JSON.stringify(rankedIds),
     );
+
+    if (rankedIds[0]) {
+      window.localStorage.setItem(
+        "coachboard_rank1_formation_id",
+        rankedIds[0],
+      );
+    } else {
+      window.localStorage.removeItem("coachboard_rank1_formation_id");
+    }
   }, [customOffensePresets, formationsHydrated]);
 
   useEffect(() => {
@@ -7430,6 +7453,7 @@ function CoachBoardWebApp() {
       "coachboard_deleted_system_formation_ids",
     );
     window.localStorage.removeItem("coachboard_top_formation_order");
+    window.localStorage.removeItem("coachboard_rank1_formation_id");
   }
 
   function savePlay() {
@@ -8145,9 +8169,11 @@ function CoachBoardWebApp() {
       }
     }
 
-    setCustomOffensePresets((current) =>
-      current.filter((preset) => preset.id !== id),
-    );
+    setCustomOffensePresets((current) => {
+      const next = current.filter((preset) => preset.id !== id);
+      persistFormationRanking(next);
+      return next;
+    });
 
     // Remove the deleted formation from any playbooks that referenced it.
     setPlaybooks((current) =>
@@ -8186,30 +8212,69 @@ function CoachBoardWebApp() {
     );
   }
 
+  function persistFormationRanking(presets: CustomOffensePreset[]) {
+    const rankedIds = presets
+      .filter((preset) => preset.isMain)
+      .slice(0, 5)
+      .map((preset) => preset.id);
+
+    window.localStorage.setItem(
+      "coachboard_top_formation_order",
+      JSON.stringify(rankedIds),
+    );
+
+    if (rankedIds[0]) {
+      window.localStorage.setItem(
+        "coachboard_rank1_formation_id",
+        rankedIds[0],
+      );
+    } else {
+      window.localStorage.removeItem("coachboard_rank1_formation_id");
+    }
+  }
+
   function toggleMainOffensePreset(id: string) {
     setCustomOffensePresets((current) => {
-      const selected = current.find((p) => p.id === id);
+      const selected = current.find((preset) => preset.id === id);
       if (!selected) return current;
 
-      const mainPresets = current.filter((p) => p.isMain);
+      const mainPresets = current.filter((preset) => preset.isMain);
+      let next: CustomOffensePreset[];
 
-      // If already Top 5, remove it from the Top 5 group.
       if (selected.isMain) {
-        return current.map((p) => (p.id === id ? { ...p, isMain: false } : p));
+        next = current.map((preset) =>
+          preset.id === id ? { ...preset, isMain: false } : preset,
+        );
+      } else if (mainPresets.length < 5) {
+        // Newly added Top 5 formations go to the end of the ranked group.
+        const selectedPreset = { ...selected, isMain: true };
+        const withoutSelected = current.filter((preset) => preset.id !== id);
+        const ranked = withoutSelected.filter((preset) => preset.isMain);
+        const others = withoutSelected.filter((preset) => !preset.isMain);
+        next = [...ranked, selectedPreset, ...others];
+      } else {
+        // Replace current #5 and put the newly selected formation at #5.
+        const ranked = current.filter((preset) => preset.isMain).slice(0, 4);
+        const fifthMainId = mainPresets[4]?.id;
+        const selectedPreset = { ...selected, isMain: true };
+
+        const others = current
+          .filter(
+            (preset) =>
+              !ranked.some((rankedPreset) => rankedPreset.id === preset.id) &&
+              preset.id !== id,
+          )
+          .map((preset) =>
+            preset.id === fifthMainId
+              ? { ...preset, isMain: false }
+              : preset,
+          );
+
+        next = [...ranked, selectedPreset, ...others];
       }
 
-      // If fewer than 5 are selected, simply add it.
-      if (mainPresets.length < 5) {
-        return current.map((p) => (p.id === id ? { ...p, isMain: true } : p));
-      }
-
-      // If already full, replace the current 5th Top 5 preset with this one.
-      const fifthMainId = mainPresets[4]?.id;
-      return current.map((p) => {
-        if (p.id === fifthMainId) return { ...p, isMain: false };
-        if (p.id === id) return { ...p, isMain: true };
-        return p;
-      });
+      persistFormationRanking(next);
+      return next;
     });
   }
 
@@ -8229,7 +8294,9 @@ function CoachBoardWebApp() {
       const [moved] = reordered.splice(fromIndex, 1);
       reordered.splice(toIndex, 0, moved);
 
-      return [...reordered, ...others];
+      const next = [...reordered, ...others];
+      persistFormationRanking(next);
+      return next;
     });
   }
 
