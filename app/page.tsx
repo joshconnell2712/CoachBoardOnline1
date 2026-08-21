@@ -4040,11 +4040,15 @@ function CoachBoardWebApp() {
     if (fieldFullscreen) {
       document.body.style.overflow = "hidden";
       document.documentElement.style.overflow = "hidden";
+      document.body.classList.add("coachboard-field-fullscreen-active");
+    } else {
+      document.body.classList.remove("coachboard-field-fullscreen-active");
     }
 
     return () => {
       document.body.style.overflow = previousBodyOverflow;
       document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.classList.remove("coachboard-field-fullscreen-active");
     };
   }, [fieldFullscreen]);
 
@@ -9728,6 +9732,66 @@ function CoachBoardWebApp() {
         }
 
         @media (max-width: 1180px) {
+          body.coachboard-field-fullscreen-active .coachboard-tool-rail,
+          body.coachboard-field-fullscreen-active .coachboard-player-column {
+            display: none !important;
+          }
+
+          body.coachboard-field-fullscreen-active .coachboard-main-grid {
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+          }
+
+          body.coachboard-field-fullscreen-active .coachboard-center-column {
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
+          }
+
+          .coachboard-field-fullscreen-shell {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100dvw !important;
+            height: 100dvh !important;
+            min-height: 100dvh !important;
+            max-width: none !important;
+            max-height: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            overflow: hidden !important;
+            background: #000 !important;
+            z-index: 2147483000 !important;
+          }
+
+          .coachboard-fullscreen-field-surface {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            max-height: none !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+          }
+
+          /* iPad/Safari can place its own fullscreen close control at top-left.
+             Keep CoachBoard's menu away from that control. */
+          .fullscreen-menu-toggle {
+            left: auto !important;
+            right: max(18px, env(safe-area-inset-right)) !important;
+            top: max(18px, env(safe-area-inset-top)) !important;
+            min-width: 52px !important;
+            min-height: 48px !important;
+          }
+
+          .fullscreen-quick-toolbar {
+            left: max(18px, env(safe-area-inset-left)) !important;
+            right: max(82px, calc(env(safe-area-inset-right) + 64px)) !important;
+            top: max(18px, env(safe-area-inset-top)) !important;
+          }
+
           .coachboard-app-background {
             padding: 10px !important;
           }
@@ -10556,11 +10620,15 @@ function CoachBoardWebApp() {
           </div>
 
           <div
+            className={fieldFullscreen ? "coachboard-field-fullscreen-shell" : undefined}
             style={{
               ...cardStyle,
               padding: fieldFullscreen ? 0 : 12,
               position: fieldFullscreen ? "fixed" : "relative",
               inset: fieldFullscreen ? 0 : undefined,
+              width: fieldFullscreen ? "100dvw" : undefined,
+              height: fieldFullscreen ? "100dvh" : undefined,
+              minHeight: fieldFullscreen ? "100dvh" : undefined,
               zIndex: fieldFullscreen ? 5000 : undefined,
               background: fieldFullscreen ? "#000" : cardStyle.background,
               overflow: fieldFullscreen ? "hidden" : undefined,
@@ -10588,6 +10656,7 @@ function CoachBoardWebApp() {
             {fieldFullscreen && (
               <>
                 <button
+                  className="fullscreen-menu-toggle"
                   style={{
                     ...buttonBase,
                     position: "fixed",
@@ -10626,6 +10695,7 @@ function CoachBoardWebApp() {
 
                 {showFullscreenQuickToolbar && (
                   <div
+                    className="fullscreen-quick-toolbar"
                     style={{
                       position: "fixed",
                       top: 28,
@@ -11146,10 +11216,12 @@ function CoachBoardWebApp() {
                   (selectedZone?.radius ?? 5.8) + (e.deltaY > 0 ? -0.75 : 0.75),
                 );
               }}
+              className={fieldFullscreen ? "coachboard-fullscreen-field-surface" : undefined}
               style={{
                 position: "relative",
-                width: fieldFullscreen ? "100vw" : "100%",
-                height: fieldFullscreen ? "100vh" : undefined,
+                width: fieldFullscreen ? "100%" : "100%",
+                height: fieldFullscreen ? "100%" : undefined,
+                minHeight: fieldFullscreen ? "100%" : undefined,
                 aspectRatio: fieldFullscreen ? undefined : "10 / 11",
                 maxHeight: fieldFullscreen ? undefined : "78vh",
                 margin: fieldFullscreen ? 0 : undefined,
