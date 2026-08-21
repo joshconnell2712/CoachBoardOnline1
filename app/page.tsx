@@ -2185,6 +2185,19 @@ function CoachBoardWebApp() {
   >([]);
   const zoneAssignmentsRef = useRef<CustomZoneAssignment[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+
+  useEffect(() => {
+    drawnLinesRef.current = drawnLines.map((line) => ({ ...line }));
+  }, [drawnLines]);
+
+  useEffect(() => {
+    routesRef.current = routes.map((route) => ({ ...route }));
+  }, [routes]);
+
+  useEffect(() => {
+    manAssignmentsRef.current = { ...manAssignments };
+  }, [manAssignments]);
+
   const [zoneDraftId, setZoneDraftId] = useState<string | null>(null);
   const [zoneDrag, setZoneDrag] = useState<{
     id: string;
@@ -2220,6 +2233,11 @@ function CoachBoardWebApp() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingSide, setDraggingSide] = useState<Side | null>(null);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const realtimeClientIdRef = useRef<string>(crypto.randomUUID());
+  const initialBoardStateReceivedRef = useRef(false);
+  const drawnLinesRef = useRef<DrawLine[]>([]);
+  const routesRef = useRef<RouteModel[][]>([]);
+  const manAssignmentsRef = useRef<Record<string, string>>({});
   const [customPresetName, setCustomPresetName] = useState("");
   const [customOffensePresets, setCustomOffensePresets] = useState<
     CustomOffensePreset[]
@@ -2444,10 +2462,13 @@ function CoachBoardWebApp() {
   function clearWhiteboardForGamedayRoom() {
     // Clear every drawing/assignment that could carry over from the coach's
     // previous local board before entering a Gameday Room.
+    drawnLinesRef.current = [];
     setDrawnLines([]);
+    routesRef.current = [];
     setRoutes([]);
     zoneAssignmentsRef.current = [];
     setZoneAssignments([]);
+    manAssignmentsRef.current = {};
     setManAssignments({});
     setDefensiveReadPlayerIds([]);
     setUndoStack([]);
@@ -2500,11 +2521,20 @@ function CoachBoardWebApp() {
 
     channel.on("broadcast", { event: "board-event" }, ({ payload }) => {
       if (payload.type === "SET_DRAWN_LINES") {
-        setDrawnLines(payload.drawnLines);
+        const nextLines = Array.isArray(payload.drawnLines)
+          ? payload.drawnLines
+          : [];
+        drawnLinesRef.current = nextLines.map((line: DrawLine) => ({ ...line }));
+        setDrawnLines(drawnLinesRef.current);
       }
 
       if (payload.type === "SET_MAN_ASSIGNMENTS") {
-        setManAssignments(payload.manAssignments);
+        const nextAssignments =
+          payload.manAssignments && typeof payload.manAssignments === "object"
+            ? payload.manAssignments
+            : {};
+        manAssignmentsRef.current = { ...nextAssignments };
+        setManAssignments(manAssignmentsRef.current);
       }
 
       if (payload.type === "SET_COACH_FOCUS") {
@@ -2531,9 +2561,48 @@ function CoachBoardWebApp() {
         setLineEditDrag(null);
       }
 
+      if (payload.type === "REQUEST_BOARD_STATE") {
+        if (
+          payload.requestingClientId &&
+          payload.requestingClientId !== realtimeClientIdRef.current
+        ) {
+          sendCompleteBoardState(payload.requestingClientId);
+        }
+        return;
+      }
+
       if (payload.type === "SET_BOARD_STATE") {
-        setDrawnLines(payload.drawnLines);
-        setRoutes(payload.routes);
+        if (
+          payload.targetClientId &&
+          payload.targetClientId !== realtimeClientIdRef.current
+        ) {
+          return;
+        }
+
+        // When joining, multiple existing coaches may answer the request.
+        // Accept the first targeted snapshot only so later responses cannot
+        // overwrite it with a slightly older local render.
+        if (
+          payload.targetClientId === realtimeClientIdRef.current &&
+          initialBoardStateReceivedRef.current
+        ) {
+          return;
+        }
+
+        if (payload.targetClientId === realtimeClientIdRef.current) {
+          initialBoardStateReceivedRef.current = true;
+        }
+
+        const nextLines = Array.isArray(payload.drawnLines)
+          ? payload.drawnLines
+          : [];
+        drawnLinesRef.current = nextLines.map((line: DrawLine) => ({ ...line }));
+        setDrawnLines(drawnLinesRef.current);
+
+        const nextRoutes = Array.isArray(payload.routes) ? payload.routes : [];
+        routesRef.current = nextRoutes.map((route) => ({ ...route }));
+        setRoutes(routesRef.current);
+
         const nextZones = Array.isArray(payload.zoneAssignments)
           ? payload.zoneAssignments
           : [];
@@ -2541,11 +2610,20 @@ function CoachBoardWebApp() {
           (zone: CustomZoneAssignment) => ({ ...zone }),
         );
         setZoneAssignments(zoneAssignmentsRef.current);
-        setManAssignments(payload.manAssignments);
+
+        const nextAssignments =
+          payload.manAssignments && typeof payload.manAssignments === "object"
+            ? payload.manAssignments
+            : {};
+        manAssignmentsRef.current = { ...nextAssignments };
+        setManAssignments(manAssignmentsRef.current);
+        return;
       }
 
       if (payload.type === "SET_ROUTES") {
-        setRoutes(payload.routes);
+        const nextRoutes = Array.isArray(payload.routes) ? payload.routes : [];
+        routesRef.current = nextRoutes.map((route) => ({ ...route }));
+        setRoutes(routesRef.current);
       }
 
       if (payload.type === "SET_OFFENSE_PLAYERS") {
@@ -2602,6 +2680,13 @@ function CoachBoardWebApp() {
           name: getCoachDisplayName(user),
           joinedAt: new Date().toISOString(),
         });
+
+        // Existing Supabase broadcasts are not replayed to late joiners.
+        // Request a fresh authoritative board snapshot as soon as this coach
+        // joins so anything already drawn appears immediately.
+        window.setTimeout(() => {
+          requestCompleteBoardState();
+        }, 100);
       }
     });
 
@@ -6341,9 +6426,13 @@ function CoachBoardWebApp() {
       pushUndoSnapshot();
     }
 
+    drawnLinesRef.current = [];
     setDrawnLines([]);
+    routesRef.current = [];
     setRoutes([]);
+    zoneAssignmentsRef.current = [];
     setZoneAssignments([]);
+    manAssignmentsRef.current = {};
     setManAssignments({});
     setUndoStack([]);
 
@@ -6731,6 +6820,37 @@ function CoachBoardWebApp() {
       payload: {
         type: "SET_ZONES",
         zoneAssignments: nextZones.map((zone) => ({ ...zone })),
+      },
+    });
+  }
+
+  function sendCompleteBoardState(targetClientId: string) {
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_BOARD_STATE",
+        targetClientId,
+        sourceClientId: realtimeClientIdRef.current,
+        drawnLines: drawnLinesRef.current.map((line) => ({ ...line })),
+        routes: routesRef.current.map((route) => ({ ...route })),
+        zoneAssignments: zoneAssignmentsRef.current.map((zone) => ({
+          ...zone,
+        })),
+        manAssignments: { ...manAssignmentsRef.current },
+      },
+    });
+  }
+
+  function requestCompleteBoardState() {
+    initialBoardStateReceivedRef.current = false;
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "REQUEST_BOARD_STATE",
+        requestingClientId: realtimeClientIdRef.current,
       },
     });
   }
