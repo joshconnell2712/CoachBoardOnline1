@@ -6202,6 +6202,15 @@ function CoachBoardWebApp() {
     if (didOpenRankOneFormationRef.current) return;
     if (!startupRankOneFormationId) return;
 
+    // If this browser/account already restored a persisted board for the
+    // current room, that board wins over the normal #1-formation startup.
+    // Otherwise the automatic formation loader would clear routes/lines
+    // immediately after persistence restored them.
+    if (activeBoardHadSavedSnapshotRef.current) {
+      didOpenRankOneFormationRef.current = true;
+      return;
+    }
+
     const rankedFormation = customOffensePresets.find(
       (preset) => preset.id === startupRankOneFormationId,
     );
@@ -6435,8 +6444,6 @@ function CoachBoardWebApp() {
     setSelectedSide("offense");
     setSelectedPlayId("");
     setSelectedPlayFormationId("");
-    setRoutes([]);
-    setDrawnLines([]);
 
     // Only after the saved football type is established do we allow
     // formation hydration to load the coach's true #1 ranked formation.
@@ -8355,8 +8362,6 @@ function CoachBoardWebApp() {
     setSelectedPlayId("");
     setSelectedPlayFormationId("");
     setActivePlaybookBuildId("");
-    setRoutes([]);
-    setDrawnLines([]);
   }
 
   function applyBallSpot(nextSpot: BallSpot, broadcast = true) {
@@ -8473,8 +8478,8 @@ function CoachBoardWebApp() {
       setSelectedPresetDropdownId(id);
       setSelectedPlayId("");
       setActivePlaybookBuildId("");
-      setRoutes([]);
-      setDrawnLines([]);
+      // Preserve existing whiteboard markup when changing formations.
+      // Drawings, routes, zones, and assignments are only erased by Clear All.
       setBallSpot(nextBallSpot);
 
       realtimeChannelRef.current?.send({
@@ -8501,15 +8506,6 @@ function CoachBoardWebApp() {
         payload: {
           type: "SET_DEFENSE_PLAYERS",
           defensePlayers: nextDefensePlayers,
-        },
-      });
-
-      realtimeChannelRef.current?.send({
-        type: "broadcast",
-        event: "board-event",
-        payload: {
-          type: "SET_ROUTES",
-          routes: [],
         },
       });
 
@@ -9491,8 +9487,6 @@ function CoachBoardWebApp() {
       setSelectedSide("offense");
       setSelectedPlayId("");
       setSelectedPlayFormationId("");
-      setRoutes([]);
-      setDrawnLines([]);
 
       // Changing football type causes the formation hydration effect to run again,
       // and that effect will then load the coach's saved #1 formation for the
