@@ -228,6 +228,17 @@ type UndoSnapshot = {
   manAssignments: Record<string, string>;
 };
 
+type PersistedBoardState = {
+  offensePlayers: Player[];
+  defensePlayers: Player[];
+  drawnLines: DrawLine[];
+  routes: RouteModel[];
+  zoneAssignments: CustomZoneAssignment[];
+  manAssignments: Record<string, string>;
+  ballSpot: BallSpot;
+  selectedSide: Side;
+};
+
 type TeamBranding = {
   schoolName: string;
   mascot: string;
@@ -2217,6 +2228,15 @@ function CoachBoardWebApp() {
   const [drawingMode, setDrawingMode] = useState<DrawLineMode>("curve");
   const [drawnLines, setDrawnLines] = useState<DrawLine[]>([]);
 
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const realtimeClientIdRef = useRef<string>(crypto.randomUUID());
+  const initialBoardStateReceivedRef = useRef(false);
+  const drawnLinesRef = useRef<DrawLine[]>([]);
+  const routesRef = useRef<RouteModel[]>([]);
+  const manAssignmentsRef = useRef<Record<string, string>>({});
+  const activeBoardStorageKeyRef = useRef<string | null>(null);
+  const [boardPersistenceReady, setBoardPersistenceReady] = useState(false);
+
   useEffect(() => {
     drawnLinesRef.current = drawnLines.map((line) => ({ ...line }));
   }, [drawnLines]);
@@ -2234,12 +2254,6 @@ function CoachBoardWebApp() {
     useState<LineEditDrag | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingSide, setDraggingSide] = useState<Side | null>(null);
-  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
-  const realtimeClientIdRef = useRef<string>(crypto.randomUUID());
-  const initialBoardStateReceivedRef = useRef(false);
-  const drawnLinesRef = useRef<DrawLine[]>([]);
-  const routesRef = useRef<RouteModel[]>([]);
-  const manAssignmentsRef = useRef<Record<string, string>>({});
   const [customPresetName, setCustomPresetName] = useState("");
   const [customOffensePresets, setCustomOffensePresets] = useState<
     CustomOffensePreset[]
@@ -2548,13 +2562,9 @@ function CoachBoardWebApp() {
       }
 
       if (payload.type === "SET_SELECTED_SIDE") {
+        // Changing offense/defense view should not destroy whiteboard work.
+        // Markup remains until the coach explicitly uses Clear All.
         setSelectedSide(payload.selectedSide);
-        setDrawnLines([]);
-        setRoutes([]);
-        zoneAssignmentsRef.current = [];
-        setZoneAssignments([]);
-        setManAssignments({});
-        setUndoStack([]);
         setSelectedFieldItem(null);
         setSelectedZoneId(null);
         setZoneDraftId(null);
@@ -2897,10 +2907,17 @@ function CoachBoardWebApp() {
       const nextRoutes = cloneRoutesForHistory(snapshot.routes);
       const nextZones = cloneZonesForHistory(snapshot.zoneAssignments);
 
-      setDrawnLines(nextLines);
-      setRoutes(nextRoutes);
-      setZoneAssignments(nextZones);
-      setManAssignments({ ...snapshot.manAssignments });
+      drawnLinesRef.current = nextLines.map((line) => ({ ...line }));
+      setDrawnLines(drawnLinesRef.current);
+
+      routesRef.current = nextRoutes.map((route) => ({ ...route }));
+      setRoutes(routesRef.current);
+
+      zoneAssignmentsRef.current = nextZones.map((zone) => ({ ...zone }));
+      setZoneAssignments(zoneAssignmentsRef.current);
+
+      manAssignmentsRef.current = { ...snapshot.manAssignments };
+      setManAssignments(manAssignmentsRef.current);
 
       realtimeChannelRef.current?.send({
         type: "broadcast",
@@ -6430,6 +6447,133 @@ function CoachBoardWebApp() {
     );
   }, [footballTeamSize, footballTeamSizeHydrated]);
 
+  function getBoardPersistenceKey() {
+    const accountId = user?.id ?? "anonymous";
+    const boardId = ROOM_ID || "local-board";
+    return `coachboard_live_board_state:${accountId}:${boardId}`;
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+
+    const storageKey = getBoardPersistenceKey();
+
+    // Prevent the outgoing board from being written into a newly selected
+    // room while React is switching room state.
+    activeBoardStorageKeyRef.current = null;
+    setBoardPersistenceReady(false);
+
+    const saved = window.localStorage.getItem(storageKey);
+
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as Partial<PersistedBoardState>;
+
+        if (Array.isArray(parsed.offensePlayers)) {
+          setOffensePlayers(parsed.offensePlayers);
+          middleOffensePlayersRef.current = parsed.offensePlayers.map(
+            (player) => ({ ...player }),
+          );
+        }
+
+        if (Array.isArray(parsed.defensePlayers)) {
+          setDefensePlayers(parsed.defensePlayers);
+          middleDefensePlayersRef.current = parsed.defensePlayers.map(
+            (player) => ({ ...player }),
+          );
+        }
+
+        const nextLines = Array.isArray(parsed.drawnLines)
+          ? parsed.drawnLines
+          : [];
+        drawnLinesRef.current = nextLines.map((line) => ({ ...line }));
+        setDrawnLines(drawnLinesRef.current);
+
+        const nextRoutes = Array.isArray(parsed.routes) ? parsed.routes : [];
+        routesRef.current = nextRoutes.map((route) => ({ ...route }));
+        setRoutes(routesRef.current);
+
+        const nextZones = Array.isArray(parsed.zoneAssignments)
+          ? parsed.zoneAssignments
+          : [];
+        zoneAssignmentsRef.current = nextZones.map((zone) => ({ ...zone }));
+        setZoneAssignments(zoneAssignmentsRef.current);
+
+        const nextManAssignments =
+          parsed.manAssignments &&
+          typeof parsed.manAssignments === "object"
+            ? parsed.manAssignments
+            : {};
+        manAssignmentsRef.current = { ...nextManAssignments };
+        setManAssignments(manAssignmentsRef.current);
+
+        if (
+          parsed.ballSpot === "leftHash" ||
+          parsed.ballSpot === "middle" ||
+          parsed.ballSpot === "rightHash"
+        ) {
+          setBallSpot(parsed.ballSpot);
+        }
+
+        if (
+          parsed.selectedSide === "offense" ||
+          parsed.selectedSide === "defense"
+        ) {
+          setSelectedSide(parsed.selectedSide);
+        }
+      } catch (error) {
+        console.warn("Unable to restore saved CoachBoard whiteboard:", error);
+      }
+    }
+
+    // Wait until the restored state has rendered before allowing autosave.
+    window.setTimeout(() => {
+      activeBoardStorageKeyRef.current = storageKey;
+      setBoardPersistenceReady(true);
+    }, 0);
+  }, [ROOM_ID, user?.id]);
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      !user ||
+      !boardPersistenceReady
+    ) {
+      return;
+    }
+
+    const storageKey = getBoardPersistenceKey();
+
+    if (activeBoardStorageKeyRef.current !== storageKey) {
+      return;
+    }
+
+    const snapshot: PersistedBoardState = {
+      offensePlayers: offensePlayers.map((player) => ({ ...player })),
+      defensePlayers: defensePlayers.map((player) => ({ ...player })),
+      drawnLines: drawnLines.map((line) => ({ ...line })),
+      routes: routes.map((route) => ({ ...route })),
+      zoneAssignments: zoneAssignments.map((zone) => ({ ...zone })),
+      manAssignments: { ...manAssignments },
+      ballSpot,
+      selectedSide,
+    };
+
+    window.localStorage.setItem(storageKey, JSON.stringify(snapshot));
+  }, [
+    ROOM_ID,
+    user?.id,
+    boardPersistenceReady,
+    offensePlayers,
+    defensePlayers,
+    drawnLines,
+    routes,
+    zoneAssignments,
+    manAssignments,
+    ballSpot,
+    selectedSide,
+  ]);
+
   function clearAllBoardMarkup(options?: { broadcast?: boolean; pushUndo?: boolean }) {
     const shouldBroadcast = options?.broadcast ?? true;
     const shouldPushUndo = options?.pushUndo ?? false;
@@ -6455,6 +6599,11 @@ function CoachBoardWebApp() {
     setActiveLineId(null);
     setLineEditDrag(null);
 
+    if (typeof window !== "undefined" && user) {
+      const storageKey = getBoardPersistenceKey();
+      window.localStorage.removeItem(storageKey);
+    }
+
     if (shouldBroadcast) {
       realtimeChannelRef.current?.send({
         type: "broadcast",
@@ -6471,10 +6620,8 @@ function CoachBoardWebApp() {
   }
 
   function applyCoachFocus(nextFocus: CoachFocus) {
-    if (nextFocus !== coachFocus) {
-      clearAllBoardMarkup({ broadcast: true });
-    }
-
+    // Preserve drawings/routes/coverage when changing the working view.
+    // The board is only erased by the explicit Clear All action.
     setCoachFocus(nextFocus);
 
     realtimeChannelRef.current?.send({
