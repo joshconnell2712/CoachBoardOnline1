@@ -2186,17 +2186,6 @@ function CoachBoardWebApp() {
   const zoneAssignmentsRef = useRef<CustomZoneAssignment[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
 
-  useEffect(() => {
-    drawnLinesRef.current = drawnLines.map((line) => ({ ...line }));
-  }, [drawnLines]);
-
-  useEffect(() => {
-    routesRef.current = routes.map((route) => ({ ...route }));
-  }, [routes]);
-
-  useEffect(() => {
-    manAssignmentsRef.current = { ...manAssignments };
-  }, [manAssignments]);
 
   const [zoneDraftId, setZoneDraftId] = useState<string | null>(null);
   const [zoneDrag, setZoneDrag] = useState<{
@@ -2227,6 +2216,19 @@ function CoachBoardWebApp() {
   const [drawingStyle, setDrawingStyle] = useState<DrawLineStyle>("solid");
   const [drawingMode, setDrawingMode] = useState<DrawLineMode>("curve");
   const [drawnLines, setDrawnLines] = useState<DrawLine[]>([]);
+
+  useEffect(() => {
+    drawnLinesRef.current = drawnLines.map((line) => ({ ...line }));
+  }, [drawnLines]);
+
+  useEffect(() => {
+    routesRef.current = routes.map((route) => ({ ...route }));
+  }, [routes]);
+
+  useEffect(() => {
+    manAssignmentsRef.current = { ...manAssignments };
+  }, [manAssignments]);
+
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
   const [lineEditDrag, setLineEditDrag] =
     useState<LineEditDrag | null>(null);
