@@ -9946,6 +9946,124 @@ function CoachBoardWebApp() {
             overflow-x: hidden !important;
           }
 
+          /* Tablet Coach Tools becomes a compact command dock instead of a
+             stretched desktop sidebar. */
+          .coachboard-tool-rail {
+            display: grid !important;
+            grid-template-columns:
+              minmax(118px, 0.8fr)
+              minmax(220px, 1.45fr)
+              repeat(4, minmax(100px, 1fr)) !important;
+            align-items: stretch !important;
+            gap: 7px !important;
+            width: 100% !important;
+            padding: 8px !important;
+            border-radius: 16px !important;
+            background:
+              linear-gradient(
+                135deg,
+                rgba(15, 23, 42, .96),
+                rgba(2, 6, 23, .93)
+              ) !important;
+            border: 1px solid rgba(148, 163, 184, .18) !important;
+            box-shadow:
+              0 16px 36px rgba(0,0,0,.28),
+              inset 0 1px 0 rgba(255,255,255,.035) !important;
+            overflow: visible !important;
+          }
+
+          .coach-tools-title {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-width: 0 !important;
+            padding: 0 9px !important;
+            margin: 0 !important;
+            border-radius: 11px !important;
+            color: #f87171 !important;
+            background: rgba(239,68,68,.07) !important;
+            border: 1px solid rgba(248,113,113,.13) !important;
+            text-align: center !important;
+            font-size: 11px !important;
+            letter-spacing: .12em !important;
+            line-height: 1.15 !important;
+          }
+
+          .coach-tools-view-group {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 6px !important;
+            padding: 5px !important;
+            border-radius: 12px !important;
+            background: rgba(255,255,255,.035) !important;
+            border: 1px solid rgba(255,255,255,.07) !important;
+            min-width: 0 !important;
+          }
+
+          .coach-tools-view-label {
+            display: none !important;
+          }
+
+          .coach-tool-view-button,
+          .coach-tool-nav-button,
+          .coach-tool-gameday-button {
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 48px !important;
+            margin: 0 !important;
+            padding: 8px 10px !important;
+            border-radius: 11px !important;
+            font-size: 12px !important;
+            font-weight: 900 !important;
+            line-height: 1.08 !important;
+            text-align: center !important;
+            white-space: normal !important;
+            box-shadow: none !important;
+          }
+
+          .coach-tool-nav-button {
+            background:
+              linear-gradient(
+                180deg,
+                rgba(30,41,59,.94),
+                rgba(10,15,25,.97)
+              ) !important;
+            border: 1px solid rgba(148,163,184,.14) !important;
+          }
+
+          .coach-tool-nav-button:hover {
+            border-color: rgba(248,113,113,.35) !important;
+          }
+
+          .coach-tools-gameday-wrap {
+            margin: 0 !important;
+            min-width: 0 !important;
+          }
+
+          .coach-tool-gameday-button {
+            height: 100% !important;
+            min-height: 48px !important;
+          }
+
+          .coach-tools-gameday-wrap > div {
+            display: none !important;
+          }
+
+          .coach-tools-organization-card {
+            grid-column: span 2 !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 48px !important;
+            margin: 0 !important;
+            padding: 8px 11px !important;
+            border-radius: 11px !important;
+          }
+
+          .coach-tools-organization-card > div:nth-child(3),
+          .coach-tools-organization-card > button {
+            display: none !important;
+          }
+
           .coachboard-main-grid {
             grid-template-columns: minmax(0, 1fr) !important;
             gap: 9px !important;
@@ -9959,34 +10077,7 @@ function CoachBoardWebApp() {
             position: sticky !important;
             top: 0 !important;
             z-index: 4500 !important;
-            width: 100% !important;
             min-width: 0 !important;
-            padding: 7px !important;
-            gap: 6px !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            align-items: center !important;
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
-            scrollbar-width: thin;
-            border-radius: 13px !important;
-          }
-
-          .coachboard-tool-rail > * {
-            flex: 0 0 auto !important;
-          }
-
-          .coachboard-tool-rail > div:first-child {
-            min-width: auto !important;
-          }
-
-          .coachboard-tool-rail button {
-            min-width: 104px !important;
-            min-height: 44px !important;
-            font-size: 12px !important;
-            line-height: 1.1 !important;
-            padding: 7px 9px !important;
-            white-space: nowrap !important;
           }
 
           .coachboard-center-column {
@@ -10023,21 +10114,34 @@ function CoachBoardWebApp() {
             padding: 6px !important;
           }
 
+          .coachboard-tool-rail {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+          }
+
+          .coach-tools-title {
+            grid-column: span 1 !important;
+          }
+
+          .coach-tools-view-group {
+            grid-column: span 2 !important;
+          }
+
+          .coach-tool-view-button,
+          .coach-tool-nav-button,
+          .coach-tool-gameday-button {
+            min-height: 46px !important;
+            font-size: 11px !important;
+          }
+
+          .coach-tools-organization-card {
+            grid-column: span 2 !important;
+          }
+
           .coachboard-main-grid {
             gap: 7px !important;
           }
 
-          .coachboard-tool-rail {
-            padding: 6px !important;
-            gap: 5px !important;
-            border-radius: 11px !important;
-          }
 
-          .coachboard-tool-rail button {
-            min-width: 98px !important;
-            min-height: 44px !important;
-            font-size: 11px !important;
-          }
 
           .coachboard-player-column {
             padding: 9px !important;
@@ -10385,8 +10489,9 @@ function CoachBoardWebApp() {
             gap: 9,
           }}
         >
-          <div style={panelHeaderStyle}>Coach Tools</div>
+          <div className="coach-tools-title" style={panelHeaderStyle}>Coach Tools</div>
           <div
+            className="coach-tools-view-group"
             style={{
               display: "grid",
               gap: 6,
@@ -10397,11 +10502,13 @@ function CoachBoardWebApp() {
             }}
           >
             <div
+              className="coach-tools-view-label"
               style={{ ...panelHeaderStyle, color: "#d1d5db", fontSize: 10 }}
             >
               View
             </div>
             <button
+              className="coach-tool-view-button"
               style={{
                 ...buttonBase,
                 width: "100%",
@@ -10414,6 +10521,7 @@ function CoachBoardWebApp() {
               Offense View
             </button>
             <button
+              className="coach-tool-view-button"
               style={{
                 ...buttonBase,
                 width: "100%",
@@ -10426,7 +10534,7 @@ function CoachBoardWebApp() {
               Defense View
             </button>
           </div>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10452,7 +10560,7 @@ function CoachBoardWebApp() {
           >
             Formations
           </button>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10476,7 +10584,7 @@ function CoachBoardWebApp() {
           >
             Plays
           </button>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10499,7 +10607,7 @@ function CoachBoardWebApp() {
           >
             Concepts
           </button>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10522,7 +10630,7 @@ function CoachBoardWebApp() {
           >
             Playbooks
           </button>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10546,7 +10654,7 @@ function CoachBoardWebApp() {
           >
             Game Plan
           </button>
-          <button
+          <button className="coach-tool-nav-button"
   style={{
     ...buttonBase,
     width: "100%",
@@ -10560,8 +10668,9 @@ function CoachBoardWebApp() {
 >
   Analytics
 </button>
-          <div style={{ marginTop: 14 }}>
+          <div className="coach-tools-gameday-wrap" style={{ marginTop: 14 }}>
             <button
+              className="coach-tool-gameday-button"
               onClick={() => setShowGamedayRoom(true)}
               style={{
                 width: "100%",
@@ -10583,7 +10692,7 @@ function CoachBoardWebApp() {
               </div>
             )}
           </div>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10609,6 +10718,7 @@ function CoachBoardWebApp() {
           </button>
           {organization && (
             <button
+              className="coach-tools-organization-card"
               type="button"
               onClick={() => setShowOrganizationPanel(true)}
               title="View organization details"
