@@ -9719,6 +9719,118 @@ function CoachBoardWebApp() {
         setActiveLineId(null);
       }}
     >
+      <style>{`
+        .coachboard-main-grid,
+        .coachboard-center-column,
+        .coachboard-player-column,
+        .coachboard-tool-rail {
+          min-width: 0;
+        }
+
+        @media (max-width: 1180px) {
+          .coachboard-app-background {
+            padding: 10px !important;
+          }
+
+          .coachboard-main-grid {
+            grid-template-columns: 112px minmax(0, 1fr) !important;
+            gap: 10px !important;
+          }
+
+          .coachboard-tool-rail {
+            grid-column: 1 !important;
+            grid-row: 1 / span 2 !important;
+            padding: 9px !important;
+            gap: 7px !important;
+          }
+
+          .coachboard-center-column {
+            grid-column: 2 !important;
+            grid-row: 1 !important;
+            gap: 10px !important;
+          }
+
+          .coachboard-player-column {
+            grid-column: 2 !important;
+            grid-row: 2 !important;
+            padding: 12px !important;
+            gap: 10px !important;
+          }
+
+          .coachboard-tool-rail button {
+            font-size: 12px !important;
+            line-height: 1.15 !important;
+            padding-left: 7px !important;
+            padding-right: 7px !important;
+          }
+
+          .coachboard-player-column input,
+          .coachboard-player-column select,
+          .coachboard-player-column button {
+            min-height: 42px;
+          }
+        }
+
+        @media (max-width: 820px) {
+          .coachboard-app-background {
+            padding: 7px !important;
+          }
+
+          .coachboard-main-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 8px !important;
+          }
+
+          .coachboard-tool-rail {
+            grid-column: 1 !important;
+            grid-row: auto !important;
+            position: sticky;
+            top: 0;
+            z-index: 5000;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            overflow-x: auto !important;
+            overscroll-behavior-x: contain;
+            scrollbar-width: thin;
+            padding: 7px !important;
+            border-radius: 12px !important;
+          }
+
+          .coachboard-tool-rail > * {
+            flex: 0 0 auto !important;
+            min-width: 112px !important;
+          }
+
+          .coachboard-tool-rail > div:first-child {
+            min-width: auto !important;
+          }
+
+          .coachboard-center-column,
+          .coachboard-player-column {
+            grid-column: 1 !important;
+            grid-row: auto !important;
+          }
+
+          .coachboard-player-column {
+            padding: 10px !important;
+          }
+
+          .coachboard-player-column > div {
+            min-width: 0 !important;
+          }
+
+          .coachboard-center-column input,
+          .coachboard-center-column select,
+          .coachboard-center-column button,
+          .coachboard-player-column input,
+          .coachboard-player-column select,
+          .coachboard-player-column button {
+            min-height: 44px;
+          }
+        }
+      `}</style>
+
       {showOrganizationPanel && organization && (
         <div
           onClick={() => setShowOrganizationPanel(false)}
@@ -10031,6 +10143,7 @@ function CoachBoardWebApp() {
       )}
 
       <div
+        className="coachboard-main-grid"
         style={{
           maxWidth: 1600,
           margin: "0 auto",
@@ -10040,6 +10153,7 @@ function CoachBoardWebApp() {
         }}
       >
         <div
+          className="coachboard-tool-rail"
           style={{
             ...cardStyle,
             padding: 14,
@@ -14109,6 +14223,7 @@ function CoachBoardWebApp() {
 
         {!fieldFullscreen && (
           <div
+            className="coachboard-player-column"
             style={{
               ...cardStyle,
               padding: 18,
