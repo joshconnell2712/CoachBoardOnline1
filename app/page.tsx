@@ -2238,7 +2238,7 @@ function CoachBoardWebApp() {
   const realtimeClientIdRef = useRef<string>(crypto.randomUUID());
   const initialBoardStateReceivedRef = useRef(false);
   const drawnLinesRef = useRef<DrawLine[]>([]);
-  const routesRef = useRef<RouteModel[][]>([]);
+  const routesRef = useRef<RouteModel[]>([]);
   const manAssignmentsRef = useRef<Record<string, string>>({});
   const [customPresetName, setCustomPresetName] = useState("");
   const [customOffensePresets, setCustomOffensePresets] = useState<
