@@ -2183,6 +2183,7 @@ function CoachBoardWebApp() {
   const [zoneAssignments, setZoneAssignments] = useState<
     CustomZoneAssignment[]
   >([]);
+  const zoneAssignmentsRef = useRef<CustomZoneAssignment[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [zoneDraftId, setZoneDraftId] = useState<string | null>(null);
   const [zoneDrag, setZoneDrag] = useState<{
@@ -2445,6 +2446,7 @@ function CoachBoardWebApp() {
     // previous local board before entering a Gameday Room.
     setDrawnLines([]);
     setRoutes([]);
+    zoneAssignmentsRef.current = [];
     setZoneAssignments([]);
     setManAssignments({});
     setDefensiveReadPlayerIds([]);
@@ -2517,6 +2519,7 @@ function CoachBoardWebApp() {
         setSelectedSide(payload.selectedSide);
         setDrawnLines([]);
         setRoutes([]);
+        zoneAssignmentsRef.current = [];
         setZoneAssignments([]);
         setManAssignments({});
         setUndoStack([]);
@@ -2531,7 +2534,13 @@ function CoachBoardWebApp() {
       if (payload.type === "SET_BOARD_STATE") {
         setDrawnLines(payload.drawnLines);
         setRoutes(payload.routes);
-        setZoneAssignments(payload.zoneAssignments);
+        const nextZones = Array.isArray(payload.zoneAssignments)
+          ? payload.zoneAssignments
+          : [];
+        zoneAssignmentsRef.current = nextZones.map(
+          (zone: CustomZoneAssignment) => ({ ...zone }),
+        );
+        setZoneAssignments(zoneAssignmentsRef.current);
         setManAssignments(payload.manAssignments);
       }
 
@@ -2552,7 +2561,23 @@ function CoachBoardWebApp() {
       }
 
       if (payload.type === "SET_ZONES") {
-        setZoneAssignments(payload.zoneAssignments);
+        const nextZones = Array.isArray(payload.zoneAssignments)
+          ? payload.zoneAssignments
+          : [];
+        zoneAssignmentsRef.current = nextZones.map(
+          (zone: CustomZoneAssignment) => ({ ...zone }),
+        );
+        setZoneAssignments(zoneAssignmentsRef.current);
+
+        if (
+          selectedZoneId &&
+          !zoneAssignmentsRef.current.some((zone) => zone.id === selectedZoneId)
+        ) {
+          setSelectedZoneId(null);
+          setSelectedFieldItem(null);
+          setZoneDraftId(null);
+          setZoneDrag(null);
+        }
       }
 
       if (payload.type === "SET_TEAM_SETUP") {
@@ -2717,20 +2742,14 @@ function CoachBoardWebApp() {
 
     const clampedRadius = Math.max(2.5, Math.min(18, nextRadius));
 
-    const nextZones = zoneAssignments.map((zone) =>
-      zone.id === selectedZoneId ? { ...zone, radius: clampedRadius } : zone,
+    const nextZones = zoneAssignmentsRef.current.map((zone) =>
+      zone.id === selectedZoneId
+        ? { ...zone, radius: clampedRadius }
+        : { ...zone },
     );
 
-    setZoneAssignments(nextZones);
-
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_ZONES",
-        zoneAssignments: nextZones,
-      },
-    });
+    applyZoneAssignmentsLocally(nextZones);
+    broadcastZoneAssignments(nextZones);
   }
 
   const activeToolLabel = (() => {
@@ -2842,10 +2861,17 @@ function CoachBoardWebApp() {
     }
 
     if (selectedFieldItem.type === "zone") {
-      setZoneAssignments((current) =>
-        current.filter((zone) => zone.id !== selectedFieldItem.id),
+      const nextZones = zoneAssignmentsRef.current.filter(
+        (zone) => zone.id !== selectedFieldItem.id,
       );
+
+      applyZoneAssignmentsLocally(nextZones);
+      broadcastZoneAssignments(nextZones);
+
       setSelectedZoneId(null);
+      setSelectedFieldItem(null);
+      setZoneDraftId(null);
+      setZoneDrag(null);
     }
     if (selectedFieldItem.type === "man") {
       const nextAssignments = { ...manAssignments };
@@ -6689,6 +6715,26 @@ function CoachBoardWebApp() {
     setActiveLineId(id);
   }
 
+  function applyZoneAssignmentsLocally(
+    nextZones: CustomZoneAssignment[],
+  ) {
+    zoneAssignmentsRef.current = nextZones.map((zone) => ({ ...zone }));
+    setZoneAssignments(zoneAssignmentsRef.current);
+  }
+
+  function broadcastZoneAssignments(
+    nextZones: CustomZoneAssignment[] = zoneAssignmentsRef.current,
+  ) {
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ZONES",
+        zoneAssignments: nextZones.map((zone) => ({ ...zone })),
+      },
+    });
+  }
+
   function startZoneCircle(clientX: number, clientY: number) {
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
@@ -6704,39 +6750,38 @@ function CoachBoardWebApp() {
     pushUndoSnapshot();
 
     const zoneId = crypto.randomUUID();
-    setSelectedFieldItem({ type: "zone", id: zoneId });
     const nextZones = [
-      ...zoneAssignments,
+      ...zoneAssignmentsRef.current.map((zone) => ({ ...zone })),
       {
         id: zoneId,
         defenderId: selectedDefender.id,
         x: point.x,
         y: point.y,
-        radius: 1.2,
+        radius: 2.5,
       },
     ];
 
-    setZoneAssignments(nextZones);
-
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_ZONES",
-        zoneAssignments: nextZones,
-      },
-    });
+    setSelectedFieldItem({ type: "zone", id: zoneId });
     setSelectedZoneId(zoneId);
     setZoneDraftId(zoneId);
+
+    // Update the live ref immediately so the very next pointermove cannot
+    // accidentally use the pre-click zone list.
+    applyZoneAssignmentsLocally(nextZones);
+
+    // Send the creation immediately so collaborators see the circle as soon
+    // as the coach starts drawing it.
+    broadcastZoneAssignments(nextZones);
   }
 
   function updateZoneDraft(clientX: number, clientY: number) {
     if (!zoneDraftId) return;
+
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
 
-    const nextZones = zoneAssignments.map((zone) => {
-      if (zone.id !== zoneDraftId) return zone;
+    const nextZones = zoneAssignmentsRef.current.map((zone) => {
+      if (zone.id !== zoneDraftId) return { ...zone };
 
       const nextRadius = Math.hypot(point.x - zone.x, point.y - zone.y);
 
@@ -6746,21 +6791,22 @@ function CoachBoardWebApp() {
       };
     });
 
-    setZoneAssignments(nextZones);
+    applyZoneAssignmentsLocally(nextZones);
 
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_ZONES",
-        zoneAssignments: nextZones,
-      },
-    });
+    // Broadcast live resize updates. The ref prevents old/stale frames from
+    // replacing a just-created circle.
+    broadcastZoneAssignments(nextZones);
   }
 
   function finalizeZoneDraft() {
     if (!zoneDraftId) return;
+
     setZoneDraftId(null);
+
+    // Always send one final authoritative snapshot on pointer-up. This makes
+    // the finished circle reliable even if an intermediate realtime packet
+    // was dropped or arrived out of order.
+    broadcastZoneAssignments(zoneAssignmentsRef.current);
   }
 
   function startZoneDrag(
@@ -6784,24 +6830,34 @@ function CoachBoardWebApp() {
 
   function updateZoneDrag(clientX: number, clientY: number) {
     if (!zoneDrag) return;
+
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
 
-    setZoneAssignments((current) =>
-      current.map((zone) => {
-        if (zone.id !== zoneDrag.id) return zone;
-        return {
-          ...zone,
-          x: Math.max(0, Math.min(100, point.x + zoneDrag.offsetX)),
-          y: Math.max(0, Math.min(100, point.y + zoneDrag.offsetY)),
-        };
-      }),
-    );
+    const nextZones = zoneAssignmentsRef.current.map((zone) => {
+      if (zone.id !== zoneDrag.id) return { ...zone };
+
+      return {
+        ...zone,
+        x: Math.max(0, Math.min(100, point.x + zoneDrag.offsetX)),
+        y: Math.max(0, Math.min(100, point.y + zoneDrag.offsetY)),
+      };
+    });
+
+    applyZoneAssignmentsLocally(nextZones);
+
+    // Keep the other screen moving with the drag instead of only updating
+    // the local screen.
+    broadcastZoneAssignments(nextZones);
   }
 
   function finalizeZoneDrag() {
     if (!zoneDrag) return;
+
     setZoneDrag(null);
+
+    // Final authoritative position.
+    broadcastZoneAssignments(zoneAssignmentsRef.current);
   }
 
   function updateDrawing(clientX: number, clientY: number) {
