@@ -2235,6 +2235,7 @@ function CoachBoardWebApp() {
   const routesRef = useRef<RouteModel[]>([]);
   const manAssignmentsRef = useRef<Record<string, string>>({});
   const activeBoardStorageKeyRef = useRef<string | null>(null);
+  const activeBoardHadSavedSnapshotRef = useRef(false);
   const [boardPersistenceReady, setBoardPersistenceReady] = useState(false);
 
   useEffect(() => {
@@ -2506,11 +2507,9 @@ function CoachBoardWebApp() {
   useEffect(() => {
     if (!ROOM_ID || !user) return;
 
-    // ROOM_ID changes whenever a coach enters a different room. Clearing here
-    // guarantees the old local board is removed before the new realtime
-    // channel subscribes—even when the room was entered from saved localStorage.
-    clearWhiteboardForGamedayRoom();
-
+    // Do not clear the board on refresh/reconnect. Room-specific persistence
+    // below decides whether to restore an existing board or start this room
+    // blank. Whiteboard work should only be destroyed by an explicit clear.
     const channel = supabase.channel(ROOM_ID, {
       config: {
         presence: {
@@ -2707,7 +2706,9 @@ function CoachBoardWebApp() {
         // Request a fresh authoritative board snapshot as soon as this coach
         // joins so anything already drawn appears immediately.
         window.setTimeout(() => {
-          requestCompleteBoardState();
+          if (!activeBoardHadSavedSnapshotRef.current) {
+            requestCompleteBoardState();
+          }
         }, 100);
       }
     });
@@ -5155,7 +5156,9 @@ function CoachBoardWebApp() {
                     padding: "8px 10px",
                   }}
                   onClick={() => {
+                    manAssignmentsRef.current = {};
                     setManAssignments({});
+                    zoneAssignmentsRef.current = [];
                     setZoneAssignments([]);
                   }}
                 >
@@ -5870,7 +5873,9 @@ function CoachBoardWebApp() {
               whiteSpace: "nowrap",
             }}
             onClick={() => {
+              manAssignmentsRef.current = {};
               setManAssignments({});
+              zoneAssignmentsRef.current = [];
               setZoneAssignments([]);
             }}
           >
@@ -6464,6 +6469,7 @@ function CoachBoardWebApp() {
     setBoardPersistenceReady(false);
 
     const saved = window.localStorage.getItem(storageKey);
+    activeBoardHadSavedSnapshotRef.current = Boolean(saved);
 
     if (saved) {
       try {
@@ -6523,7 +6529,28 @@ function CoachBoardWebApp() {
         }
       } catch (error) {
         console.warn("Unable to restore saved CoachBoard whiteboard:", error);
+        activeBoardHadSavedSnapshotRef.current = false;
       }
+    } else {
+      drawnLinesRef.current = [];
+      setDrawnLines([]);
+
+      routesRef.current = [];
+      setRoutes([]);
+
+      zoneAssignmentsRef.current = [];
+      setZoneAssignments([]);
+
+      manAssignmentsRef.current = {};
+      setManAssignments({});
+
+      setUndoStack([]);
+      setSelectedFieldItem(null);
+      setSelectedZoneId(null);
+      setZoneDraftId(null);
+      setZoneDrag(null);
+      setActiveLineId(null);
+      setLineEditDrag(null);
     }
 
     // Wait until the restored state has rendered before allowing autosave.
@@ -6560,6 +6587,7 @@ function CoachBoardWebApp() {
     };
 
     window.localStorage.setItem(storageKey, JSON.stringify(snapshot));
+    activeBoardHadSavedSnapshotRef.current = true;
   }, [
     ROOM_ID,
     user?.id,
@@ -6602,6 +6630,7 @@ function CoachBoardWebApp() {
     if (typeof window !== "undefined" && user) {
       const storageKey = getBoardPersistenceKey();
       window.localStorage.removeItem(storageKey);
+      activeBoardHadSavedSnapshotRef.current = false;
     }
 
     if (shouldBroadcast) {
@@ -11743,7 +11772,6 @@ function CoachBoardWebApp() {
 
                 const newCode = generateTeamCode();
 
-                clearWhiteboardForGamedayRoom();
                 localStorage.setItem("coachboard_team_code", newCode);
 
                 setTeamCode(newCode);
@@ -11772,7 +11800,6 @@ function CoachBoardWebApp() {
                   return;
                 }
 
-                clearWhiteboardForGamedayRoom();
                 localStorage.setItem("coachboard_team_code", cleanedCode);
 
                 setTeamCode(cleanedCode);
