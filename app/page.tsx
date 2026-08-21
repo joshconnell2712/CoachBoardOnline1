@@ -2601,8 +2601,13 @@ function CoachBoardWebApp() {
         drawnLinesRef.current = nextLines.map((line: DrawLine) => ({ ...line }));
         setDrawnLines(drawnLinesRef.current);
 
-        const nextRoutes = Array.isArray(payload.routes) ? payload.routes : [];
-        routesRef.current = nextRoutes.map((route) => ({ ...route }));
+        const nextRoutes: RouteModel[] = Array.isArray(payload.routes)
+          ? (payload.routes as RouteModel[])
+          : [];
+
+        routesRef.current = nextRoutes.map((route: RouteModel) => ({
+          ...route,
+        }));
         setRoutes(routesRef.current);
 
         const nextZones = Array.isArray(payload.zoneAssignments)
@@ -2623,8 +2628,13 @@ function CoachBoardWebApp() {
       }
 
       if (payload.type === "SET_ROUTES") {
-        const nextRoutes = Array.isArray(payload.routes) ? payload.routes : [];
-        routesRef.current = nextRoutes.map((route) => ({ ...route }));
+        const nextRoutes: RouteModel[] = Array.isArray(payload.routes)
+          ? (payload.routes as RouteModel[])
+          : [];
+
+        routesRef.current = nextRoutes.map((route: RouteModel) => ({
+          ...route,
+        }));
         setRoutes(routesRef.current);
       }
 
