@@ -2069,8 +2069,120 @@ export default function AnalyticsPage() {
         : [["specialTeams", "Special Teams Report"]];
 
   return (
-    <main style={pageStyle}>
-      <header style={topBarStyle}>
+    <main className="analytics-page" style={pageStyle}>
+      <style>{`
+        .analytics-page,
+        .analytics-page * {
+          box-sizing: border-box;
+        }
+
+        @media (max-width: 1180px) {
+          .analytics-page {
+            padding: 12px !important;
+          }
+
+          .analytics-topbar {
+            gap: 12px !important;
+            padding: 16px !important;
+            align-items: center !important;
+          }
+
+          .analytics-main-nav,
+          .analytics-subnav {
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
+            scrollbar-width: thin;
+            max-width: 100%;
+          }
+
+          .analytics-main-nav button,
+          .analytics-subnav button {
+            flex: 0 0 auto !important;
+            min-height: 44px;
+          }
+
+          .analytics-metric-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+          }
+
+          .analytics-entry-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+          }
+
+          .analytics-possession-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .analytics-below-play-insights {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .analytics-season-create-grid {
+            grid-template-columns: 120px minmax(0, 1fr) auto !important;
+          }
+
+          .analytics-game-create-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+          }
+
+          .print-reports-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .analytics-page input,
+          .analytics-page select,
+          .analytics-page button {
+            min-height: 42px;
+          }
+        }
+
+        @media (max-width: 820px) {
+          .analytics-page {
+            padding: 8px !important;
+          }
+
+          .analytics-topbar {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) !important;
+            padding: 12px !important;
+          }
+
+          .analytics-topbar > div:last-child {
+            justify-content: flex-start !important;
+            width: 100%;
+          }
+
+          .analytics-topbar select {
+            flex: 1 1 160px;
+            min-width: 0 !important;
+          }
+
+          .analytics-metric-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .analytics-entry-grid,
+          .analytics-possession-grid,
+          .analytics-game-create-grid,
+          .analytics-season-create-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .analytics-page input,
+          .analytics-page select,
+          .analytics-page button {
+            min-height: 44px;
+            font-size: 16px;
+          }
+
+          .analytics-page table {
+            font-size: 12px;
+          }
+        }
+      `}</style>
+      <header className="analytics-topbar" style={topBarStyle}>
         <div>
           <div style={eyebrowStyle}>COACHBOARD</div>
           <h1 style={titleStyle}>Analytics</h1>
@@ -2123,7 +2235,7 @@ export default function AnalyticsPage() {
 
       {message && <div style={messageStyle}>{message}</div>}
 
-      <nav style={navStyle}>
+      <nav className="analytics-main-nav" style={navStyle}>
         <NavButton
           label="Game Center"
           active={activeSection === "command"}
@@ -2150,7 +2262,7 @@ export default function AnalyticsPage() {
       </nav>
 
       {activeSection === "command" && (
-        <div style={gameCenterSubnavStyle}>
+        <div className="analytics-subnav" style={gameCenterSubnavStyle}>
           <button
             style={{
               ...gameCenterSubnavButtonStyle,
@@ -2191,7 +2303,7 @@ export default function AnalyticsPage() {
 
       {activeSection === "command" && gameCenterSection === "offense" && (
         <>
-          <section style={topMetricGridStyle}>
+          <section className="analytics-metric-grid" style={topMetricGridStyle}>
             <Metric label="Total Yards" value={stats.yards} />
             <Metric label="Rush" value={stats.rushYards} />
             <Metric label="Pass" value={stats.passYards} />
@@ -3077,6 +3189,7 @@ export default function AnalyticsPage() {
             <h2 style={panelTitleStyle}>Season Manager</h2>
 
             <div
+              className="analytics-season-create-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "150px minmax(180px, 1fr) auto",
@@ -3246,7 +3359,7 @@ export default function AnalyticsPage() {
               {selectedSeason?.name ?? "Season"} Games
             </h2>
 
-            <div style={formThreeStyle}>
+            <div className="analytics-game-create-grid" style={formThreeStyle}>
               <input
                 style={inputStyle}
                 placeholder="Week"
