@@ -2023,14 +2023,26 @@ type RoomCoach = {
   joinedAt: string;
 };
 
+type OrganizationRole = "owner" | "admin" | "coach" | "viewer";
+
 type CoachBoardOrganization = {
   team_id: string;
   team_name: string;
   season: number;
   invite_code: string | null;
-  role: "owner" | "admin" | "coach" | "viewer";
+  role: OrganizationRole;
   football_type: FootballTeamSize;
   field_template: FieldTemplate;
+};
+
+type CoachBoardOrganizationMember = {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  role: OrganizationRole;
+  joined_at: string | null;
 };
 
 function generateTeamCode(length = 6) {
@@ -2091,8 +2103,29 @@ function CoachBoardWebApp() {
   const [lastName, setLastName] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
+  const [showCoachProfile, setShowCoachProfile] = useState(false);
+  const [profileFirstName, setProfileFirstName] = useState("");
+  const [profileLastName, setProfileLastName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileNewPassword, setProfileNewPassword] = useState("");
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileError, setProfileError] = useState("");
+
   const [organization, setOrganization] =
     useState<CoachBoardOrganization | null>(null);
+
+  const [organizationMembers, setOrganizationMembers] = useState<
+    CoachBoardOrganizationMember[]
+  >([]);
+  const [organizationMembersLoading, setOrganizationMembersLoading] =
+    useState(false);
+  const [organizationMemberActionId, setOrganizationMemberActionId] =
+    useState<string | null>(null);
+  const [organizationMembersError, setOrganizationMembersError] = useState("");
+  const [organizationMembersMessage, setOrganizationMembersMessage] =
+    useState("");
   const [organizationChecked, setOrganizationChecked] = useState(false);
   const [organizationMode, setOrganizationMode] =
     useState<"choose" | "create" | "join">("choose");
@@ -8787,6 +8820,11 @@ function CoachBoardWebApp() {
   const activeFormation = customOffensePresets.find(
     (formation) => formation.id === selectedPlayFormationId,
   );
+  useEffect(() => {
+    if (!showOrganizationPanel || !organization || !user) return;
+    void refreshOrganizationMembers();
+  }, [showOrganizationPanel, organization?.team_id, user?.id]);
+
   const activeFieldHash =
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
@@ -8811,6 +8849,180 @@ function CoachBoardWebApp() {
   const fieldNumberColor = fieldBlackWhiteMode
     ? "rgba(0,0,0,.88)"
     : "rgba(255,255,255,.88)";
+  function organizationRoleLabel(role: OrganizationRole) {
+    if (role === "owner") return "Owner";
+    if (role === "admin") return "Co-Owner";
+    if (role === "coach") return "Coach";
+    return "Viewer";
+  }
+
+  function organizationMemberDisplayName(
+    member: CoachBoardOrganizationMember,
+  ) {
+    const fullName =
+      member.full_name?.trim() ||
+      `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim();
+
+    return fullName || member.email || "CoachBoard Member";
+  }
+
+  function canManageOrganizationMembers() {
+    return organization?.role === "owner" || organization?.role === "admin";
+  }
+
+  async function refreshOrganizationMembers() {
+    if (!user || !organization) return;
+
+    setOrganizationMembersLoading(true);
+    setOrganizationMembersError("");
+
+    const { data, error } = await supabase.rpc(
+      "get_coachboard_organization_members",
+    );
+
+    if (error) {
+      setOrganizationMembers([]);
+      setOrganizationMembersError(
+        `Member list could not be loaded: ${error.message}`,
+      );
+      setOrganizationMembersLoading(false);
+      return;
+    }
+
+    const rows = Array.isArray(data) ? data : data ? [data] : [];
+
+    setOrganizationMembers(
+      rows.map((row: any) => ({
+        user_id: String(row.user_id ?? ""),
+        email: String(row.email ?? ""),
+        first_name: String(row.first_name ?? ""),
+        last_name: String(row.last_name ?? ""),
+        full_name: String(row.full_name ?? ""),
+        role:
+          row.role === "owner" ||
+          row.role === "admin" ||
+          row.role === "viewer"
+            ? row.role
+            : "coach",
+        joined_at: row.joined_at ? String(row.joined_at) : null,
+      })),
+    );
+
+    setOrganizationMembersLoading(false);
+  }
+
+  async function changeOrganizationMemberRole(
+    member: CoachBoardOrganizationMember,
+    nextRole: OrganizationRole,
+  ) {
+    if (!organization || !canManageOrganizationMembers()) return;
+    if (member.role === nextRole) return;
+
+    const makingOwner = nextRole === "owner";
+    const currentUserIsOwner = organization.role === "owner";
+
+    if (makingOwner && !currentUserIsOwner) {
+      setOrganizationMembersError(
+        "Only the current owner can transfer organization ownership.",
+      );
+      return;
+    }
+
+    if (makingOwner) {
+      const confirmed = window.confirm(
+        `Transfer ownership to ${organizationMemberDisplayName(
+          member,
+        )}? You will become a Co-Owner after the transfer.`,
+      );
+
+      if (!confirmed) return;
+    }
+
+    setOrganizationMemberActionId(member.user_id);
+    setOrganizationMembersError("");
+    setOrganizationMembersMessage("");
+
+    const { error } = await supabase.rpc(
+      "set_coachboard_organization_member_role",
+      {
+        target_user_id: member.user_id,
+        new_role: nextRole,
+      },
+    );
+
+    if (error) {
+      setOrganizationMembersError(error.message);
+      setOrganizationMemberActionId(null);
+      return;
+    }
+
+    await refreshOrganization();
+    await refreshOrganizationMembers();
+
+    setOrganizationMembersMessage(
+      makingOwner
+        ? "Organization ownership transferred."
+        : `${organizationMemberDisplayName(member)} is now ${organizationRoleLabel(
+            nextRole,
+          )}.`,
+    );
+    setOrganizationMemberActionId(null);
+  }
+
+  async function removeOrganizationMember(
+    member: CoachBoardOrganizationMember,
+  ) {
+    if (!organization || !canManageOrganizationMembers()) return;
+
+    if (member.user_id === user?.id) {
+      setOrganizationMembersError(
+        "You cannot remove yourself from the organization here.",
+      );
+      return;
+    }
+
+    if (
+      member.role === "owner" &&
+      organization.role !== "owner"
+    ) {
+      setOrganizationMembersError(
+        "A Co-Owner cannot remove the organization Owner.",
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove ${organizationMemberDisplayName(
+        member,
+      )} from ${organization.team_name}? They will lose access to organization-shared CoachBoard content.`,
+    );
+
+    if (!confirmed) return;
+
+    setOrganizationMemberActionId(member.user_id);
+    setOrganizationMembersError("");
+    setOrganizationMembersMessage("");
+
+    const { error } = await supabase.rpc(
+      "remove_coachboard_organization_member",
+      {
+        target_user_id: member.user_id,
+      },
+    );
+
+    if (error) {
+      setOrganizationMembersError(error.message);
+      setOrganizationMemberActionId(null);
+      return;
+    }
+
+    await refreshOrganizationMembers();
+    setOrganizationMembersMessage(
+      `${organizationMemberDisplayName(member)} was removed.`,
+    );
+    setOrganizationMemberActionId(null);
+  }
+
   async function copyOrganizationInviteCode() {
     const code = organization?.invite_code;
     if (!code) return;
@@ -9007,6 +9219,131 @@ function CoachBoardWebApp() {
     }
 
     setOrganizationSaving(false);
+  }
+
+  function openCoachProfile() {
+    setProfileFirstName(
+      user?.user_metadata?.first_name?.trim?.() ?? "",
+    );
+    setProfileLastName(
+      user?.user_metadata?.last_name?.trim?.() ?? "",
+    );
+    setProfileEmail(user?.email ?? "");
+    setProfileNewPassword("");
+    setProfileConfirmPassword("");
+    setProfileMessage("");
+    setProfileError("");
+    setShowCoachProfile(true);
+  }
+
+  function closeCoachProfile() {
+    if (profileSaving) return;
+    setShowCoachProfile(false);
+    setProfileNewPassword("");
+    setProfileConfirmPassword("");
+    setProfileMessage("");
+    setProfileError("");
+  }
+
+  async function saveCoachProfile() {
+    if (!user) return;
+
+    const nextFirstName = profileFirstName.trim();
+    const nextLastName = profileLastName.trim();
+    const nextEmail = profileEmail.trim().toLowerCase();
+    const nextPassword = profileNewPassword.trim();
+
+    if (!nextFirstName) {
+      setProfileError("Enter your first name.");
+      return;
+    }
+
+    if (!nextEmail || !nextEmail.includes("@")) {
+      setProfileError("Enter a valid email address.");
+      return;
+    }
+
+    if (nextPassword && nextPassword.length < 6) {
+      setProfileError("New password must be at least 6 characters.");
+      return;
+    }
+
+    if (nextPassword !== profileConfirmPassword.trim()) {
+      setProfileError("The new passwords do not match.");
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileError("");
+    setProfileMessage("");
+
+    try {
+      const fullName = `${nextFirstName} ${nextLastName}`.trim();
+
+      const profileUpdate = await supabase.auth.updateUser({
+        data: {
+          ...user.user_metadata,
+          first_name: nextFirstName,
+          last_name: nextLastName,
+          full_name: fullName,
+          name: fullName,
+        },
+      });
+
+      if (profileUpdate.error) {
+        throw profileUpdate.error;
+      }
+
+      let emailChanged = false;
+
+      if (nextEmail !== (user.email ?? "").toLowerCase()) {
+        const emailUpdate = await supabase.auth.updateUser({
+          email: nextEmail,
+        });
+
+        if (emailUpdate.error) {
+          throw emailUpdate.error;
+        }
+
+        emailChanged = true;
+      }
+
+      if (nextPassword) {
+        const passwordUpdate = await supabase.auth.updateUser({
+          password: nextPassword,
+        });
+
+        if (passwordUpdate.error) {
+          throw passwordUpdate.error;
+        }
+      }
+
+      const refreshed = await supabase.auth.getUser();
+      if (refreshed.data.user) {
+        setUser(refreshed.data.user);
+      } else if (profileUpdate.data.user) {
+        setUser(profileUpdate.data.user);
+      }
+
+      setProfileNewPassword("");
+      setProfileConfirmPassword("");
+
+      setProfileMessage(
+        emailChanged
+          ? "Profile saved. Check your email to confirm the new email address if confirmation is required."
+          : nextPassword
+            ? "Profile and password updated."
+            : "Profile updated.",
+      );
+    } catch (error) {
+      setProfileError(
+        error instanceof Error
+          ? error.message
+          : "Unable to update your profile.",
+      );
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   async function handleLogout() {
@@ -10039,6 +10376,18 @@ function CoachBoardWebApp() {
             border-color: rgba(248,113,113,.35) !important;
           }
 
+          .coach-profile-button {
+            position: relative !important;
+          }
+
+          .coach-profile-button::before {
+            content: "●";
+            margin-right: 6px;
+            color: #f87171;
+            font-size: 9px;
+            vertical-align: middle;
+          }
+
           .coach-tools-gameday-wrap {
             margin: 0 !important;
             min-width: 0 !important;
@@ -10151,6 +10500,20 @@ function CoachBoardWebApp() {
             padding: 9px !important;
           }
 
+          .coach-profile-modal {
+            padding: 16px !important;
+            max-height: calc(100dvh - 20px) !important;
+          }
+
+          .coachboard-organization-members-row {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .coach-profile-modal > div:nth-of-type(2),
+          .coach-profile-modal > div:nth-of-type(4) {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
           .coachboard-center-column input,
           .coachboard-center-column select,
           .coachboard-center-column button,
@@ -10161,6 +10524,387 @@ function CoachBoardWebApp() {
           }
         }
       `}</style>
+
+      {showCoachProfile && user && (
+        <div
+          onClick={closeCoachProfile}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 12000,
+            display: "grid",
+            placeItems: "center",
+            padding: 18,
+            background: "rgba(0,0,0,.78)",
+            backdropFilter: "blur(9px)",
+          }}
+        >
+          <section
+            className="coach-profile-modal"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              ...cardStyle,
+              width: "min(620px, 100%)",
+              maxHeight: "min(760px, calc(100dvh - 36px))",
+              overflowY: "auto",
+              padding: 22,
+              display: "grid",
+              gap: 16,
+              border: "1px solid rgba(248,113,113,.28)",
+              boxShadow: "0 28px 80px rgba(0,0,0,.58)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 14,
+                alignItems: "flex-start",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  style={{
+                    width: 54,
+                    height: 54,
+                    borderRadius: "50%",
+                    display: "grid",
+                    placeItems: "center",
+                    background:
+                      "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)",
+                    color: "white",
+                    fontWeight: 950,
+                    fontSize: 20,
+                    border: "2px solid rgba(248,113,113,.55)",
+                    flex: "0 0 auto",
+                  }}
+                >
+                  {(
+                    `${profileFirstName?.[0] ?? ""}${
+                      profileLastName?.[0] ?? ""
+                    }`.trim() || "C"
+                  ).toUpperCase()}
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <div style={panelHeaderStyle}>COACH PROFILE</div>
+                  <h2
+                    style={{
+                      margin: "4px 0 2px",
+                      color: "white",
+                      fontSize: 25,
+                      lineHeight: 1.05,
+                    }}
+                  >
+                    {getProfileFullName(user)}
+                  </h2>
+                  <div
+                    style={{
+                      color: "#94a3b8",
+                      fontSize: 13,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {organization
+                      ? `${organization.team_name} • ${organization.role}`
+                      : "CoachBoard Account"}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeCoachProfile}
+                disabled={profileSaving}
+                style={{
+                  ...buttonBase,
+                  width: 42,
+                  minWidth: 42,
+                  height: 42,
+                  padding: 0,
+                  borderRadius: 12,
+                  background: "#111827",
+                  color: "white",
+                  fontSize: 20,
+                }}
+                aria-label="Close profile"
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: 10,
+              }}
+            >
+              <label style={{ display: "grid", gap: 6 }}>
+                <span
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  FIRST NAME
+                </span>
+                <input
+                  value={profileFirstName}
+                  onChange={(event) =>
+                    setProfileFirstName(event.target.value)
+                  }
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                    minWidth: 0,
+                  }}
+                  placeholder="First name"
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  LAST NAME
+                </span>
+                <input
+                  value={profileLastName}
+                  onChange={(event) =>
+                    setProfileLastName(event.target.value)
+                  }
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                    minWidth: 0,
+                  }}
+                  placeholder="Last name"
+                />
+              </label>
+            </div>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span
+                style={{
+                  color: "#cbd5e1",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: ".08em",
+                }}
+              >
+                EMAIL
+              </span>
+              <input
+                type="email"
+                value={profileEmail}
+                onChange={(event) => setProfileEmail(event.target.value)}
+                style={{
+                  ...inputStyle,
+                  width: "100%",
+                  minWidth: 0,
+                }}
+                placeholder="coach@example.com"
+              />
+              <span style={{ color: "#64748b", fontSize: 11 }}>
+                Changing your email may require confirmation from the new
+                address before the change becomes active.
+              </span>
+            </label>
+
+            <div
+              style={{
+                paddingTop: 4,
+                borderTop: "1px solid rgba(255,255,255,.08)",
+              }}
+            >
+              <div style={panelHeaderStyle}>PASSWORD</div>
+              <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
+                Leave these blank if you do not want to change your password.
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: 10,
+              }}
+            >
+              <label style={{ display: "grid", gap: 6 }}>
+                <span
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  NEW PASSWORD
+                </span>
+                <input
+                  type="password"
+                  value={profileNewPassword}
+                  onChange={(event) =>
+                    setProfileNewPassword(event.target.value)
+                  }
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                    minWidth: 0,
+                  }}
+                  placeholder="New password"
+                  autoComplete="new-password"
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  CONFIRM PASSWORD
+                </span>
+                <input
+                  type="password"
+                  value={profileConfirmPassword}
+                  onChange={(event) =>
+                    setProfileConfirmPassword(event.target.value)
+                  }
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                    minWidth: 0,
+                  }}
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                />
+              </label>
+            </div>
+
+            {organization && (
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,.04)",
+                  border: "1px solid rgba(255,255,255,.08)",
+                  display: "grid",
+                  gap: 5,
+                }}
+              >
+                <div style={panelHeaderStyle}>ORGANIZATION</div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <strong style={{ color: "white" }}>
+                    {organization.team_name}
+                  </strong>
+                  <span style={{ color: "#94a3b8", textTransform: "capitalize" }}>
+                    {organization.role}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {profileError && (
+              <div
+                style={{
+                  padding: 11,
+                  borderRadius: 11,
+                  background: "rgba(127,29,29,.35)",
+                  border: "1px solid rgba(248,113,113,.35)",
+                  color: "#fecaca",
+                  fontWeight: 800,
+                  fontSize: 13,
+                }}
+              >
+                {profileError}
+              </div>
+            )}
+
+            {profileMessage && (
+              <div
+                style={{
+                  padding: 11,
+                  borderRadius: 11,
+                  background: "rgba(22,101,52,.32)",
+                  border: "1px solid rgba(74,222,128,.28)",
+                  color: "#bbf7d0",
+                  fontWeight: 800,
+                  fontSize: 13,
+                }}
+              >
+                {profileMessage}
+              </div>
+            )}
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                gap: 9,
+                alignItems: "center",
+              }}
+            >
+              <button
+                type="button"
+                onClick={saveCoachProfile}
+                disabled={profileSaving}
+                style={{
+                  ...buttonBase,
+                  minHeight: 48,
+                  background: "#dc2626",
+                  color: "white",
+                  fontWeight: 950,
+                  opacity: profileSaving ? 0.65 : 1,
+                }}
+              >
+                {profileSaving ? "Saving..." : "Save Profile"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={profileSaving}
+                style={{
+                  ...buttonBase,
+                  minHeight: 48,
+                  background: "#111827",
+                  color: "#fca5a5",
+                  border: "1px solid rgba(248,113,113,.24)",
+                }}
+              >
+                Log Out
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {showOrganizationPanel && organization && (
         <div
@@ -10180,7 +10924,9 @@ function CoachBoardWebApp() {
             onClick={(event) => event.stopPropagation()}
             style={{
               ...cardStyle,
-              width: "min(560px, 100%)",
+              width: "min(860px, 100%)",
+              maxHeight: "min(860px, calc(100dvh - 36px))",
+              overflowY: "auto",
               padding: 28,
               color: "white",
             }}
@@ -10292,6 +11038,279 @@ function CoachBoardWebApp() {
                 No invite code is assigned to this organization yet.
               </div>
             )}
+
+            <div
+              style={{
+                marginTop: 18,
+                paddingTop: 18,
+                borderTop: "1px solid rgba(255,255,255,.09)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <div style={panelHeaderStyle}>ORGANIZATION MEMBERS</div>
+                  <h3
+                    style={{
+                      margin: "5px 0 0",
+                      color: "white",
+                      fontSize: 21,
+                    }}
+                  >
+                    {organizationMembers.length} Member
+                    {organizationMembers.length === 1 ? "" : "s"}
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void refreshOrganizationMembers()}
+                  disabled={organizationMembersLoading}
+                  style={{
+                    ...buttonBase,
+                    padding: "9px 12px",
+                    minHeight: 40,
+                    background: "#111827",
+                    color: "white",
+                  }}
+                >
+                  {organizationMembersLoading ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 8,
+                  color: "#94a3b8",
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                }}
+              >
+                Owner has full organization control. Co-Owners can manage
+                coaches and viewers. Only the Owner can transfer ownership.
+              </div>
+
+              {organizationMembersError && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 10,
+                    borderRadius: 10,
+                    background: "rgba(127,29,29,.38)",
+                    border: "1px solid rgba(248,113,113,.34)",
+                    color: "#fecaca",
+                    fontWeight: 800,
+                    fontSize: 12,
+                  }}
+                >
+                  {organizationMembersError}
+                </div>
+              )}
+
+              {organizationMembersMessage && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 10,
+                    borderRadius: 10,
+                    background: "rgba(22,101,52,.30)",
+                    border: "1px solid rgba(74,222,128,.28)",
+                    color: "#bbf7d0",
+                    fontWeight: 800,
+                    fontSize: 12,
+                  }}
+                >
+                  {organizationMembersMessage}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  marginTop: 12,
+                }}
+              >
+                {organizationMembersLoading &&
+                  organizationMembers.length === 0 && (
+                    <div
+                      style={{
+                        padding: 16,
+                        borderRadius: 12,
+                        background: "rgba(255,255,255,.035)",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      Loading organization members...
+                    </div>
+                  )}
+
+                {!organizationMembersLoading &&
+                  organizationMembers.length === 0 &&
+                  !organizationMembersError && (
+                    <div
+                      style={{
+                        padding: 16,
+                        borderRadius: 12,
+                        background: "rgba(255,255,255,.035)",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      No organization members were returned.
+                    </div>
+                  )}
+
+                {organizationMembers.map((member) => {
+                  const isCurrentUser = member.user_id === user?.id;
+                  const busy =
+                    organizationMemberActionId === member.user_id;
+                  const canManage = canManageOrganizationMembers();
+                  const currentUserIsOwner = organization.role === "owner";
+
+                  const canChangeThisMember =
+                    canManage &&
+                    !isCurrentUser &&
+                    (currentUserIsOwner || member.role !== "owner");
+
+                  const canRemoveThisMember =
+                    canManage &&
+                    !isCurrentUser &&
+                    member.role !== "owner" &&
+                    !(
+                      organization.role === "admin" &&
+                      member.role === "admin"
+                    );
+
+                  return (
+                    <div
+                      key={member.user_id}
+                      className="coachboard-organization-members-row"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "minmax(0, 1.5fr) minmax(135px, .7fr) auto",
+                        gap: 10,
+                        alignItems: "center",
+                        padding: 12,
+                        borderRadius: 13,
+                        background:
+                          member.role === "owner"
+                            ? "rgba(220,38,38,.10)"
+                            : "rgba(255,255,255,.035)",
+                        border:
+                          member.role === "owner"
+                            ? "1px solid rgba(248,113,113,.28)"
+                            : "1px solid rgba(255,255,255,.07)",
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            color: "white",
+                            fontWeight: 900,
+                            fontSize: 14,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {organizationMemberDisplayName(member)}
+                          {isCurrentUser ? " (You)" : ""}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 3,
+                            color: "#94a3b8",
+                            fontSize: 11,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {member.email}
+                        </div>
+                      </div>
+
+                      {canChangeThisMember ? (
+                        <select
+                          value={member.role}
+                          disabled={busy}
+                          onChange={(event) =>
+                            void changeOrganizationMemberRole(
+                              member,
+                              event.target.value as OrganizationRole,
+                            )
+                          }
+                          style={{
+                            ...inputStyle,
+                            width: "100%",
+                            minWidth: 0,
+                            padding: "8px 9px",
+                            minHeight: 40,
+                          }}
+                        >
+                          <option value="owner" disabled={!currentUserIsOwner}>
+                            Owner
+                          </option>
+                          <option value="admin">Co-Owner</option>
+                          <option value="coach">Coach</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                      ) : (
+                        <div
+                          style={{
+                            padding: "9px 10px",
+                            borderRadius: 9,
+                            background:
+                              member.role === "owner"
+                                ? "rgba(220,38,38,.18)"
+                                : "rgba(255,255,255,.06)",
+                            color:
+                              member.role === "owner"
+                                ? "#fecaca"
+                                : "#e2e8f0",
+                            fontWeight: 900,
+                            fontSize: 12,
+                            textAlign: "center",
+                          }}
+                        >
+                          {organizationRoleLabel(member.role)}
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={!canRemoveThisMember || busy}
+                        onClick={() =>
+                          void removeOrganizationMember(member)
+                        }
+                        style={{
+                          ...buttonBase,
+                          minHeight: 40,
+                          padding: "8px 11px",
+                          background: canRemoveThisMember
+                            ? "#7f1d1d"
+                            : "#111827",
+                          color: canRemoveThisMember
+                            ? "#fecaca"
+                            : "#64748b",
+                          opacity: busy ? 0.65 : 1,
+                        }}
+                      >
+                        {busy ? "..." : "Remove"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             <button
               type="button"
@@ -10720,6 +11739,22 @@ function CoachBoardWebApp() {
           >
             Team Setup
           </button>
+
+          <button
+            className="coach-tool-nav-button coach-profile-button"
+            type="button"
+            onClick={openCoachProfile}
+            style={{
+              ...buttonBase,
+              width: "100%",
+              background: showCoachProfile ? "#dc2626" : "#090b10",
+              color: "white",
+              padding: "8px",
+            }}
+          >
+            Profile
+          </button>
+
           {organization && (
             <button
               className="coach-tools-organization-card"
