@@ -1859,6 +1859,18 @@ const panelHeaderStyle: React.CSSProperties = {
   textTransform: "uppercase",
 };
 
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  minWidth: 0,
+  background: "#090b10",
+  color: "white",
+  border: "1px solid rgba(255,255,255,.12)",
+  borderRadius: 10,
+  padding: "10px 12px",
+  outline: "none",
+  fontSize: 14,
+};
+
 const COACHBOARD_COLOR_OPTIONS = [
   { name: "White", value: "#f3f4f6" },
   { name: "Gold", value: "#facc15" },
