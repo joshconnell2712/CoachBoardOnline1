@@ -9936,9 +9936,13 @@ function CoachBoardWebApp() {
           }
 
           .fullscreen-quick-toolbar {
-            left: max(18px, env(safe-area-inset-left)) !important;
-            right: max(82px, calc(env(safe-area-inset-right) + 64px)) !important;
+            /* Leave a protected zone for iPad/Safari's native fullscreen X
+               so the first CoachBoard tool is always fully visible. */
+            left: max(96px, calc(env(safe-area-inset-left) + 82px)) !important;
+            right: max(86px, calc(env(safe-area-inset-right) + 68px)) !important;
             top: max(18px, env(safe-area-inset-top)) !important;
+            padding-left: 10px !important;
+            scroll-padding-left: 10px !important;
           }
 
           .coachboard-app-background {
@@ -10968,8 +10972,8 @@ function CoachBoardWebApp() {
                     style={{
                       position: "fixed",
                       top: 28,
-                      left: 92,
-                      right: 28,
+                      left: 96,
+                      right: 86,
                       zIndex: 2147483646,
                       display: "flex",
                       flexWrap: "nowrap",
