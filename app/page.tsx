@@ -8889,10 +8889,22 @@ function CoachBoardWebApp() {
       return;
     }
 
-    const rows = Array.isArray(data) ? data : data ? [data] : [];
+    const rows: Array<{
+      user_id?: unknown;
+      email?: unknown;
+      first_name?: unknown;
+      last_name?: unknown;
+      full_name?: unknown;
+      role?: unknown;
+      joined_at?: unknown;
+    }> = Array.isArray(data)
+      ? data
+      : data
+        ? [data]
+        : [];
 
     setOrganizationMembers(
-      rows.map((row: any) => ({
+      rows.map((row) => ({
         user_id: String(row.user_id ?? ""),
         email: String(row.email ?? ""),
         first_name: String(row.first_name ?? ""),
