@@ -7449,11 +7449,17 @@ function CoachBoardWebApp() {
       clientY - pending.y,
     );
 
-    // A normal quick drag/tap before the hold threshold should not
-    // accidentally activate Move.
     if (movedDistance > 10) {
       clearPlayerLongPressTimer();
       playerLongPressStartRef.current = null;
+
+      // In Draw mode, movement before the hold threshold means the coach
+      // intended to draw from the player. Start at the original press point
+      // so quick move/draw transitions feel natural.
+      if (tool === "Draw") {
+        startDrawing(pending.x, pending.y);
+        updateDrawing(clientX, clientY);
+      }
     }
   }
 
@@ -13919,11 +13925,7 @@ function CoachBoardWebApp() {
                         return;
                       }
 
-                      if (tool === "Draw") {
-                        startDrawing(e.clientX, e.clientY);
-                        return;
-                      }
-
+                      // Long-press is available in every mode, including Draw.
                       beginPlayerLongPress(
                         player.id,
                         "defense",
@@ -14005,11 +14007,7 @@ function CoachBoardWebApp() {
                       return;
                     }
 
-                    if (tool === "Draw") {
-                      startDrawing(e.clientX, e.clientY);
-                      return;
-                    }
-
+                    // Long-press is available in every mode, including Draw.
                     beginPlayerLongPress(
                       player.id,
                       "offense",
