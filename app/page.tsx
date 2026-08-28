@@ -2255,6 +2255,16 @@ function CoachBoardWebApp() {
     useState<LineEditDrag | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingSide, setDraggingSide] = useState<Side | null>(null);
+  const playerLongPressTimerRef = useRef<number | null>(null);
+  const playerLongPressStartRef = useRef<{
+    playerId: string;
+    side: Side;
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const playerLongPressActivatedRef = useRef(false);
+  const suppressNextPlayerClickRef = useRef(false);
   const [customPresetName, setCustomPresetName] = useState("");
   const [customOffensePresets, setCustomOffensePresets] = useState<
     CustomOffensePreset[]
@@ -6465,6 +6475,27 @@ function CoachBoardWebApp() {
     return `coachboard_live_board_state:${accountId}:${boardId}`;
   }
 
+  function getBoardBackupKey() {
+    return `${getBoardPersistenceKey()}:last-working-copy`;
+  }
+
+  function boardSnapshotHasMarkup(
+    snapshot: Partial<PersistedBoardState> | null | undefined,
+  ) {
+    if (!snapshot) return false;
+
+    return (
+      (Array.isArray(snapshot.drawnLines) && snapshot.drawnLines.length > 0) ||
+      (Array.isArray(snapshot.routes) && snapshot.routes.length > 0) ||
+      (Array.isArray(snapshot.zoneAssignments) &&
+        snapshot.zoneAssignments.length > 0) ||
+      Boolean(
+        snapshot.manAssignments &&
+          Object.keys(snapshot.manAssignments).length > 0,
+      )
+    );
+  }
+
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;
 
@@ -6476,11 +6507,38 @@ function CoachBoardWebApp() {
     setBoardPersistenceReady(false);
 
     const saved = window.localStorage.getItem(storageKey);
-    activeBoardHadSavedSnapshotRef.current = Boolean(saved);
+    const backupSaved = window.localStorage.getItem(getBoardBackupKey());
 
-    if (saved) {
+    let savedStateText = saved;
+
+    try {
+      const primaryParsed = saved
+        ? (JSON.parse(saved) as Partial<PersistedBoardState>)
+        : null;
+      const backupParsed = backupSaved
+        ? (JSON.parse(backupSaved) as Partial<PersistedBoardState>)
+        : null;
+
+      // If a transient startup render ever wrote an empty board to the
+      // primary key, keep the last real working copy instead. Clear All
+      // removes both keys, so an intentional board clear still stays clear.
+      if (
+        !boardSnapshotHasMarkup(primaryParsed) &&
+        boardSnapshotHasMarkup(backupParsed)
+      ) {
+        savedStateText = backupSaved;
+      }
+    } catch {
+      // The normal parse block below will handle any malformed saved state.
+    }
+
+    activeBoardHadSavedSnapshotRef.current = Boolean(savedStateText);
+
+    if (savedStateText) {
       try {
-        const parsed = JSON.parse(saved) as Partial<PersistedBoardState>;
+        const parsed = JSON.parse(
+          savedStateText,
+        ) as Partial<PersistedBoardState>;
 
         if (Array.isArray(parsed.offensePlayers)) {
           setOffensePlayers(parsed.offensePlayers);
@@ -6593,7 +6651,17 @@ function CoachBoardWebApp() {
       selectedSide,
     };
 
-    window.localStorage.setItem(storageKey, JSON.stringify(snapshot));
+    const serializedSnapshot = JSON.stringify(snapshot);
+
+    window.localStorage.setItem(storageKey, serializedSnapshot);
+
+    if (boardSnapshotHasMarkup(snapshot)) {
+      window.localStorage.setItem(
+        getBoardBackupKey(),
+        serializedSnapshot,
+      );
+    }
+
     activeBoardHadSavedSnapshotRef.current = true;
   }, [
     ROOM_ID,
@@ -6605,6 +6673,56 @@ function CoachBoardWebApp() {
     routes,
     zoneAssignments,
     manAssignments,
+    ballSpot,
+    selectedSide,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+
+    const saveWorkingBoardBeforeExit = () => {
+      const storageKey = getBoardPersistenceKey();
+
+      const snapshot: PersistedBoardState = {
+        offensePlayers: offensePlayers.map((player) => ({ ...player })),
+        defensePlayers: defensePlayers.map((player) => ({ ...player })),
+        drawnLines: drawnLinesRef.current.map((line) => ({ ...line })),
+        routes: routesRef.current.map((route) => ({ ...route })),
+        zoneAssignments: zoneAssignmentsRef.current.map((zone) => ({
+          ...zone,
+        })),
+        manAssignments: { ...manAssignmentsRef.current },
+        ballSpot,
+        selectedSide,
+      };
+
+      const serializedSnapshot = JSON.stringify(snapshot);
+
+      window.localStorage.setItem(storageKey, serializedSnapshot);
+
+      if (boardSnapshotHasMarkup(snapshot)) {
+        window.localStorage.setItem(
+          getBoardBackupKey(),
+          serializedSnapshot,
+        );
+      }
+    };
+
+    window.addEventListener("pagehide", saveWorkingBoardBeforeExit);
+    window.addEventListener("beforeunload", saveWorkingBoardBeforeExit);
+
+    return () => {
+      window.removeEventListener("pagehide", saveWorkingBoardBeforeExit);
+      window.removeEventListener(
+        "beforeunload",
+        saveWorkingBoardBeforeExit,
+      );
+    };
+  }, [
+    ROOM_ID,
+    user?.id,
+    offensePlayers,
+    defensePlayers,
     ballSpot,
     selectedSide,
   ]);
@@ -6637,6 +6755,7 @@ function CoachBoardWebApp() {
     if (typeof window !== "undefined" && user) {
       const storageKey = getBoardPersistenceKey();
       window.localStorage.removeItem(storageKey);
+      window.localStorage.removeItem(getBoardBackupKey());
       activeBoardHadSavedSnapshotRef.current = false;
     }
 
@@ -7277,6 +7396,71 @@ function CoachBoardWebApp() {
     }
 
     return updated;
+  }
+
+  function clearPlayerLongPressTimer() {
+    if (playerLongPressTimerRef.current !== null) {
+      window.clearTimeout(playerLongPressTimerRef.current);
+      playerLongPressTimerRef.current = null;
+    }
+  }
+
+  function beginPlayerLongPress(
+    playerId: string,
+    side: Side,
+    pointerId: number,
+    clientX: number,
+    clientY: number,
+  ) {
+    clearPlayerLongPressTimer();
+
+    playerLongPressActivatedRef.current = false;
+    suppressNextPlayerClickRef.current = false;
+    playerLongPressStartRef.current = {
+      playerId,
+      side,
+      pointerId,
+      x: clientX,
+      y: clientY,
+    };
+
+    playerLongPressTimerRef.current = window.setTimeout(() => {
+      const pending = playerLongPressStartRef.current;
+      if (!pending || pending.pointerId !== pointerId) return;
+
+      playerLongPressActivatedRef.current = true;
+      suppressNextPlayerClickRef.current = true;
+
+      setSelectedFieldItem(null);
+      setSelectedPlayerId(playerId);
+      setSelectedSide(side);
+      setTool("Move");
+      setDraggingId(playerId);
+      setDraggingSide(side);
+    }, 350);
+  }
+
+  function updatePlayerLongPress(clientX: number, clientY: number) {
+    const pending = playerLongPressStartRef.current;
+    if (!pending || playerLongPressActivatedRef.current) return;
+
+    const movedDistance = Math.hypot(
+      clientX - pending.x,
+      clientY - pending.y,
+    );
+
+    // A normal quick drag/tap before the hold threshold should not
+    // accidentally activate Move.
+    if (movedDistance > 10) {
+      clearPlayerLongPressTimer();
+      playerLongPressStartRef.current = null;
+    }
+  }
+
+  function finishPlayerLongPress() {
+    clearPlayerLongPressTimer();
+    playerLongPressStartRef.current = null;
+    playerLongPressActivatedRef.current = false;
   }
 
   function updateDraggedPlayer(clientX: number, clientY: number) {
@@ -10566,6 +10750,7 @@ function CoachBoardWebApp() {
         fontFamily: "Arial",
       }}
       onPointerMove={(e) => {
+        updatePlayerLongPress(e.clientX, e.clientY);
         updateDraggedPlayer(e.clientX, e.clientY);
         updateDrawing(e.clientX, e.clientY);
         updateLineEdit(e.clientX, e.clientY);
@@ -10573,6 +10758,7 @@ function CoachBoardWebApp() {
         updateZoneDrag(e.clientX, e.clientY);
       }}
       onPointerUp={() => {
+        finishPlayerLongPress();
         finalizeDrawing();
         finalizeLineEdit();
         finalizeZoneDraft();
@@ -10582,6 +10768,7 @@ function CoachBoardWebApp() {
         setActiveLineId(null);
       }}
       onPointerCancel={() => {
+        finishPlayerLongPress();
         finalizeDrawing();
         finalizeLineEdit();
         finalizeZoneDraft();
@@ -13725,13 +13912,32 @@ function CoachBoardWebApp() {
                       e.preventDefault();
                       e.stopPropagation();
                       e.currentTarget.setPointerCapture(e.pointerId);
+
                       if (tool === "Move") {
                         setDraggingId(player.id);
                         setDraggingSide("defense");
+                        return;
                       }
-                      if (tool === "Draw") startDrawing(e.clientX, e.clientY);
+
+                      if (tool === "Draw") {
+                        startDrawing(e.clientX, e.clientY);
+                        return;
+                      }
+
+                      beginPlayerLongPress(
+                        player.id,
+                        "defense",
+                        e.pointerId,
+                        e.clientX,
+                        e.clientY,
+                      );
                     }}
                     onClick={() => {
+                      if (suppressNextPlayerClickRef.current) {
+                        suppressNextPlayerClickRef.current = false;
+                        return;
+                      }
+
                       setSelectedFieldItem(null);
                       setSelectedPlayerId(player.id);
                       setSelectedSide("defense");
@@ -13792,13 +13998,32 @@ function CoachBoardWebApp() {
                     e.preventDefault();
                     e.stopPropagation();
                     e.currentTarget.setPointerCapture(e.pointerId);
+
                     if (tool === "Move") {
                       setDraggingId(player.id);
                       setDraggingSide("offense");
+                      return;
                     }
-                    if (tool === "Draw") startDrawing(e.clientX, e.clientY);
+
+                    if (tool === "Draw") {
+                      startDrawing(e.clientX, e.clientY);
+                      return;
+                    }
+
+                    beginPlayerLongPress(
+                      player.id,
+                      "offense",
+                      e.pointerId,
+                      e.clientX,
+                      e.clientY,
+                    );
                   }}
                   onClick={() => {
+                    if (suppressNextPlayerClickRef.current) {
+                      suppressNextPlayerClickRef.current = false;
+                      return;
+                    }
+
                     if (tool === "Man") {
                       setManAssignOffenseId(player.id);
                       const nextAssignments = {
