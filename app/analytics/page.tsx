@@ -86,7 +86,7 @@ type PdfJsLibraryLike = {
   };
 };
 
-type WindowWithPdfJs = Window & {
+type BrowserPdfJsWindow = {
   pdfjsLib?: PdfJsLibraryLike;
 };
 
@@ -2780,7 +2780,7 @@ export default function AnalyticsPage() {
   }
 
   async function loadPdfJsLibrary() {
-    const browserWindow = window as WindowWithPdfJs;
+    const browserWindow = window as unknown as BrowserPdfJsWindow;
 
     if (browserWindow.pdfjsLib) return browserWindow.pdfjsLib;
 
