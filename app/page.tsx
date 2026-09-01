@@ -1943,6 +1943,26 @@ function getDefaultPlayerColor(
   }
 }
 
+function getPlayerLabelFontSize(
+  label: string,
+  baseFontPx: number,
+  isReadPlayer = false,
+) {
+  const length = label.trim().length;
+
+  let scale = 1;
+
+  if (length === 3) scale = 0.78;
+  else if (length === 4) scale = 0.62;
+  else if (length >= 5) scale = 0.52;
+
+  if (isReadPlayer) {
+    scale *= 0.72;
+  }
+
+  return Math.max(5.5, baseFontPx * scale);
+}
+
 function getPlayerTextColor(player: Player, fillColor: string) {
   if (player.side === "defense") return "#000000";
   return fillColor.toUpperCase() === "#FFFFFF" ||
@@ -13958,10 +13978,20 @@ function CoachBoardWebApp() {
                       background: playerFillColor,
                       color: playerTextColor,
                       fontWeight: 950,
-                      fontSize: isReadPlayer
-                        ? Math.max(6, playerFontPx * 0.68)
-                        : playerFontPx,
+                      fontSize: getPlayerLabelFontSize(
+                        player.position,
+                        playerFontPx,
+                        isReadPlayer,
+                      ),
                       lineHeight: 1,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "clip",
+                      padding: 0,
+                      letterSpacing:
+                        player.position.trim().length >= 4
+                          ? "-0.04em"
+                          : "normal",
                       left: `${player.x}%`,
                       top: playerTop(player),
                       transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
@@ -14088,7 +14118,19 @@ function CoachBoardWebApp() {
                       )
                     ),
                     fontWeight: 900,
-                    fontSize: playerFontPx,
+                    fontSize: getPlayerLabelFontSize(
+                      player.position,
+                      playerFontPx,
+                    ),
+                    lineHeight: 1,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "clip",
+                    padding: 0,
+                    letterSpacing:
+                      player.position.trim().length >= 4
+                        ? "-0.04em"
+                        : "normal",
                     left: `${player.x}%`,
                     top:
                       fieldFullscreen &&
