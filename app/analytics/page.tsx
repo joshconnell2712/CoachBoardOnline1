@@ -358,6 +358,13 @@ export default function AnalyticsPage() {
   const [playerLast, setPlayerLast] = useState("");
   const [playerNumber, setPlayerNumber] = useState("");
   const [playerPosition, setPlayerPosition] = useState("");
+  const [editingRosterPlayerId, setEditingRosterPlayerId] = useState<string | null>(null);
+  const [editingRosterPlayer, setEditingRosterPlayer] = useState({
+    firstName: "",
+    lastName: "",
+    jersey: "",
+    position: "",
+  });
 
   const [rosterImportRows, setRosterImportRows] = useState<RosterImportRow[]>([]);
   const [rosterImportExcludedCount, setRosterImportExcludedCount] = useState(0);
@@ -3054,6 +3061,79 @@ export default function AnalyticsPage() {
     setMessage("Game deleted.");
   }
 
+  function beginEditRosterPlayer(player: Player) {
+    setEditingRosterPlayerId(player.id);
+    setEditingRosterPlayer({
+      firstName: player.firstName,
+      lastName: player.lastName,
+      jersey: player.jersey,
+      position: player.position,
+    });
+    setMessage("");
+  }
+
+  function cancelEditRosterPlayer() {
+    setEditingRosterPlayerId(null);
+    setEditingRosterPlayer({
+      firstName: "",
+      lastName: "",
+      jersey: "",
+      position: "",
+    });
+  }
+
+  function saveRosterPlayerEdit() {
+    if (!editingRosterPlayerId) return;
+
+    const firstName = editingRosterPlayer.firstName.trim();
+    const lastName = editingRosterPlayer.lastName.trim();
+    const jersey = editingRosterPlayer.jersey.trim().replace(/^#/, "");
+    const position = editingRosterPlayer.position.trim();
+
+    if (!firstName && !lastName) {
+      setMessage("Enter a player name before saving.");
+      return;
+    }
+
+    const duplicateNumber = players.some(
+      (player) =>
+        player.id !== editingRosterPlayerId &&
+        player.seasonId === selectedSeasonId &&
+        jersey &&
+        player.jersey.trim().replace(/^#/, "") === jersey,
+    );
+
+    if (duplicateNumber) {
+      setMessage(`Jersey #${jersey} is already assigned to another player.`);
+      return;
+    }
+
+    setPlayers((current) =>
+      current
+        .map((player) =>
+          player.id === editingRosterPlayerId
+            ? {
+                ...player,
+                firstName,
+                lastName,
+                jersey,
+                position,
+              }
+            : player,
+        )
+        .sort(
+          (a, b) =>
+            Number(a.jersey || 9999) - Number(b.jersey || 9999) ||
+            a.lastName.localeCompare(b.lastName),
+        ),
+    );
+
+    setMessage(
+      `${[firstName, lastName].filter(Boolean).join(" ")} updated successfully.`,
+    );
+    cancelEditRosterPlayer();
+  }
+
   function deletePlayer(id: string) {
     setPlayers((current) => current.filter((player) => player.id !== id));
   }
@@ -5667,17 +5747,117 @@ export default function AnalyticsPage() {
             </div>
 
             <List>
-              {seasonPlayers.map((player) => (
-                <Row key={player.id}>
-                  <span>{playerLabel(player)}</span>
-                  <button
-                    style={dangerButtonStyle}
-                    onClick={() => deletePlayer(player.id)}
-                  >
-                    Delete
-                  </button>
-                </Row>
-              ))}
+              {seasonPlayers.map((player) => {
+                const isEditing = editingRosterPlayerId === player.id;
+
+                return (
+                  <Row key={player.id}>
+                    {isEditing ? (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "minmax(110px, 1fr) minmax(110px, 1fr) 90px minmax(100px, .8fr)",
+                          gap: 8,
+                          width: "100%",
+                          alignItems: "center",
+                        }}
+                      >
+                        <input
+                          style={inputStyle}
+                          value={editingRosterPlayer.firstName}
+                          onChange={(event) =>
+                            setEditingRosterPlayer((current) => ({
+                              ...current,
+                              firstName: event.target.value,
+                            }))
+                          }
+                          aria-label="Player first name"
+                        />
+                        <input
+                          style={inputStyle}
+                          value={editingRosterPlayer.lastName}
+                          onChange={(event) =>
+                            setEditingRosterPlayer((current) => ({
+                              ...current,
+                              lastName: event.target.value,
+                            }))
+                          }
+                          aria-label="Player last name"
+                        />
+                        <input
+                          style={inputStyle}
+                          value={editingRosterPlayer.jersey}
+                          onChange={(event) =>
+                            setEditingRosterPlayer((current) => ({
+                              ...current,
+                              jersey: event.target.value,
+                            }))
+                          }
+                          aria-label="Player jersey number"
+                        />
+                        <input
+                          style={inputStyle}
+                          value={editingRosterPlayer.position}
+                          onChange={(event) =>
+                            setEditingRosterPlayer((current) => ({
+                              ...current,
+                              position: event.target.value,
+                            }))
+                          }
+                          aria-label="Player position"
+                        />
+                      </div>
+                    ) : (
+                      <span>{playerLabel(player)}</span>
+                    )}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      {isEditing ? (
+                        <>
+                          <button
+                            type="button"
+                            style={primaryButtonStyleNoMargin}
+                            onClick={saveRosterPlayerEdit}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            style={smallActionButtonStyle}
+                            onClick={cancelEditRosterPlayer}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          style={smallActionButtonStyle}
+                          onClick={() => beginEditRosterPlayer(player)}
+                        >
+                          Edit
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        style={dangerButtonStyle}
+                        onClick={() => deletePlayer(player.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </Row>
+                );
+              })}
             </List>
           </div>
 
