@@ -130,6 +130,8 @@ type DefensiveCallEvent = {
   automaticFirstDown?: boolean;
   lossOfDown?: boolean;
   repeatDown?: boolean;
+  opponentPunt?: boolean;
+  seriesStart?: boolean;
   opponentPossessionStart?: boolean;
   opponentPossessionEnd?: boolean;
   tacklers?: string[];
@@ -354,6 +356,8 @@ export default function AnalyticsPage() {
     automaticFirstDown: false,
     lossOfDown: false,
     repeatDown: false,
+    opponentPunt: false,
+    seriesStart: false,
     opponentPossessionStart: false,
     opponentPossessionEnd: false,
     tacklers: "",
@@ -1684,6 +1688,57 @@ export default function AnalyticsPage() {
     setDefensiveEvents((current) => [...current, ...events]);
   }
 
+  function inferDefensiveResult({
+    yardsAllowed,
+    opponentPunt,
+    interceptionPlayers,
+    forcedFumblePlayers,
+    fumbleRecoveryPlayers,
+    defensiveTouchdownPlayers,
+    sackPlayers,
+    sackAssistPlayers,
+    tflPlayers,
+    tflAssistPlayers,
+    passBreakupPlayers,
+    penalty,
+  }: {
+    yardsAllowed: number;
+    opponentPunt: boolean;
+    interceptionPlayers: string[];
+    forcedFumblePlayers: string[];
+    fumbleRecoveryPlayers: string[];
+    defensiveTouchdownPlayers: string[];
+    sackPlayers: string[];
+    sackAssistPlayers: string[];
+    tflPlayers: string[];
+    tflAssistPlayers: string[];
+    passBreakupPlayers: string[];
+    penalty: boolean;
+  }) {
+    const results: string[] = [];
+
+    if (opponentPunt) results.push("PUNT");
+    if (interceptionPlayers.length > 0) results.push("INT");
+    if (fumbleRecoveryPlayers.length > 0) results.push("FUMBLE RECOVERY");
+    else if (forcedFumblePlayers.length > 0) results.push("FORCED FUMBLE");
+    if (defensiveTouchdownPlayers.length > 0) results.push("DEF TD");
+    if (sackPlayers.length > 0 || sackAssistPlayers.length > 0) {
+      results.push("SACK");
+    } else if (tflPlayers.length > 0 || tflAssistPlayers.length > 0) {
+      results.push("TFL");
+    }
+    if (passBreakupPlayers.length > 0) results.push("PBU");
+    if (penalty) results.push("PENALTY");
+
+    if (results.length === 0) {
+      if (yardsAllowed < 0) return "LOSS";
+      if (yardsAllowed === 0) return "NO GAIN";
+      return "NORMAL PLAY";
+    }
+
+    return results.join(" • ");
+  }
+
   function saveDefensiveCallEvent() {
     if (!selectedGameId) {
       setMessage("Select a game first.");
@@ -1806,6 +1861,21 @@ export default function AnalyticsPage() {
       return;
     }
 
+    const inferredResult = inferDefensiveResult({
+      yardsAllowed,
+      opponentPunt: defensiveCallEntry.opponentPunt,
+      interceptionPlayers,
+      forcedFumblePlayers,
+      fumbleRecoveryPlayers,
+      defensiveTouchdownPlayers,
+      sackPlayers,
+      sackAssistPlayers,
+      tflPlayers,
+      tflAssistPlayers,
+      passBreakupPlayers,
+      penalty: defensiveCallEntry.penalty,
+    });
+
     const event: DefensiveCallEvent = {
       id: createId(),
       gameId: selectedGameId,
@@ -1815,7 +1885,7 @@ export default function AnalyticsPage() {
       pressure: defensiveCallEntry.pressure.trim(),
       coverage: defensiveCallEntry.coverage.trim(),
       yardsAllowed,
-      result: defensiveCallEntry.result.trim().toUpperCase(),
+      result: inferredResult,
       quarter: defensiveCallEntry.quarter || "1",
       clock: defensiveCallEntry.clock.trim()
         ? normalizeClock(defensiveCallEntry.clock)
@@ -1827,8 +1897,12 @@ export default function AnalyticsPage() {
       automaticFirstDown: defensiveCallEntry.automaticFirstDown,
       lossOfDown: defensiveCallEntry.lossOfDown,
       repeatDown: defensiveCallEntry.repeatDown,
+      opponentPunt: defensiveCallEntry.opponentPunt,
+      seriesStart: defensiveCallEntry.seriesStart,
       opponentPossessionStart: defensiveCallEntry.opponentPossessionStart,
-      opponentPossessionEnd: defensiveCallEntry.opponentPossessionEnd,
+      opponentPossessionEnd:
+        defensiveCallEntry.opponentPossessionEnd ||
+        defensiveCallEntry.opponentPunt,
       tacklers,
       assistTacklers,
       sackPlayers,
@@ -1872,6 +1946,7 @@ export default function AnalyticsPage() {
           automaticFirstDown: current.automaticFirstDown,
           lossOfDown: current.lossOfDown,
           repeatDown: current.repeatDown,
+          opponentPunt: current.opponentPunt,
         },
       ),
       yardsAllowed: "",
@@ -1883,6 +1958,8 @@ export default function AnalyticsPage() {
       automaticFirstDown: false,
       lossOfDown: false,
       repeatDown: false,
+      opponentPunt: false,
+      seriesStart: false,
       opponentPossessionStart: false,
       opponentPossessionEnd: false,
       tacklers: "",
@@ -4144,6 +4221,18 @@ export default function AnalyticsPage() {
             <div style={defenseMetricGridStyle}>
               <Metric label="Snaps Charted" value={defensiveCallStats.snaps} />
               <Metric
+                label="Opponent Punts"
+                value={currentGameDefensiveCalls.filter(
+                  (event) => event.opponentPunt,
+                ).length}
+              />
+              <Metric
+                label="Opponent Series Starts"
+                value={currentGameDefensiveCalls.filter(
+                  (event) => event.seriesStart,
+                ).length}
+              />
+              <Metric
                 label="Opponent TOP"
                 value={formatDuration(opponentPossessionStats.totalSeconds)}
               />
@@ -4276,18 +4365,24 @@ export default function AnalyticsPage() {
               </label>
 
               <label style={possessionFieldStyle}>
-                <span>Result</span>
-                <input
+                <span>Opponent Punt</span>
+                <select
                   style={inputStyle}
-                  value={defensiveCallEntry.result}
+                  value={defensiveCallEntry.opponentPunt ? "yes" : "no"}
                   onChange={(event) =>
                     setDefensiveCallEntry((current) => ({
                       ...current,
-                      result: event.target.value,
+                      opponentPunt: event.target.value === "yes",
+                      opponentPossessionEnd:
+                        event.target.value === "yes"
+                          ? true
+                          : current.opponentPossessionEnd,
                     }))
                   }
-                  placeholder="TFL, SACK, INT..."
-                />
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
               </label>
 
               <label style={possessionFieldStyle}>
@@ -4608,6 +4703,20 @@ export default function AnalyticsPage() {
               <label style={{ ...checkboxLabelStyle, margin: 0 }}>
                 <input
                   type="checkbox"
+                  checked={defensiveCallEntry.seriesStart}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      seriesStart: event.target.checked,
+                    }))
+                  }
+                />
+                Start of Series
+              </label>
+
+              <label style={{ ...checkboxLabelStyle, margin: 0 }}>
+                <input
+                  type="checkbox"
                   checked={defensiveCallEntry.opponentPossessionStart}
                   onChange={(event) =>
                     setDefensiveCallEntry((current) => ({
@@ -4737,6 +4846,7 @@ export default function AnalyticsPage() {
                       </td>
                       <td style={modernTdStyle}>
                         Q{event.quarter} {event.clock}
+                        {event.seriesStart ? " • SERIES" : ""}
                         {event.opponentPossessionStart ? " • START" : ""}
                         {event.opponentPossessionEnd ? " • END" : ""}
                       </td>
@@ -5663,6 +5773,7 @@ function nextDefensiveDownDistance(
     automaticFirstDown?: boolean;
     lossOfDown?: boolean;
     repeatDown?: boolean;
+    opponentPunt?: boolean;
   },
 ) {
   const parsed = parseDownDistance(current);
@@ -5673,8 +5784,11 @@ function nextDefensiveDownDistance(
   const automaticFirstDown = options?.automaticFirstDown === true;
   const lossOfDown = options?.lossOfDown === true;
   const repeatDown = options?.repeatDown === true;
+  const opponentPunt = options?.opponentPunt === true;
 
   if (
+    opponentPunt ||
+    normalizedResult.includes("PUNT") ||
     normalizedResult.includes("TURNOVER") ||
     normalizedResult.includes("INT") ||
     normalizedResult.includes("FUM REC") ||
@@ -6829,6 +6943,14 @@ function DefenseReport({
 
       <div style={defenseMetricGridStyle}>
         <Metric label="Snaps Charted" value={callStats.snaps} />
+        <Metric
+          label="Opponent Punts"
+          value={calls.filter((event) => event.opponentPunt).length}
+        />
+        <Metric
+          label="Opponent Series Starts"
+          value={calls.filter((event) => event.seriesStart).length}
+        />
         <Metric
           label="Opponent TOP"
           value={formatDuration(opponentPossessionSeconds)}
