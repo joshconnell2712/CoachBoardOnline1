@@ -123,6 +123,10 @@ type DefensiveCallEvent = {
   clock: string;
   opponentPossessionStart?: boolean;
   opponentPossessionEnd?: boolean;
+  tacklers?: string[];
+  assistTacklers?: string[];
+  sackPlayers?: string[];
+  tflPlayers?: string[];
   createdAt: string;
 };
 
@@ -329,6 +333,10 @@ export default function AnalyticsPage() {
     clock: "",
     opponentPossessionStart: false,
     opponentPossessionEnd: false,
+    tacklers: "",
+    assistTacklers: "",
+    sackPlayers: "",
+    tflPlayers: "",
   });
 
   const [defenseEntry, setDefenseEntry] = useState({
@@ -1565,6 +1573,64 @@ export default function AnalyticsPage() {
     );
   }
 
+  function resolveDefensivePlayerList(value: string) {
+    const seen = new Set<string>();
+
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => resolvePlayerInput(item, seasonPlayers))
+      .filter((player): player is string => Boolean(player))
+      .filter((player) => {
+        const key = player.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function addDefensiveProductionFromCall({
+    tacklers,
+    assistTacklers,
+    sackPlayers,
+    tflPlayers,
+  }: {
+    tacklers: string[];
+    assistTacklers: string[];
+    sackPlayers: string[];
+    tflPlayers: string[];
+  }) {
+    const involved = new Set([
+      ...tacklers,
+      ...assistTacklers,
+      ...sackPlayers,
+      ...tflPlayers,
+    ]);
+
+    if (involved.size === 0) return;
+
+    const timestamp = new Date().toISOString();
+
+    const events: DefensiveEvent[] = Array.from(involved).map((player) => ({
+      id: createId(),
+      gameId: selectedGameId,
+      player,
+      soloTackles: tacklers.includes(player) ? 1 : 0,
+      assistedTackles: assistTacklers.includes(player) ? 1 : 0,
+      tacklesForLoss: tflPlayers.includes(player) ? 1 : 0,
+      sacks: sackPlayers.includes(player) ? 1 : 0,
+      interceptions: 0,
+      passBreakups: 0,
+      forcedFumbles: 0,
+      fumbleRecoveries: 0,
+      defensiveTouchdowns: 0,
+      createdAt: timestamp,
+    }));
+
+    setDefensiveEvents((current) => [...current, ...events]);
+  }
+
   function saveDefensiveCallEvent() {
     if (!selectedGameId) {
       setMessage("Select a game first.");
@@ -1604,6 +1670,31 @@ export default function AnalyticsPage() {
       }
     }
 
+    const tacklers = resolveDefensivePlayerList(defensiveCallEntry.tacklers);
+    const assistTacklers = resolveDefensivePlayerList(
+      defensiveCallEntry.assistTacklers,
+    );
+    const sackPlayers = resolveDefensivePlayerList(
+      defensiveCallEntry.sackPlayers,
+    );
+    const tflPlayers = resolveDefensivePlayerList(
+      defensiveCallEntry.tflPlayers,
+    );
+
+    if (tacklers.length > 1) {
+      setMessage(
+        "A play can have only one solo tackler. Use Assists when multiple defenders share the tackle.",
+      );
+      return;
+    }
+
+    if (tacklers.length > 0 && assistTacklers.length > 0) {
+      setMessage(
+        "A tackle cannot be both solo and assisted on the same play. Use either one Solo Tackler or one/more Assists.",
+      );
+      return;
+    }
+
     const event: DefensiveCallEvent = {
       id: createId(),
       gameId: selectedGameId,
@@ -1620,10 +1711,21 @@ export default function AnalyticsPage() {
         : "",
       opponentPossessionStart: defensiveCallEntry.opponentPossessionStart,
       opponentPossessionEnd: defensiveCallEntry.opponentPossessionEnd,
+      tacklers,
+      assistTacklers,
+      sackPlayers,
+      tflPlayers,
       createdAt: new Date().toISOString(),
     };
 
     setDefensiveCallEvents((current) => [...current, event]);
+
+    addDefensiveProductionFromCall({
+      tacklers,
+      assistTacklers,
+      sackPlayers,
+      tflPlayers,
+    });
 
     setDefensiveCallEntry((current) => ({
       ...current,
@@ -1637,6 +1739,10 @@ export default function AnalyticsPage() {
       clock: "",
       opponentPossessionStart: false,
       opponentPossessionEnd: false,
+      tacklers: "",
+      assistTacklers: "",
+      sackPlayers: "",
+      tflPlayers: "",
     }));
 
     setMessage("Defensive call charted.");
@@ -3906,8 +4012,7 @@ export default function AnalyticsPage() {
               className="analytics-defense-call-grid"
               style={{
                 display: "grid",
-                gridTemplateColumns:
-                  "minmax(120px,.8fr) minmax(145px,1fr) minmax(160px,1fr) minmax(150px,1fr) minmax(100px,.7fr) minmax(130px,.9fr) 80px 100px",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                 gap: 8,
                 alignItems: "end",
                 marginTop: 12,
@@ -4023,6 +4128,70 @@ export default function AnalyticsPage() {
               </label>
 
               <label style={possessionFieldStyle}>
+                <span>Solo Tackler</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.tacklers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      tacklers: event.target.value,
+                    }))
+                  }
+                  placeholder="#3"
+                  title="Only one solo tackler may be credited on a play."
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Assist(s)</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.assistTacklers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      assistTacklers: event.target.value,
+                    }))
+                  }
+                  placeholder="#5, #44"
+                  title="Use commas for multiple assisting tacklers."
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>TFL Player(s)</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.tflPlayers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      tflPlayers: event.target.value,
+                    }))
+                  }
+                  placeholder="#44"
+                  title="Use commas for multiple players."
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Sack Player(s)</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.sackPlayers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      sackPlayers: event.target.value,
+                    }))
+                  }
+                  placeholder="#9"
+                  title="Use commas for multiple players."
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
                 <span>Qtr</span>
                 <select
                   style={inputStyle}
@@ -4105,7 +4274,7 @@ export default function AnalyticsPage() {
             </button>
 
             <div style={tableWrapStyle}>
-              <table style={{ ...modernTableStyle, minWidth: 1120 }}>
+              <table style={{ ...modernTableStyle, minWidth: 1480 }}>
                 <thead>
                   <tr>
                     <th style={modernThStyle}>#</th>
@@ -4115,6 +4284,10 @@ export default function AnalyticsPage() {
                     <th style={modernThStyle}>Coverage</th>
                     <th style={modernThStyle}>Yds</th>
                     <th style={modernThStyle}>Result</th>
+                    <th style={modernThStyle}>Solo</th>
+                    <th style={modernThStyle}>Assist(s)</th>
+                    <th style={modernThStyle}>TFL</th>
+                    <th style={modernThStyle}>Sack</th>
                     <th style={modernThStyle}>Q / Clock</th>
                     <th style={modernThStyle}></th>
                   </tr>
@@ -4122,7 +4295,7 @@ export default function AnalyticsPage() {
                 <tbody>
                   {currentGameDefensiveCalls.length === 0 && (
                     <tr>
-                      <td style={emptyTdStyle} colSpan={9}>
+                      <td style={emptyTdStyle} colSpan={13}>
                         No defensive calls charted yet.
                       </td>
                     </tr>
@@ -4139,6 +4312,18 @@ export default function AnalyticsPage() {
                       <td style={modernTdStyle}>{event.coverage || "—"}</td>
                       <td style={modernTdStyle}>{event.yardsAllowed}</td>
                       <td style={modernTdStyle}>{event.result || "—"}</td>
+                      <td style={modernTdStyle}>
+                        {(event.tacklers ?? []).join(", ") || "—"}
+                      </td>
+                      <td style={modernTdStyle}>
+                        {(event.assistTacklers ?? []).join(", ") || "—"}
+                      </td>
+                      <td style={modernTdStyle}>
+                        {(event.tflPlayers ?? []).join(", ") || "—"}
+                      </td>
+                      <td style={modernTdStyle}>
+                        {(event.sackPlayers ?? []).join(", ") || "—"}
+                      </td>
                       <td style={modernTdStyle}>
                         Q{event.quarter} {event.clock}
                         {event.opponentPossessionStart ? " • START" : ""}
@@ -4164,6 +4349,12 @@ export default function AnalyticsPage() {
             <div>
               <div style={smallRedStyle}>PLAYER PRODUCTION</div>
               <h2 style={panelTitleStyle}>Defensive Player Stats</h2>
+              <div style={{ color: "#64748b", fontSize: 12, fontWeight: 700 }}>
+                A tackle is credited as either one solo tackle or shared assists,
+                never both on the same play. TFLs and sacks entered above are
+                automatically credited here. Use this section for corrections or
+                additional stats such as INT, PBU, FF, FR, and TD.
+              </div>
             </div>
 
             <div style={defenseEntryGridStyle}>
