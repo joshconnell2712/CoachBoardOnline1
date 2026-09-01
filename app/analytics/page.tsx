@@ -5809,29 +5809,48 @@ export default function AnalyticsPage() {
                         />
                       </div>
                     ) : (
-                      <span>{playerLabel(player)}</span>
+                      <span
+                        style={{
+                          flex: "1 1 auto",
+                          minWidth: 0,
+                          paddingRight: 12,
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        {playerLabel(player)}
+                      </span>
                     )}
 
                     <div
                       style={{
-                        display: "flex",
+                        display: "grid",
+                        gridTemplateColumns: "72px 100px",
                         gap: 8,
                         alignItems: "center",
-                        flexWrap: "wrap",
+                        flex: "0 0 180px",
+                        marginLeft: "auto",
                       }}
                     >
                       {isEditing ? (
                         <>
                           <button
                             type="button"
-                            style={primaryButtonStyleNoMargin}
+                            style={{
+                              ...primaryButtonStyleNoMargin,
+                              width: "72px",
+                              minWidth: "72px",
+                            }}
                             onClick={saveRosterPlayerEdit}
                           >
                             Save
                           </button>
                           <button
                             type="button"
-                            style={smallActionButtonStyle}
+                            style={{
+                              ...smallActionButtonStyle,
+                              width: "100px",
+                              minWidth: "100px",
+                            }}
                             onClick={cancelEditRosterPlayer}
                           >
                             Cancel
@@ -5840,7 +5859,11 @@ export default function AnalyticsPage() {
                       ) : (
                         <button
                           type="button"
-                          style={smallActionButtonStyle}
+                          style={{
+                            ...smallActionButtonStyle,
+                            width: "72px",
+                            minWidth: "72px",
+                          }}
                           onClick={() => beginEditRosterPlayer(player)}
                         >
                           Edit
@@ -5849,7 +5872,11 @@ export default function AnalyticsPage() {
 
                       <button
                         type="button"
-                        style={dangerButtonStyle}
+                        style={{
+                          ...dangerButtonStyle,
+                          width: "100px",
+                          minWidth: "100px",
+                        }}
                         onClick={() => deletePlayer(player.id)}
                       >
                         Delete
