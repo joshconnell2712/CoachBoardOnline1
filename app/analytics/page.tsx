@@ -121,6 +121,13 @@ type DefensiveCallEvent = {
   result: string;
   quarter: string;
   clock: string;
+  goalToGo?: boolean;
+  penalty?: boolean;
+  penaltyType?: string;
+  penaltyYards?: number;
+  automaticFirstDown?: boolean;
+  lossOfDown?: boolean;
+  repeatDown?: boolean;
   opponentPossessionStart?: boolean;
   opponentPossessionEnd?: boolean;
   tacklers?: string[];
@@ -336,6 +343,13 @@ export default function AnalyticsPage() {
     result: "",
     quarter: "1",
     clock: "",
+    goalToGo: false,
+    penalty: false,
+    penaltyType: "",
+    penaltyYards: "",
+    automaticFirstDown: false,
+    lossOfDown: false,
+    repeatDown: false,
     opponentPossessionStart: false,
     opponentPossessionEnd: false,
     tacklers: "",
@@ -1664,12 +1678,21 @@ export default function AnalyticsPage() {
 
     const parsed = parseDownDistance(defensiveCallEntry.dd);
     const yardsAllowed = Number(defensiveCallEntry.yardsAllowed.trim());
+    const penaltyYards =
+      defensiveCallEntry.penaltyYards.trim() === ""
+        ? 0
+        : Number(defensiveCallEntry.penaltyYards.trim());
 
     if (
       defensiveCallEntry.yardsAllowed.trim() === "" ||
       Number.isNaN(yardsAllowed)
     ) {
       setMessage("Enter yards allowed for the defensive play.");
+      return;
+    }
+
+    if (Number.isNaN(penaltyYards)) {
+      setMessage("Penalty yards must be a number or left blank.");
       return;
     }
 
@@ -1749,6 +1772,13 @@ export default function AnalyticsPage() {
       clock: defensiveCallEntry.clock.trim()
         ? normalizeClock(defensiveCallEntry.clock)
         : "",
+      goalToGo: defensiveCallEntry.goalToGo,
+      penalty: defensiveCallEntry.penalty,
+      penaltyType: defensiveCallEntry.penaltyType.trim(),
+      penaltyYards,
+      automaticFirstDown: defensiveCallEntry.automaticFirstDown,
+      lossOfDown: defensiveCallEntry.lossOfDown,
+      repeatDown: defensiveCallEntry.repeatDown,
       opponentPossessionStart: defensiveCallEntry.opponentPossessionStart,
       opponentPossessionEnd: defensiveCallEntry.opponentPossessionEnd,
       tacklers,
@@ -1783,10 +1813,24 @@ export default function AnalyticsPage() {
         current.dd,
         yardsAllowed,
         event.result,
+        {
+          goalToGo: current.goalToGo,
+          penalty: current.penalty,
+          penaltyYards,
+          automaticFirstDown: current.automaticFirstDown,
+          lossOfDown: current.lossOfDown,
+          repeatDown: current.repeatDown,
+        },
       ),
       yardsAllowed: "",
       result: "",
       clock: "",
+      penalty: false,
+      penaltyType: "",
+      penaltyYards: "",
+      automaticFirstDown: false,
+      lossOfDown: false,
+      repeatDown: false,
       opponentPossessionStart: false,
       opponentPossessionEnd: false,
       tacklers: "",
@@ -4183,6 +4227,105 @@ export default function AnalyticsPage() {
               </label>
 
               <label style={possessionFieldStyle}>
+                <span>Goal-to-Go</span>
+                <select
+                  style={inputStyle}
+                  value={defensiveCallEntry.goalToGo ? "yes" : "no"}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      goalToGo: event.target.value === "yes",
+                    }))
+                  }
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Penalty</span>
+                <select
+                  style={inputStyle}
+                  value={defensiveCallEntry.penalty ? "yes" : "no"}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      penalty: event.target.value === "yes",
+                    }))
+                  }
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </label>
+
+              {defensiveCallEntry.penalty && (
+                <>
+                  <label style={possessionFieldStyle}>
+                    <span>Penalty Type</span>
+                    <input
+                      style={inputStyle}
+                      value={defensiveCallEntry.penaltyType}
+                      onChange={(event) =>
+                        setDefensiveCallEntry((current) => ({
+                          ...current,
+                          penaltyType: event.target.value,
+                        }))
+                      }
+                      placeholder="Holding, DPI..."
+                    />
+                  </label>
+
+                  <label style={possessionFieldStyle}>
+                    <span>Penalty Yards</span>
+                    <input
+                      style={inputStyle}
+                      type="number"
+                      value={defensiveCallEntry.penaltyYards}
+                      onChange={(event) =>
+                        setDefensiveCallEntry((current) => ({
+                          ...current,
+                          penaltyYards: event.target.value,
+                        }))
+                      }
+                      placeholder="10 or -5"
+                    />
+                  </label>
+
+                  <label style={possessionFieldStyle}>
+                    <span>Penalty Effect</span>
+                    <select
+                      style={inputStyle}
+                      value={
+                        defensiveCallEntry.automaticFirstDown
+                          ? "auto-first"
+                          : defensiveCallEntry.lossOfDown
+                            ? "loss-down"
+                            : defensiveCallEntry.repeatDown
+                              ? "repeat-down"
+                              : "normal"
+                      }
+                      onChange={(event) =>
+                        setDefensiveCallEntry((current) => ({
+                          ...current,
+                          automaticFirstDown:
+                            event.target.value === "auto-first",
+                          lossOfDown: event.target.value === "loss-down",
+                          repeatDown: event.target.value === "repeat-down",
+                        }))
+                      }
+                    >
+                      <option value="normal">Normal Enforcement</option>
+                      <option value="auto-first">Automatic 1st Down</option>
+                      <option value="loss-down">Loss of Down</option>
+                      <option value="repeat-down">Repeat Down</option>
+                    </select>
+                  </label>
+                </>
+              )}
+
+              <label style={possessionFieldStyle}>
                 <span>Solo Tackler</span>
                 <input
                   style={inputStyle}
@@ -4442,7 +4585,19 @@ export default function AnalyticsPage() {
                       <td style={modernTdStyle}>{event.pressure || "—"}</td>
                       <td style={modernTdStyle}>{event.coverage || "—"}</td>
                       <td style={modernTdStyle}>{event.yardsAllowed}</td>
-                      <td style={modernTdStyle}>{event.result || "—"}</td>
+                      <td style={modernTdStyle}>
+                        {[
+                          event.result || "",
+                          event.goalToGo ? "GOAL-TO-GO" : "",
+                          event.penalty
+                            ? `PEN${event.penaltyType ? `: ${event.penaltyType}` : ""}${
+                                event.penaltyYards ? ` (${event.penaltyYards})` : ""
+                              }`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" • ") || "—"}
+                      </td>
                       <td style={modernTdStyle}>
                         {(event.tacklers ?? []).join(", ") || "—"}
                       </td>
@@ -5391,9 +5546,23 @@ function nextDefensiveDownDistance(
   current: string,
   yardsAllowed: number,
   result: string,
+  options?: {
+    goalToGo?: boolean;
+    penalty?: boolean;
+    penaltyYards?: number;
+    automaticFirstDown?: boolean;
+    lossOfDown?: boolean;
+    repeatDown?: boolean;
+  },
 ) {
   const parsed = parseDownDistance(current);
   const normalizedResult = result.toUpperCase();
+  const goalToGo = options?.goalToGo === true;
+  const penalty = options?.penalty === true;
+  const penaltyYards = Number(options?.penaltyYards ?? 0);
+  const automaticFirstDown = options?.automaticFirstDown === true;
+  const lossOfDown = options?.lossOfDown === true;
+  const repeatDown = options?.repeatDown === true;
 
   if (
     normalizedResult.includes("TURNOVER") ||
@@ -5403,6 +5572,41 @@ function nextDefensiveDownDistance(
     normalizedResult.includes("4TH DOWN")
   ) {
     return "1 and 10";
+  }
+
+  if (penalty) {
+    if (automaticFirstDown) {
+      return goalToGo ? "1 and Goal" : "1 and 10";
+    }
+
+    if (repeatDown) {
+      const adjustedDistance = Math.max(
+        1,
+        parsed.distance - penaltyYards,
+      );
+      return `${parsed.down} and ${goalToGo ? "Goal" : adjustedDistance}`;
+    }
+
+    const adjustedDown = lossOfDown
+      ? Math.min(4, parsed.down + 1)
+      : parsed.down;
+
+    const adjustedDistance = Math.max(
+      1,
+      parsed.distance - penaltyYards,
+    );
+
+    return `${adjustedDown} and ${goalToGo ? "Goal" : adjustedDistance}`;
+  }
+
+  if (goalToGo) {
+    const nextDown = Math.min(4, parsed.down + 1);
+
+    if (normalizedResult.includes("TD")) {
+      return "1 and 10";
+    }
+
+    return `${nextDown} and Goal`;
   }
 
   if (yardsAllowed >= parsed.distance) {
