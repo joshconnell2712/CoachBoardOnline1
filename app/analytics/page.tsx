@@ -109,6 +109,33 @@ type DefensiveEvent = {
   createdAt: string;
 };
 
+type DefensiveCallEvent = {
+  id: string;
+  gameId: string;
+  down: number;
+  distance: number;
+  front: string;
+  pressure: string;
+  coverage: string;
+  yardsAllowed: number;
+  result: string;
+  quarter: string;
+  clock: string;
+  opponentPossessionStart?: boolean;
+  opponentPossessionEnd?: boolean;
+  createdAt: string;
+};
+
+type DefensiveCallReportRow = {
+  id: string;
+  label: string;
+  calls: number;
+  yardsAllowed: number;
+  averageAllowed: number;
+  stopRate: number;
+  explosiveAllowedRate: number;
+};
+
 type ChartPlay = {
   id: string;
   gameId: string;
@@ -183,6 +210,7 @@ type SavedState = {
   possessions: Possession[];
   specialTeamsEvents: SpecialTeamsEvent[];
   defensiveEvents: DefensiveEvent[];
+  defensiveCallEvents?: DefensiveCallEvent[];
   selectedGameId: string;
   quarterLengthMinutes: number;
 };
@@ -260,6 +288,7 @@ export default function AnalyticsPage() {
   const [possessions, setPossessions] = useState<Possession[]>([]);
   const [specialTeamsEvents, setSpecialTeamsEvents] = useState<SpecialTeamsEvent[]>([]);
   const [defensiveEvents, setDefensiveEvents] = useState<DefensiveEvent[]>([]);
+  const [defensiveCallEvents, setDefensiveCallEvents] = useState<DefensiveCallEvent[]>([]);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [quarterLengthMinutes, setQuarterLengthMinutes] = useState(12);
 
@@ -287,6 +316,19 @@ export default function AnalyticsPage() {
     quarter: "1",
     clock: "",
     notes: "",
+  });
+
+  const [defensiveCallEntry, setDefensiveCallEntry] = useState({
+    dd: "1 and 10",
+    front: "",
+    pressure: "",
+    coverage: "",
+    yardsAllowed: "",
+    result: "",
+    quarter: "1",
+    clock: "",
+    opponentPossessionStart: false,
+    opponentPossessionEnd: false,
   });
 
   const [defenseEntry, setDefenseEntry] = useState({
@@ -467,6 +509,7 @@ export default function AnalyticsPage() {
       possessions,
       specialTeamsEvents,
       defensiveEvents,
+      defensiveCallEvents,
       selectedGameId,
       quarterLengthMinutes,
     };
@@ -510,6 +553,7 @@ export default function AnalyticsPage() {
     possessions,
     specialTeamsEvents,
     defensiveEvents,
+    defensiveCallEvents,
     selectedGameId,
     quarterLengthMinutes,
   ]);
@@ -656,6 +700,7 @@ export default function AnalyticsPage() {
     setPossessions(saved.possessions ?? []);
     setSpecialTeamsEvents(saved.specialTeamsEvents ?? []);
     setDefensiveEvents(saved.defensiveEvents ?? []);
+    setDefensiveCallEvents(saved.defensiveCallEvents ?? []);
     setQuarterLengthMinutes(saved.quarterLengthMinutes === 15 ? 15 : 12);
 
     setSelectedGameId(
@@ -732,6 +777,14 @@ export default function AnalyticsPage() {
     [defensiveEvents, selectedGameId],
   );
 
+  const currentGameDefensiveCalls = useMemo(
+    () =>
+      defensiveCallEvents
+        .filter((event) => event.gameId === selectedGameId)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    [defensiveCallEvents, selectedGameId],
+  );
+
   const seasonSpecialTeams = useMemo(
     () =>
       specialTeamsEvents.filter((event) =>
@@ -748,6 +801,14 @@ export default function AnalyticsPage() {
     [defensiveEvents, seasonGameIdSet],
   );
 
+  const seasonDefensiveCalls = useMemo(
+    () =>
+      defensiveCallEvents.filter((event) =>
+        seasonGameIdSet.has(event.gameId),
+      ),
+    [defensiveCallEvents, seasonGameIdSet],
+  );
+
   const reportSpecialTeams =
     reportScope === "game"
       ? currentGameSpecialTeams
@@ -762,6 +823,13 @@ export default function AnalyticsPage() {
         ? seasonDefense
         : defensiveEvents;
 
+  const reportDefensiveCalls =
+    reportScope === "game"
+      ? currentGameDefensiveCalls
+      : reportScope === "season"
+        ? seasonDefensiveCalls
+        : defensiveCallEvents;
+
   const specialTeamsStats = useMemo(
     () => calculateSpecialTeamsStats(currentGameSpecialTeams),
     [currentGameSpecialTeams],
@@ -770,6 +838,84 @@ export default function AnalyticsPage() {
   const defenseStats = useMemo(
     () => calculateDefenseStats(currentGameDefense),
     [currentGameDefense],
+  );
+
+  const defensiveCallStats = useMemo(
+    () => calculateDefensiveCallStats(currentGameDefensiveCalls),
+    [currentGameDefensiveCalls],
+  );
+
+  const opponentPossessionStats = useMemo(
+    () =>
+      calculateOpponentPossessionStats(
+        currentGameDefensiveCalls,
+        quarterLengthMinutes,
+      ),
+    [currentGameDefensiveCalls, quarterLengthMinutes],
+  );
+
+  const reportOpponentPossessionStats = useMemo(
+    () =>
+      calculateOpponentPossessionStats(
+        reportDefensiveCalls,
+        quarterLengthMinutes,
+      ),
+    [reportDefensiveCalls, quarterLengthMinutes],
+  );
+
+  const defensiveFrontReport = useMemo(
+    () => makeDefensiveCallReport(reportDefensiveCalls, (event) => event.front),
+    [reportDefensiveCalls],
+  );
+
+  const defensivePressureReport = useMemo(
+    () =>
+      makeDefensiveCallReport(
+        reportDefensiveCalls.filter((event) => event.pressure),
+        (event) => event.pressure,
+      ),
+    [reportDefensiveCalls],
+  );
+
+  const defensiveCoverageReport = useMemo(
+    () => makeDefensiveCallReport(reportDefensiveCalls, (event) => event.coverage),
+    [reportDefensiveCalls],
+  );
+
+  const defensiveCallCombinationReport = useMemo(
+    () =>
+      makeDefensiveCallReport(
+        reportDefensiveCalls,
+        (event) =>
+          `${event.front || "No Front"} — ${event.pressure || "No Pressure"} — ${
+            event.coverage || "No Coverage"
+          }`,
+      ),
+    [reportDefensiveCalls],
+  );
+
+  const defensiveFrontOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(defensiveCallEvents.map((event) => event.front).filter(Boolean)),
+      ).sort(),
+    [defensiveCallEvents],
+  );
+
+  const defensivePressureOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(defensiveCallEvents.map((event) => event.pressure).filter(Boolean)),
+      ).sort(),
+    [defensiveCallEvents],
+  );
+
+  const defensiveCoverageOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(defensiveCallEvents.map((event) => event.coverage).filter(Boolean)),
+      ).sort(),
+    [defensiveCallEvents],
   );
 
   const seasonPlays = useMemo(
@@ -1419,6 +1565,89 @@ export default function AnalyticsPage() {
     );
   }
 
+  function saveDefensiveCallEvent() {
+    if (!selectedGameId) {
+      setMessage("Select a game first.");
+      return;
+    }
+
+    const parsed = parseDownDistance(defensiveCallEntry.dd);
+    const yardsAllowed = Number(defensiveCallEntry.yardsAllowed.trim());
+
+    if (
+      defensiveCallEntry.yardsAllowed.trim() === "" ||
+      Number.isNaN(yardsAllowed)
+    ) {
+      setMessage("Enter yards allowed for the defensive play.");
+      return;
+    }
+
+    if (!defensiveCallEntry.front.trim()) {
+      setMessage("Enter the defensive front.");
+      return;
+    }
+
+    if (!defensiveCallEntry.coverage.trim()) {
+      setMessage("Enter the coverage call.");
+      return;
+    }
+
+    if (defensiveCallEntry.clock.trim()) {
+      const clockSeconds = parseClockToSeconds(defensiveCallEntry.clock);
+      const quarterSeconds = quarterLengthMinutes * 60;
+
+      if (clockSeconds === null || clockSeconds > quarterSeconds) {
+        setMessage(
+          `Enter a valid clock time between 0:00 and ${quarterLengthMinutes}:00.`,
+        );
+        return;
+      }
+    }
+
+    const event: DefensiveCallEvent = {
+      id: createId(),
+      gameId: selectedGameId,
+      down: parsed.down,
+      distance: parsed.distance,
+      front: defensiveCallEntry.front.trim(),
+      pressure: defensiveCallEntry.pressure.trim(),
+      coverage: defensiveCallEntry.coverage.trim(),
+      yardsAllowed,
+      result: defensiveCallEntry.result.trim().toUpperCase(),
+      quarter: defensiveCallEntry.quarter || "1",
+      clock: defensiveCallEntry.clock.trim()
+        ? normalizeClock(defensiveCallEntry.clock)
+        : "",
+      opponentPossessionStart: defensiveCallEntry.opponentPossessionStart,
+      opponentPossessionEnd: defensiveCallEntry.opponentPossessionEnd,
+      createdAt: new Date().toISOString(),
+    };
+
+    setDefensiveCallEvents((current) => [...current, event]);
+
+    setDefensiveCallEntry((current) => ({
+      ...current,
+      dd: nextDefensiveDownDistance(
+        current.dd,
+        yardsAllowed,
+        event.result,
+      ),
+      yardsAllowed: "",
+      result: "",
+      clock: "",
+      opponentPossessionStart: false,
+      opponentPossessionEnd: false,
+    }));
+
+    setMessage("Defensive call charted.");
+  }
+
+  function deleteDefensiveCallEvent(id: string) {
+    setDefensiveCallEvents((current) =>
+      current.filter((event) => event.id !== id),
+    );
+  }
+
   function saveDefensiveEvent() {
     if (!selectedGameId) {
       setMessage("Select a game first.");
@@ -1597,7 +1826,7 @@ export default function AnalyticsPage() {
         gameCount === 1 ? "" : "s"
       }, ${playCount} charted play${
         playCount === 1 ? "" : "s"
-      }, the season roster, possessions, defense, and special teams data for this season. This cannot be undone.`,
+      }, the season roster, possessions, defensive calls/stats, and special teams data for this season. This cannot be undone.`,
     );
 
     if (!confirmed) return;
@@ -1624,6 +1853,11 @@ export default function AnalyticsPage() {
       ),
     );
     setDefensiveEvents((current) =>
+      current.filter(
+        (event) => !seasonGameIds.has(event.gameId),
+      ),
+    );
+    setDefensiveCallEvents((current) =>
       current.filter(
         (event) => !seasonGameIds.has(event.gameId),
       ),
@@ -1932,6 +2166,9 @@ export default function AnalyticsPage() {
       current.filter((event) => event.gameId !== id),
     );
     setDefensiveEvents((current) =>
+      current.filter((event) => event.gameId !== id),
+    );
+    setDefensiveCallEvents((current) =>
       current.filter((event) => event.gameId !== id),
     );
 
@@ -3619,138 +3856,418 @@ export default function AnalyticsPage() {
       )}
 
       {activeSection === "command" && gameCenterSection === "defense" && (
-        <section style={panelStyle}>
-          <div style={panelHeaderRowStyle}>
-            <div>
-              <div style={smallRedStyle}>DEFENSE</div>
-              <h2 style={panelTitleStyle}>Defensive Stat Entry</h2>
+        <div style={{ display: "grid", gap: 14 }}>
+          <section style={panelStyle}>
+            <div style={panelHeaderRowStyle}>
+              <div>
+                <div style={smallRedStyle}>DEFENSE</div>
+                <h2 style={panelTitleStyle}>Defensive Call Charting</h2>
+                <div style={{ color: "#64748b", fontSize: 12, fontWeight: 700 }}>
+                  Chart the front, stunt/blitz, coverage, and result on every defensive snap.
+                </div>
+              </div>
+
+              <select
+                style={gameSelectStyle}
+                value={selectedGameId}
+                onChange={(event) => setSelectedGameId(event.target.value)}
+              >
+                {games.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    Week {game.week} vs {game.opponent}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <select
-              style={gameSelectStyle}
-              value={selectedGameId}
-              onChange={(event) => setSelectedGameId(event.target.value)}
-            >
-              {games.map((game) => (
-                <option key={game.id} value={game.id}>
-                  Week {game.week} vs {game.opponent}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={defenseMetricGridStyle}>
-            <Metric label="Tackles" value={defenseStats.totalTackles} />
-            <Metric label="TFL" value={defenseStats.tacklesForLoss} />
-            <Metric label="Sacks" value={defenseStats.sacks} />
-            <Metric label="INT" value={defenseStats.interceptions} />
-            <Metric label="PBU" value={defenseStats.passBreakups} />
-            <Metric label="Forced Fumbles" value={defenseStats.forcedFumbles} />
-            <Metric label="Recoveries" value={defenseStats.fumbleRecoveries} />
-            <Metric label="Defensive TD" value={defenseStats.defensiveTouchdowns} />
-          </div>
-
-          <div style={defenseEntryGridStyle}>
-            <label style={possessionFieldStyle}>
-              <span>Player #</span>
-              <input
-                style={inputStyle}
-                placeholder="#"
-                value={defenseEntry.player}
-                onChange={(event) =>
-                  setDefenseEntry((current) => ({
-                    ...current,
-                    player: event.target.value,
-                  }))
-                }
+            <div style={defenseMetricGridStyle}>
+              <Metric label="Snaps Charted" value={defensiveCallStats.snaps} />
+              <Metric
+                label="Opponent TOP"
+                value={formatDuration(opponentPossessionStats.totalSeconds)}
               />
-            </label>
+              <Metric label="Yards Allowed" value={defensiveCallStats.yardsAllowed} />
+              <Metric label="Avg Allowed" value={defensiveCallStats.averageAllowed} />
+              <Metric label="Stop Rate" value={`${defensiveCallStats.stopRate}%`} />
+              <Metric
+                label="Explosive Allowed"
+                value={`${defensiveCallStats.explosiveAllowedRate}%`}
+              />
+              <Metric label="Tackles" value={defenseStats.totalTackles} />
+              <Metric label="TFL" value={defenseStats.tacklesForLoss} />
+              <Metric label="Sacks" value={defenseStats.sacks} />
+              <Metric label="INT" value={defenseStats.interceptions} />
+              <Metric label="PBU" value={defenseStats.passBreakups} />
+              <Metric label="Forced Fumbles" value={defenseStats.forcedFumbles} />
+              <Metric label="Recoveries" value={defenseStats.fumbleRecoveries} />
+            </div>
 
-            {[
-              ["Solo", "soloTackles"],
-              ["Assists", "assistedTackles"],
-              ["TFL", "tacklesForLoss"],
-              ["Sacks", "sacks"],
-              ["INT", "interceptions"],
-              ["PBU", "passBreakups"],
-              ["FF", "forcedFumbles"],
-              ["FR", "fumbleRecoveries"],
-              ["TD", "defensiveTouchdowns"],
-            ].map(([label, key]) => (
-              <label key={key} style={possessionFieldStyle}>
-                <span>{label}</span>
+            <div
+              className="analytics-defense-call-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "minmax(120px,.8fr) minmax(145px,1fr) minmax(160px,1fr) minmax(150px,1fr) minmax(100px,.7fr) minmax(130px,.9fr) 80px 100px",
+                gap: 8,
+                alignItems: "end",
+                marginTop: 12,
+              }}
+            >
+              <label style={possessionFieldStyle}>
+                <span>Down / Distance</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.dd}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      dd: event.target.value,
+                    }))
+                  }
+                  placeholder="1 and 10"
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Front</span>
+                <input
+                  style={inputStyle}
+                  list="coachboard-defense-fronts"
+                  value={defensiveCallEntry.front}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      front: event.target.value,
+                    }))
+                  }
+                  placeholder="Odd, Even, Bear..."
+                />
+                <datalist id="coachboard-defense-fronts">
+                  {defensiveFrontOptions.map((value) => (
+                    <option key={value} value={value} />
+                  ))}
+                </datalist>
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Stunt / Blitz</span>
+                <input
+                  style={inputStyle}
+                  list="coachboard-defense-pressures"
+                  value={defensiveCallEntry.pressure}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      pressure: event.target.value,
+                    }))
+                  }
+                  placeholder="None, Tex, Mike Blitz..."
+                />
+                <datalist id="coachboard-defense-pressures">
+                  {defensivePressureOptions.map((value) => (
+                    <option key={value} value={value} />
+                  ))}
+                </datalist>
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Coverage</span>
+                <input
+                  style={inputStyle}
+                  list="coachboard-defense-coverages"
+                  value={defensiveCallEntry.coverage}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      coverage: event.target.value,
+                    }))
+                  }
+                  placeholder="Cover 3, Quarters..."
+                />
+                <datalist id="coachboard-defense-coverages">
+                  {defensiveCoverageOptions.map((value) => (
+                    <option key={value} value={value} />
+                  ))}
+                </datalist>
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Yards Allowed</span>
                 <input
                   style={inputStyle}
                   type="number"
-                  min="0"
+                  value={defensiveCallEntry.yardsAllowed}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      yardsAllowed: event.target.value,
+                    }))
+                  }
                   placeholder="0"
-                  value={defenseEntry[key as keyof typeof defenseEntry]}
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Result</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.result}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      result: event.target.value,
+                    }))
+                  }
+                  placeholder="TFL, SACK, INT..."
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Qtr</span>
+                <select
+                  style={inputStyle}
+                  value={defensiveCallEntry.quarter}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      quarter: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="OT">OT</option>
+                </select>
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Clock</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.clock}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      clock: event.target.value,
+                    }))
+                  }
+                  placeholder="8:42"
+                />
+              </label>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 14,
+                flexWrap: "wrap",
+                marginTop: 10,
+                alignItems: "center",
+              }}
+            >
+              <label style={{ ...checkboxLabelStyle, margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={defensiveCallEntry.opponentPossessionStart}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      opponentPossessionStart: event.target.checked,
+                    }))
+                  }
+                />
+                Opponent Possession Start
+              </label>
+
+              <label style={{ ...checkboxLabelStyle, margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={defensiveCallEntry.opponentPossessionEnd}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      opponentPossessionEnd: event.target.checked,
+                    }))
+                  }
+                />
+                Opponent Possession End
+              </label>
+
+              <span style={{ color: "#64748b", fontSize: 12, fontWeight: 700 }}>
+                Quarter + clock are used to calculate opponent time of possession.
+              </span>
+            </div>
+
+            <button style={saveButtonStyle} onClick={saveDefensiveCallEvent}>
+              SAVE DEFENSIVE PLAY
+            </button>
+
+            <div style={tableWrapStyle}>
+              <table style={{ ...modernTableStyle, minWidth: 1120 }}>
+                <thead>
+                  <tr>
+                    <th style={modernThStyle}>#</th>
+                    <th style={modernThStyle}>D / D</th>
+                    <th style={modernThStyle}>Front</th>
+                    <th style={modernThStyle}>Stunt / Blitz</th>
+                    <th style={modernThStyle}>Coverage</th>
+                    <th style={modernThStyle}>Yds</th>
+                    <th style={modernThStyle}>Result</th>
+                    <th style={modernThStyle}>Q / Clock</th>
+                    <th style={modernThStyle}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentGameDefensiveCalls.length === 0 && (
+                    <tr>
+                      <td style={emptyTdStyle} colSpan={9}>
+                        No defensive calls charted yet.
+                      </td>
+                    </tr>
+                  )}
+
+                  {currentGameDefensiveCalls.map((event, index) => (
+                    <tr key={event.id}>
+                      <td style={modernTdStyle}>{index + 1}</td>
+                      <td style={modernTdStyle}>
+                        {event.down} & {event.distance}
+                      </td>
+                      <td style={modernTdStyle}>{event.front || "—"}</td>
+                      <td style={modernTdStyle}>{event.pressure || "—"}</td>
+                      <td style={modernTdStyle}>{event.coverage || "—"}</td>
+                      <td style={modernTdStyle}>{event.yardsAllowed}</td>
+                      <td style={modernTdStyle}>{event.result || "—"}</td>
+                      <td style={modernTdStyle}>
+                        Q{event.quarter} {event.clock}
+                        {event.opponentPossessionStart ? " • START" : ""}
+                        {event.opponentPossessionEnd ? " • END" : ""}
+                      </td>
+                      <td style={modernTdStyle}>
+                        <button
+                          style={miniDeleteButtonStyle}
+                          onClick={() => deleteDefensiveCallEvent(event.id)}
+                          title="Delete defensive play"
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section style={panelStyle}>
+            <div>
+              <div style={smallRedStyle}>PLAYER PRODUCTION</div>
+              <h2 style={panelTitleStyle}>Defensive Player Stats</h2>
+            </div>
+
+            <div style={defenseEntryGridStyle}>
+              <label style={possessionFieldStyle}>
+                <span>Player #</span>
+                <input
+                  style={inputStyle}
+                  placeholder="#"
+                  value={defenseEntry.player}
                   onChange={(event) =>
                     setDefenseEntry((current) => ({
                       ...current,
-                      [key]: event.target.value,
+                      player: event.target.value,
                     }))
                   }
                 />
               </label>
-            ))}
-          </div>
 
-          <button style={saveButtonStyle} onClick={saveDefensiveEvent}>
-            SAVE DEFENSIVE STATS
-          </button>
+              {[
+                ["Solo", "soloTackles"],
+                ["Assists", "assistedTackles"],
+                ["TFL", "tacklesForLoss"],
+                ["Sacks", "sacks"],
+                ["INT", "interceptions"],
+                ["PBU", "passBreakups"],
+                ["FF", "forcedFumbles"],
+                ["FR", "fumbleRecoveries"],
+                ["TD", "defensiveTouchdowns"],
+              ].map(([label, key]) => (
+                <label key={key} style={possessionFieldStyle}>
+                  <span>{label}</span>
+                  <input
+                    style={inputStyle}
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={defenseEntry[key as keyof typeof defenseEntry]}
+                    onChange={(event) =>
+                      setDefenseEntry((current) => ({
+                        ...current,
+                        [key]: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              ))}
+            </div>
 
-          <div style={tableWrapStyle}>
-            <table style={modernTableStyle}>
-              <thead>
-                <tr>
-                  <th style={modernThStyle}>Player</th>
-                  <th style={modernThStyle}>Solo</th>
-                  <th style={modernThStyle}>Ast</th>
-                  <th style={modernThStyle}>TFL</th>
-                  <th style={modernThStyle}>Sack</th>
-                  <th style={modernThStyle}>INT</th>
-                  <th style={modernThStyle}>PBU</th>
-                  <th style={modernThStyle}>FF</th>
-                  <th style={modernThStyle}>FR</th>
-                  <th style={modernThStyle}>TD</th>
-                  <th style={modernThStyle}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentGameDefense.length === 0 && (
+            <button style={saveButtonStyle} onClick={saveDefensiveEvent}>
+              SAVE PLAYER DEFENSIVE STATS
+            </button>
+
+            <div style={tableWrapStyle}>
+              <table style={modernTableStyle}>
+                <thead>
                   <tr>
-                    <td style={emptyTdStyle} colSpan={11}>
-                      No defensive stats recorded.
-                    </td>
+                    <th style={modernThStyle}>Player</th>
+                    <th style={modernThStyle}>Solo</th>
+                    <th style={modernThStyle}>Ast</th>
+                    <th style={modernThStyle}>TFL</th>
+                    <th style={modernThStyle}>Sack</th>
+                    <th style={modernThStyle}>INT</th>
+                    <th style={modernThStyle}>PBU</th>
+                    <th style={modernThStyle}>FF</th>
+                    <th style={modernThStyle}>FR</th>
+                    <th style={modernThStyle}>TD</th>
+                    <th style={modernThStyle}></th>
                   </tr>
-                )}
-                {aggregateDefense(currentGameDefense).map((row) => (
-                  <tr key={row.player}>
-                    <td style={modernTdStyle}>{row.player}</td>
-                    <td style={modernTdStyle}>{row.soloTackles}</td>
-                    <td style={modernTdStyle}>{row.assistedTackles}</td>
-                    <td style={modernTdStyle}>{row.tacklesForLoss}</td>
-                    <td style={modernTdStyle}>{row.sacks}</td>
-                    <td style={modernTdStyle}>{row.interceptions}</td>
-                    <td style={modernTdStyle}>{row.passBreakups}</td>
-                    <td style={modernTdStyle}>{row.forcedFumbles}</td>
-                    <td style={modernTdStyle}>{row.fumbleRecoveries}</td>
-                    <td style={modernTdStyle}>{row.defensiveTouchdowns}</td>
-                    <td style={modernTdStyle}>
-                      <button
-                        style={miniDeleteButtonStyle}
-                        onClick={() => deleteDefensiveEvent(row.lastEventId)}
-                      >
-                        ×
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                </thead>
+                <tbody>
+                  {currentGameDefense.length === 0 && (
+                    <tr>
+                      <td style={emptyTdStyle} colSpan={11}>
+                        No defensive stats recorded.
+                      </td>
+                    </tr>
+                  )}
+                  {aggregateDefense(currentGameDefense).map((row) => (
+                    <tr key={row.player}>
+                      <td style={modernTdStyle}>{row.player}</td>
+                      <td style={modernTdStyle}>{row.soloTackles}</td>
+                      <td style={modernTdStyle}>{row.assistedTackles}</td>
+                      <td style={modernTdStyle}>{row.tacklesForLoss}</td>
+                      <td style={modernTdStyle}>{row.sacks}</td>
+                      <td style={modernTdStyle}>{row.interceptions}</td>
+                      <td style={modernTdStyle}>{row.passBreakups}</td>
+                      <td style={modernTdStyle}>{row.forcedFumbles}</td>
+                      <td style={modernTdStyle}>{row.fumbleRecoveries}</td>
+                      <td style={modernTdStyle}>{row.defensiveTouchdowns}</td>
+                      <td style={modernTdStyle}>
+                        <button
+                          style={miniDeleteButtonStyle}
+                          onClick={() => deleteDefensiveEvent(row.lastEventId)}
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
       )}
 
       {activeSection === "setup" && (
@@ -4307,7 +4824,17 @@ export default function AnalyticsPage() {
                 printSelected={printSelections.defense}
                 fullWidth
               >
-                <DefenseReport events={reportDefense} />
+                <DefenseReport
+                  events={reportDefense}
+                  calls={reportDefensiveCalls}
+                  frontReport={defensiveFrontReport}
+                  pressureReport={defensivePressureReport}
+                  coverageReport={defensiveCoverageReport}
+                  combinationReport={defensiveCallCombinationReport}
+                  opponentPossessionSeconds={
+                    reportOpponentPossessionStats.totalSeconds
+                  }
+                />
               </PrintableExpandableReport>
             </section>
           )}
@@ -4443,6 +4970,168 @@ function calculateSpecialTeamsStats(events: SpecialTeamsEvent[]) {
     puntReturnAverage: average(puntReturns),
     touchdowns: events.filter((event) => event.touchdown).length,
   };
+}
+
+function calculateOpponentPossessionStats(
+  events: DefensiveCallEvent[],
+  quarterLengthMinutes: number,
+) {
+  const sorted = [...events].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  );
+
+  let openStart: DefensiveCallEvent | null = null;
+  let totalSeconds = 0;
+  let completedPossessions = 0;
+
+  sorted.forEach((event) => {
+    if (!event.clock) return;
+
+    if (event.opponentPossessionStart) {
+      openStart = event;
+    }
+
+    if (!openStart) {
+      openStart = event;
+    }
+
+    if (event.opponentPossessionEnd && openStart) {
+      const startQuarter = Number(openStart.quarter);
+      const endQuarter = Number(event.quarter);
+
+      if (
+        Number.isFinite(startQuarter) &&
+        Number.isFinite(endQuarter) &&
+        startQuarter >= 1 &&
+        endQuarter >= startQuarter
+      ) {
+        const duration = calculatePossessionDuration(
+          startQuarter,
+          openStart.clock,
+          endQuarter,
+          event.clock,
+          quarterLengthMinutes,
+        );
+
+        if (duration !== null && duration >= 0) {
+          totalSeconds += duration;
+          completedPossessions += 1;
+        }
+      }
+
+      openStart = null;
+    }
+  });
+
+  return {
+    totalSeconds,
+    completedPossessions,
+    hasOpenPossession: Boolean(openStart),
+  };
+}
+
+function calculateDefensiveCallStats(events: DefensiveCallEvent[]) {
+  const snaps = events.length;
+  const yardsAllowed = events.reduce(
+    (sum, event) => sum + event.yardsAllowed,
+    0,
+  );
+
+  const stops = events.filter((event) => {
+    const result = event.result.toUpperCase();
+
+    if (
+      result.includes("TFL") ||
+      result.includes("SACK") ||
+      result.includes("INT") ||
+      result.includes("FUM") ||
+      result.includes("TURNOVER") ||
+      result.includes("4TH DOWN")
+    ) {
+      return true;
+    }
+
+    return event.yardsAllowed < event.distance;
+  }).length;
+
+  const explosiveAllowed = events.filter(
+    (event) => event.yardsAllowed >= 20,
+  ).length;
+
+  return {
+    snaps,
+    yardsAllowed,
+    averageAllowed: snaps ? (yardsAllowed / snaps).toFixed(1) : "0.0",
+    stopRate: snaps ? Math.round((stops / snaps) * 100) : 0,
+    explosiveAllowedRate: snaps
+      ? Math.round((explosiveAllowed / snaps) * 100)
+      : 0,
+  };
+}
+
+function makeDefensiveCallReport(
+  events: DefensiveCallEvent[],
+  selector: (event: DefensiveCallEvent) => string,
+): DefensiveCallReportRow[] {
+  const groups = new Map<string, DefensiveCallEvent[]>();
+
+  events.forEach((event) => {
+    const label = selector(event).trim();
+    if (!label) return;
+
+    const rows = groups.get(label) ?? [];
+    rows.push(event);
+    groups.set(label, rows);
+  });
+
+  return Array.from(groups.entries())
+    .map(([label, rows]) => {
+      const stats = calculateDefensiveCallStats(rows);
+
+      return {
+        id: label,
+        label,
+        calls: stats.snaps,
+        yardsAllowed: stats.yardsAllowed,
+        averageAllowed: Number(stats.averageAllowed),
+        stopRate: stats.stopRate,
+        explosiveAllowedRate: stats.explosiveAllowedRate,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.stopRate - a.stopRate ||
+        a.averageAllowed - b.averageAllowed ||
+        b.calls - a.calls,
+    );
+}
+
+function nextDefensiveDownDistance(
+  current: string,
+  yardsAllowed: number,
+  result: string,
+) {
+  const parsed = parseDownDistance(current);
+  const normalizedResult = result.toUpperCase();
+
+  if (
+    normalizedResult.includes("TURNOVER") ||
+    normalizedResult.includes("INT") ||
+    normalizedResult.includes("FUM REC") ||
+    normalizedResult.includes("FUMBLE REC") ||
+    normalizedResult.includes("4TH DOWN")
+  ) {
+    return "1 and 10";
+  }
+
+  if (yardsAllowed >= parsed.distance) {
+    return "1 and 10";
+  }
+
+  const nextDown = Math.min(4, parsed.down + 1);
+  const nextDistance = Math.max(1, parsed.distance - yardsAllowed);
+
+  return `${nextDown} and ${nextDistance}`;
 }
 
 function aggregateDefense(events: DefensiveEvent[]) {
@@ -5453,12 +6142,72 @@ function SpecialTeamsReport({
   );
 }
 
+function DefensiveCallReportTable({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: DefensiveCallReportRow[];
+}) {
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={smallRedStyle}>{title.toUpperCase()}</div>
+      <div style={tableWrapStyle}>
+        <table style={{ ...modernTableStyle, minWidth: 720 }}>
+          <thead>
+            <tr>
+              <th style={modernThStyle}>Call</th>
+              <th style={modernThStyle}>Snaps</th>
+              <th style={modernThStyle}>Yards Allowed</th>
+              <th style={modernThStyle}>Avg Allowed</th>
+              <th style={modernThStyle}>Stop Rate</th>
+              <th style={modernThStyle}>Explosive Allowed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td style={emptyTdStyle} colSpan={6}>
+                  No {title.toLowerCase()} data charted.
+                </td>
+              </tr>
+            )}
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td style={modernTdStyle}>{row.label}</td>
+                <td style={modernTdStyle}>{row.calls}</td>
+                <td style={modernTdStyle}>{row.yardsAllowed}</td>
+                <td style={modernTdStyle}>{row.averageAllowed.toFixed(1)}</td>
+                <td style={modernTdStyle}>{row.stopRate}%</td>
+                <td style={modernTdStyle}>{row.explosiveAllowedRate}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function DefenseReport({
   events,
+  calls,
+  frontReport,
+  pressureReport,
+  coverageReport,
+  combinationReport,
+  opponentPossessionSeconds,
 }: {
   events: DefensiveEvent[];
+  calls: DefensiveCallEvent[];
+  frontReport: DefensiveCallReportRow[];
+  pressureReport: DefensiveCallReportRow[];
+  coverageReport: DefensiveCallReportRow[];
+  combinationReport: DefensiveCallReportRow[];
+  opponentPossessionSeconds: number;
 }) {
   const stats = calculateDefenseStats(events);
+  const callStats = calculateDefensiveCallStats(calls);
   const players = aggregateDefense(events);
 
   return (
@@ -5467,6 +6216,18 @@ function DefenseReport({
       <h2 style={panelTitleStyle}>Defensive Analytics</h2>
 
       <div style={defenseMetricGridStyle}>
+        <Metric label="Snaps Charted" value={callStats.snaps} />
+        <Metric
+          label="Opponent TOP"
+          value={formatDuration(opponentPossessionSeconds)}
+        />
+        <Metric label="Yards Allowed" value={callStats.yardsAllowed} />
+        <Metric label="Avg Allowed" value={callStats.averageAllowed} />
+        <Metric label="Stop Rate" value={`${callStats.stopRate}%`} />
+        <Metric
+          label="Explosive Allowed"
+          value={`${callStats.explosiveAllowedRate}%`}
+        />
         <Metric label="Tackles" value={stats.totalTackles} />
         <Metric label="TFL" value={stats.tacklesForLoss} />
         <Metric label="Sacks" value={stats.sacks} />
@@ -5477,39 +6238,63 @@ function DefenseReport({
         <Metric label="Def TD" value={stats.defensiveTouchdowns} />
       </div>
 
-      <div style={tableWrapStyle}>
-        <table style={modernTableStyle}>
-          <thead>
-            <tr>
-              <th style={modernThStyle}>Player</th>
-              <th style={modernThStyle}>Total Tackles</th>
-              <th style={modernThStyle}>TFL</th>
-              <th style={modernThStyle}>Sacks</th>
-              <th style={modernThStyle}>INT</th>
-              <th style={modernThStyle}>PBU</th>
-              <th style={modernThStyle}>FF</th>
-              <th style={modernThStyle}>FR</th>
-              <th style={modernThStyle}>TD</th>
-            </tr>
-          </thead>
-          <tbody>
-            {players.map((row) => (
-              <tr key={row.player}>
-                <td style={modernTdStyle}>{row.player}</td>
-                <td style={modernTdStyle}>
-                  {row.soloTackles + row.assistedTackles}
-                </td>
-                <td style={modernTdStyle}>{row.tacklesForLoss}</td>
-                <td style={modernTdStyle}>{row.sacks}</td>
-                <td style={modernTdStyle}>{row.interceptions}</td>
-                <td style={modernTdStyle}>{row.passBreakups}</td>
-                <td style={modernTdStyle}>{row.forcedFumbles}</td>
-                <td style={modernTdStyle}>{row.fumbleRecoveries}</td>
-                <td style={modernTdStyle}>{row.defensiveTouchdowns}</td>
+      <DefensiveCallReportTable title="Front Performance" rows={frontReport} />
+      <DefensiveCallReportTable
+        title="Stunt / Blitz Performance"
+        rows={pressureReport}
+      />
+      <DefensiveCallReportTable
+        title="Coverage Performance"
+        rows={coverageReport}
+      />
+      <DefensiveCallReportTable
+        title="Front + Pressure + Coverage"
+        rows={combinationReport}
+      />
+
+      <div style={{ marginTop: 18 }}>
+        <div style={smallRedStyle}>PLAYER PRODUCTION</div>
+        <div style={tableWrapStyle}>
+          <table style={modernTableStyle}>
+            <thead>
+              <tr>
+                <th style={modernThStyle}>Player</th>
+                <th style={modernThStyle}>Total Tackles</th>
+                <th style={modernThStyle}>TFL</th>
+                <th style={modernThStyle}>Sacks</th>
+                <th style={modernThStyle}>INT</th>
+                <th style={modernThStyle}>PBU</th>
+                <th style={modernThStyle}>FF</th>
+                <th style={modernThStyle}>FR</th>
+                <th style={modernThStyle}>TD</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {players.length === 0 && (
+                <tr>
+                  <td style={emptyTdStyle} colSpan={9}>
+                    No player defensive stats recorded.
+                  </td>
+                </tr>
+              )}
+              {players.map((row) => (
+                <tr key={row.player}>
+                  <td style={modernTdStyle}>{row.player}</td>
+                  <td style={modernTdStyle}>
+                    {row.soloTackles + row.assistedTackles}
+                  </td>
+                  <td style={modernTdStyle}>{row.tacklesForLoss}</td>
+                  <td style={modernTdStyle}>{row.sacks}</td>
+                  <td style={modernTdStyle}>{row.interceptions}</td>
+                  <td style={modernTdStyle}>{row.passBreakups}</td>
+                  <td style={modernTdStyle}>{row.forcedFumbles}</td>
+                  <td style={modernTdStyle}>{row.fumbleRecoveries}</td>
+                  <td style={modernTdStyle}>{row.defensiveTouchdowns}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -6588,6 +7373,15 @@ const possessionMetricGridStyle: React.CSSProperties = {
 };
 
 
+
+const checkboxLabelStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  color: "#cbd5e1",
+  fontSize: 12,
+  fontWeight: 800,
+};
 
 const possessionFieldStyle: React.CSSProperties = {
   display: "grid",
