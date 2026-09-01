@@ -2779,10 +2779,14 @@ export default function AnalyticsPage() {
     };
   }
 
-  async function loadPdfJsLibrary() {
-    const browserWindow = window as unknown as BrowserPdfJsWindow;
+  function getPdfJsFromWindow(): PdfJsLibraryLike | undefined {
+    return (window as unknown as BrowserPdfJsWindow).pdfjsLib;
+  }
 
-    if (browserWindow.pdfjsLib) return browserWindow.pdfjsLib;
+  async function loadPdfJsLibrary() {
+    const alreadyLoaded = getPdfJsFromWindow();
+
+    if (alreadyLoaded) return alreadyLoaded;
 
     const existingScript = document.querySelector<HTMLScriptElement>(
       'script[data-coachboard-pdfjs="true"]',
@@ -2790,7 +2794,7 @@ export default function AnalyticsPage() {
 
     if (existingScript) {
       await new Promise<void>((resolve, reject) => {
-        if (browserWindow.pdfjsLib) {
+        if (getPdfJsFromWindow()) {
           resolve();
           return;
         }
@@ -2805,11 +2809,16 @@ export default function AnalyticsPage() {
         );
       });
 
-      if (!browserWindow.pdfjsLib) {
+      const loadedFromExistingScript = getPdfJsFromWindow();
+
+      if (!loadedFromExistingScript) {
         throw new Error("PDF roster reader loaded but was unavailable.");
       }
 
-      return browserWindow.pdfjsLib;
+      loadedFromExistingScript.GlobalWorkerOptions.workerSrc =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+
+      return loadedFromExistingScript;
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -2824,16 +2833,16 @@ export default function AnalyticsPage() {
       document.head.appendChild(script);
     });
 
-    const pdfjs = browserWindow.pdfjsLib;
+    const loadedPdfJs = getPdfJsFromWindow();
 
-    if (!pdfjs) {
+    if (!loadedPdfJs) {
       throw new Error("PDF roster reader is unavailable.");
     }
 
-    pdfjs.GlobalWorkerOptions.workerSrc =
+    loadedPdfJs.GlobalWorkerOptions.workerSrc =
       "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
-    return pdfjs;
+    return loadedPdfJs;
   }
 
   async function extractRosterRowsFromPdf(
