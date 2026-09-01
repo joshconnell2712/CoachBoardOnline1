@@ -2824,14 +2824,16 @@ export default function AnalyticsPage() {
       document.head.appendChild(script);
     });
 
-    if (!browserWindow.pdfjsLib) {
+    const pdfjs = browserWindow.pdfjsLib;
+
+    if (!pdfjs) {
       throw new Error("PDF roster reader is unavailable.");
     }
 
-    browserWindow.pdfjsLib.GlobalWorkerOptions.workerSrc =
+    pdfjs.GlobalWorkerOptions.workerSrc =
       "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
-    return browserWindow.pdfjsLib;
+    return pdfjs;
   }
 
   async function extractRosterRowsFromPdf(
