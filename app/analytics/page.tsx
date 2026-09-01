@@ -57,6 +57,39 @@ type WindowWithXlsx = Window & {
   XLSX?: XlsxLibraryLike;
 };
 
+type PdfTextItemLike = {
+  str?: string;
+  transform?: number[];
+};
+
+type PdfTextContentLike = {
+  items: PdfTextItemLike[];
+};
+
+type PdfPageLike = {
+  getTextContent: () => Promise<PdfTextContentLike>;
+};
+
+type PdfDocumentLike = {
+  numPages: number;
+  getPage: (pageNumber: number) => Promise<PdfPageLike>;
+};
+
+type PdfLoadingTaskLike = {
+  promise: Promise<PdfDocumentLike>;
+};
+
+type PdfJsLibraryLike = {
+  getDocument: (options: { data: ArrayBuffer }) => PdfLoadingTaskLike;
+  GlobalWorkerOptions: {
+    workerSrc: string;
+  };
+};
+
+type WindowWithPdfJs = Window & {
+  pdfjsLib?: PdfJsLibraryLike;
+};
+
 type Season = {
   id: string;
   name: string;
@@ -2610,6 +2643,263 @@ export default function AnalyticsPage() {
     return normalizeRosterRows(rows, seasonYear);
   }
 
+  function looksLikeRosterPosition(value: string) {
+    const normalized = value
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z/]/g, "");
+
+    const commonPositions = new Set([
+      "QB", "RB", "FB", "HB", "WR", "TE", "OL", "OT", "OG", "C",
+      "LT", "RT", "LG", "RG", "DL", "DE", "DT", "NT", "LB", "ILB",
+      "OLB", "MLB", "DB", "CB", "S", "FS", "SS", "ATH", "K", "P",
+      "LS", "KR", "PR",
+    ]);
+
+    if (commonPositions.has(normalized)) return true;
+
+    const parts = normalized.split("/").filter(Boolean);
+    return parts.length > 1 && parts.every((part) => commonPositions.has(part));
+  }
+
+  function rosterPositionFromTokens(tokens: string[]) {
+    const position = tokens.find((token) => looksLikeRosterPosition(token));
+    return position ? position.trim().toUpperCase() : "";
+  }
+
+  function graduationYearFromPdfTokens(
+    tokens: string[],
+    seasonYear: number,
+  ) {
+    for (const token of tokens) {
+      const yearMatch = token.match(/\b20\d{2}\b/);
+      if (yearMatch) {
+        const graduationYear = Number(yearMatch[0]);
+        if (
+          graduationYear >= seasonYear - 6 &&
+          graduationYear <= seasonYear + 8
+        ) {
+          return {
+            rosterYear: yearMatch[0],
+            graduationYear,
+          };
+        }
+      }
+    }
+
+    for (const token of tokens) {
+      const grade = normalizeHudlClassYear(token);
+      if (grade) {
+        return {
+          rosterYear: token,
+          graduationYear: seasonYear + (13 - grade),
+        };
+      }
+    }
+
+    return {
+      rosterYear: "",
+      graduationYear: undefined,
+    };
+  }
+
+  function parsePdfRosterLine(
+    line: string,
+    seasonYear: number,
+  ): RosterImportRow | null {
+    const cleanLine = line
+      .replace(/\s+/g, " ")
+      .replace(/[|•]/g, " ")
+      .trim();
+
+    if (!cleanLine) return null;
+
+    const headerLike = normalizeRosterHeader(cleanLine);
+    if (
+      headerLike.includes("firstname") ||
+      headerLike.includes("lastname") ||
+      headerLike.includes("jerseynumber") ||
+      headerLike === "roster" ||
+      headerLike.includes("playernameposition")
+    ) {
+      return null;
+    }
+
+    const tokens = cleanLine.split(/\s+/).filter(Boolean);
+    if (tokens.length < 2) return null;
+
+    const jerseyIndex = tokens.findIndex((token) =>
+      /^#?\d{1,3}$/.test(token),
+    );
+
+    const position = rosterPositionFromTokens(tokens);
+    const positionIndex = position
+      ? tokens.findIndex(
+          (token) => token.trim().toUpperCase() === position,
+        )
+      : -1;
+
+    const { rosterYear, graduationYear } =
+      graduationYearFromPdfTokens(tokens, seasonYear);
+
+    const yearTokenIndex = tokens.findIndex((token) => {
+      if (/\b20\d{2}\b/.test(token)) return true;
+      return normalizeHudlClassYear(token) !== null;
+    });
+
+    const ignoredIndexes = new Set<number>();
+    if (jerseyIndex >= 0) ignoredIndexes.add(jerseyIndex);
+    if (positionIndex >= 0) ignoredIndexes.add(positionIndex);
+    if (yearTokenIndex >= 0) ignoredIndexes.add(yearTokenIndex);
+
+    const nameTokens = tokens.filter((_, index) => !ignoredIndexes.has(index));
+    const filteredNameTokens = nameTokens.filter((token) => {
+      if (/^\d+'(?:\d{1,2}")?$/.test(token)) return false;
+      if (/^\d{2,3}(?:lbs?)?$/i.test(token)) return false;
+      if (/^(height|weight|grade|class|year)$/i.test(token)) return false;
+      return true;
+    });
+
+    const splitName = splitRosterName(filteredNameTokens.join(" ").trim());
+    if (!splitName.firstName && !splitName.lastName) return null;
+
+    const currentSeasonEligible =
+      graduationYear === undefined ||
+      (graduationYear >= seasonYear + 1 &&
+        graduationYear <= seasonYear + 4);
+
+    return {
+      firstName: splitName.firstName,
+      lastName: splitName.lastName,
+      jersey: jerseyIndex >= 0 ? tokens[jerseyIndex].replace(/^#/, "") : "",
+      position,
+      rosterYear,
+      graduationYear,
+      currentSeasonEligible,
+    };
+  }
+
+  async function loadPdfJsLibrary() {
+    const browserWindow = window as WindowWithPdfJs;
+
+    if (browserWindow.pdfjsLib) return browserWindow.pdfjsLib;
+
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[data-coachboard-pdfjs="true"]',
+    );
+
+    if (existingScript) {
+      await new Promise<void>((resolve, reject) => {
+        if (browserWindow.pdfjsLib) {
+          resolve();
+          return;
+        }
+
+        existingScript.addEventListener("load", () => resolve(), {
+          once: true,
+        });
+        existingScript.addEventListener(
+          "error",
+          () => reject(new Error("Could not load the PDF roster reader.")),
+          { once: true },
+        );
+      });
+
+      if (!browserWindow.pdfjsLib) {
+        throw new Error("PDF roster reader loaded but was unavailable.");
+      }
+
+      return browserWindow.pdfjsLib;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
+      script.async = true;
+      script.dataset.coachboardPdfjs = "true";
+      script.onload = () => resolve();
+      script.onerror = () =>
+        reject(new Error("Could not load the PDF roster reader."));
+      document.head.appendChild(script);
+    });
+
+    if (!browserWindow.pdfjsLib) {
+      throw new Error("PDF roster reader is unavailable.");
+    }
+
+    browserWindow.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+
+    return browserWindow.pdfjsLib;
+  }
+
+  async function extractRosterRowsFromPdf(
+    file: File,
+    seasonYear: number,
+  ) {
+    const pdfjs = await loadPdfJsLibrary();
+    const document = await pdfjs.getDocument({
+      data: await file.arrayBuffer(),
+    }).promise;
+
+    const parsedRows: RosterImportRow[] = [];
+
+    for (
+      let pageNumber = 1;
+      pageNumber <= document.numPages;
+      pageNumber += 1
+    ) {
+      const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+
+      const positionedItems = content.items
+        .map((item) => ({
+          text: (item.str ?? "").trim(),
+          x: item.transform?.[4] ?? 0,
+          y: item.transform?.[5] ?? 0,
+        }))
+        .filter((item) => item.text);
+
+      const lines = new Map<number, Array<{ text: string; x: number }>>();
+
+      positionedItems.forEach((item) => {
+        const roundedY = Math.round(item.y / 3) * 3;
+        const current = lines.get(roundedY) ?? [];
+        current.push({ text: item.text, x: item.x });
+        lines.set(roundedY, current);
+      });
+
+      [...lines.entries()]
+        .sort((a, b) => b[0] - a[0])
+        .map(([, items]) =>
+          items
+            .sort((a, b) => a.x - b.x)
+            .map((item) => item.text)
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim(),
+        )
+        .forEach((line) => {
+          const parsed = parsePdfRosterLine(line, seasonYear);
+          if (parsed) parsedRows.push(parsed);
+        });
+    }
+
+    const deduped = new Map<string, RosterImportRow>();
+    parsedRows.forEach((row) => {
+      const key = [
+        row.jersey.trim().toLowerCase(),
+        row.firstName.trim().toLowerCase(),
+        row.lastName.trim().toLowerCase(),
+      ].join("|");
+
+      if (!deduped.has(key)) deduped.set(key, row);
+    });
+
+    return [...deduped.values()];
+  }
+
   async function loadXlsxLibrary() {
     const browserWindow = window as WindowWithXlsx;
 
@@ -2713,13 +3003,22 @@ export default function AnalyticsPage() {
           sheetRows,
           selectedSeason.year,
         );
+      } else if (lowerName.endsWith(".pdf")) {
+        importedRows = await extractRosterRowsFromPdf(
+          file,
+          selectedSeason.year,
+        );
       } else {
-        throw new Error("Choose an Excel (.xlsx/.xls) or CSV roster file.");
+        throw new Error(
+          "Choose an Excel (.xlsx/.xls), CSV, or PDF roster file.",
+        );
       }
 
       if (importedRows.length === 0) {
         throw new Error(
-          "No players were detected. CoachBoard looks for name, jersey/number, position, and class/year columns.",
+          lowerName.endsWith(".pdf")
+            ? "No roster rows were detected in that PDF. Text-based roster PDFs work automatically; scanned/image-only PDFs need OCR before import."
+            : "No players were detected. CoachBoard looks for name, jersey/number, position, and class/year columns.",
         );
       }
 
@@ -5587,10 +5886,10 @@ export default function AnalyticsPage() {
                   lineHeight: 1.45,
                 }}
               >
-                Upload .xlsx, .xls, or .csv. CoachBoard reads the Hudl
-                class/year column and only keeps players who belong on the
-                selected season roster. Past players are filtered out
-                automatically.
+                Upload .xlsx, .xls, .csv, or .pdf. CoachBoard identifies
+                jersey numbers, player names, positions, and class/year data,
+                then keeps only players who belong on the selected season
+                roster. Past players are filtered out automatically.
               </p>
 
               <label
@@ -5602,10 +5901,12 @@ export default function AnalyticsPage() {
                   cursor: rosterImportLoading ? "wait" : "pointer",
                 }}
               >
-                {rosterImportLoading ? "Reading Roster..." : "Choose Roster File"}
+                {rosterImportLoading
+                  ? "Reading Roster..."
+                  : "Choose Excel, CSV, or PDF"}
                 <input
                   type="file"
-                  accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                  accept=".xlsx,.xls,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
                   onChange={handleRosterFileUpload}
                   disabled={rosterImportLoading || !selectedSeasonId}
                   style={{ display: "none" }}
