@@ -26,6 +26,9 @@ type RosterImportRow = {
   lastName: string;
   jersey: string;
   position: string;
+  rosterYear: string;
+  graduationYear?: number;
+  currentSeasonEligible: boolean;
 };
 
 type SpreadsheetCell = string | number | boolean | null | undefined;
@@ -357,6 +360,7 @@ export default function AnalyticsPage() {
   const [playerPosition, setPlayerPosition] = useState("");
 
   const [rosterImportRows, setRosterImportRows] = useState<RosterImportRow[]>([]);
+  const [rosterImportExcludedCount, setRosterImportExcludedCount] = useState(0);
   const [rosterImportFileName, setRosterImportFileName] = useState("");
   const [rosterImportLoading, setRosterImportLoading] = useState(false);
 
@@ -2347,7 +2351,126 @@ export default function AnalyticsPage() {
     };
   }
 
-  function normalizeRosterRows(rows: SpreadsheetRow[]) {
+  function normalizeHudlClassYear(value: string) {
+    const normalized = value.trim().toLowerCase();
+
+    if (!normalized) return null;
+
+    if (
+      ["sr", "senior", "12", "12th", "grade12", "12thgrade"].includes(
+        normalizeRosterHeader(normalized),
+      )
+    ) {
+      return 12;
+    }
+
+    if (
+      ["jr", "junior", "11", "11th", "grade11", "11thgrade"].includes(
+        normalizeRosterHeader(normalized),
+      )
+    ) {
+      return 11;
+    }
+
+    if (
+      ["so", "sophomore", "10", "10th", "grade10", "10thgrade"].includes(
+        normalizeRosterHeader(normalized),
+      )
+    ) {
+      return 10;
+    }
+
+    if (
+      ["fr", "freshman", "9", "9th", "grade9", "9thgrade"].includes(
+        normalizeRosterHeader(normalized),
+      )
+    ) {
+      return 9;
+    }
+
+    return null;
+  }
+
+  function getHudlGraduationYear(
+    row: SpreadsheetRow,
+    seasonYear: number,
+  ) {
+    const explicitGraduationYear = getSpreadsheetValue(row, [
+      "Graduation Year",
+      "Grad Year",
+      "Graduation",
+      "Class Year",
+      "Class Of",
+      "Class",
+    ]);
+
+    const genericYear = getSpreadsheetValue(row, [
+      "Year",
+      "School Year",
+      "Player Year",
+    ]);
+
+    const grade = getSpreadsheetValue(row, [
+      "Grade",
+      "Grade Level",
+      "Yr",
+    ]);
+
+    const explicitYearNumber = Number(
+      explicitGraduationYear.match(/\b20\d{2}\b/)?.[0] ?? "",
+    );
+
+    if (
+      Number.isInteger(explicitYearNumber) &&
+      explicitYearNumber >= 2000
+    ) {
+      return {
+        rosterYear: explicitGraduationYear,
+        graduationYear: explicitYearNumber,
+      };
+    }
+
+    const genericYearNumber = Number(
+      genericYear.match(/\b20\d{2}\b/)?.[0] ?? "",
+    );
+
+    if (
+      Number.isInteger(genericYearNumber) &&
+      genericYearNumber >= 2000
+    ) {
+      return {
+        rosterYear: genericYear,
+        graduationYear: genericYearNumber,
+      };
+    }
+
+    const classGrade =
+      normalizeHudlClassYear(grade) ??
+      normalizeHudlClassYear(explicitGraduationYear) ??
+      normalizeHudlClassYear(genericYear);
+
+    if (classGrade) {
+      // In a fall football season, a senior graduates the following calendar
+      // year, a junior in +2, sophomore in +3, and freshman in +4.
+      return {
+        rosterYear: grade || explicitGraduationYear || genericYear,
+        graduationYear: seasonYear + (13 - classGrade),
+      };
+    }
+
+    return {
+      rosterYear: explicitGraduationYear || genericYear || grade,
+      graduationYear: undefined,
+    };
+  }
+
+  function normalizeRosterRows(
+    rows: SpreadsheetRow[],
+    seasonYear: number,
+  ) {
+    const currentGraduationStart = seasonYear + 1;
+    const currentGraduationEnd = seasonYear + 4;
+
     return rows
       .map((row): RosterImportRow => {
         let firstName = getSpreadsheetValue(row, [
@@ -2398,11 +2521,24 @@ export default function AnalyticsPage() {
           "Position 1",
         ]);
 
+        const { rosterYear, graduationYear } = getHudlGraduationYear(
+          row,
+          seasonYear,
+        );
+
+        const currentSeasonEligible =
+          graduationYear === undefined ||
+          (graduationYear >= currentGraduationStart &&
+            graduationYear <= currentGraduationEnd);
+
         return {
           firstName,
           lastName,
           jersey,
           position,
+          rosterYear,
+          graduationYear,
+          currentSeasonEligible,
         };
       })
       .filter(
@@ -2450,7 +2586,7 @@ export default function AnalyticsPage() {
     return values;
   }
 
-  function parseRosterCsv(csvText: string) {
+  function parseRosterCsv(csvText: string, seasonYear: number) {
     const lines = csvText
       .replace(/^\uFEFF/, "")
       .split(/\r?\n/)
@@ -2471,7 +2607,7 @@ export default function AnalyticsPage() {
       return row;
     });
 
-    return normalizeRosterRows(rows);
+    return normalizeRosterRows(rows, seasonYear);
   }
 
   async function loadXlsxLibrary() {
@@ -2533,7 +2669,7 @@ export default function AnalyticsPage() {
 
     if (!file) return;
 
-    if (!selectedSeasonId) {
+    if (!selectedSeasonId || !selectedSeason) {
       setMessage("Create or select a season before importing a roster.");
       event.target.value = "";
       return;
@@ -2541,6 +2677,7 @@ export default function AnalyticsPage() {
 
     setRosterImportLoading(true);
     setRosterImportRows([]);
+    setRosterImportExcludedCount(0);
     setRosterImportFileName(file.name);
     setMessage("");
 
@@ -2549,7 +2686,10 @@ export default function AnalyticsPage() {
       let importedRows: RosterImportRow[] = [];
 
       if (lowerName.endsWith(".csv")) {
-        importedRows = parseRosterCsv(await file.text());
+        importedRows = parseRosterCsv(
+          await file.text(),
+          selectedSeason.year,
+        );
       } else if (
         lowerName.endsWith(".xlsx") ||
         lowerName.endsWith(".xls")
@@ -2569,26 +2709,50 @@ export default function AnalyticsPage() {
           defval: "",
         });
 
-        importedRows = normalizeRosterRows(sheetRows);
+        importedRows = normalizeRosterRows(
+          sheetRows,
+          selectedSeason.year,
+        );
       } else {
         throw new Error("Choose an Excel (.xlsx/.xls) or CSV roster file.");
       }
 
       if (importedRows.length === 0) {
         throw new Error(
-          "No players were detected. CoachBoard looks for name, jersey/number, and position columns.",
+          "No players were detected. CoachBoard looks for name, jersey/number, position, and class/year columns.",
         );
       }
 
-      setRosterImportRows(importedRows);
+      const currentPlayers = importedRows.filter(
+        (row) => row.currentSeasonEligible,
+      );
+      const excludedPlayers = importedRows.length - currentPlayers.length;
+
+      if (currentPlayers.length === 0) {
+        throw new Error(
+          `No current players matched the ${selectedSeason.year} season. Hudl graduation years should normally be ${
+            selectedSeason.year + 1
+          }-${selectedSeason.year + 4}.`,
+        );
+      }
+
+      setRosterImportRows(currentPlayers);
+      setRosterImportExcludedCount(excludedPlayers);
       setMessage(
-        `Found ${importedRows.length} player${
-          importedRows.length === 1 ? "" : "s"
-        } in ${file.name}. Review the preview, then import.`,
+        `Found ${currentPlayers.length} current player${
+          currentPlayers.length === 1 ? "" : "s"
+        } for the ${selectedSeason.year} season${
+          excludedPlayers
+            ? ` and filtered out ${excludedPlayers} past player${
+                excludedPlayers === 1 ? "" : "s"
+              }`
+            : ""
+        }. Review the preview, then import.`,
       );
     } catch (error) {
       setRosterImportFileName("");
       setRosterImportRows([]);
+      setRosterImportExcludedCount(0);
       setMessage(
         error instanceof Error
           ? error.message
@@ -2669,6 +2833,7 @@ export default function AnalyticsPage() {
     });
 
     setRosterImportRows([]);
+    setRosterImportExcludedCount(0);
     setRosterImportFileName("");
     setMessage(
       `Roster import complete: ${addedCount} added${
@@ -2679,6 +2844,7 @@ export default function AnalyticsPage() {
 
   function cancelRosterImport() {
     setRosterImportRows([]);
+    setRosterImportExcludedCount(0);
     setRosterImportFileName("");
     setMessage("");
   }
@@ -5421,8 +5587,10 @@ export default function AnalyticsPage() {
                   lineHeight: 1.45,
                 }}
               >
-                Upload .xlsx, .xls, or .csv. CoachBoard automatically looks for
-                first name, last name, jersey/number, and position columns.
+                Upload .xlsx, .xls, or .csv. CoachBoard reads the Hudl
+                class/year column and only keeps players who belong on the
+                selected season roster. Past players are filtered out
+                automatically.
               </p>
 
               <label
@@ -5481,7 +5649,12 @@ export default function AnalyticsPage() {
                           fontWeight: 700,
                         }}
                       >
-                        {rosterImportRows.length} players detected
+                        {rosterImportRows.length} current players detected
+                        {rosterImportExcludedCount > 0
+                          ? ` • ${rosterImportExcludedCount} past player${
+                              rosterImportExcludedCount === 1 ? "" : "s"
+                            } filtered out`
+                          : ""}
                       </div>
                     </div>
 
@@ -5511,6 +5684,7 @@ export default function AnalyticsPage() {
                           <th style={modernThStyle}>First</th>
                           <th style={modernThStyle}>Last</th>
                           <th style={modernThStyle}>Position</th>
+                          <th style={modernThStyle}>Class / Year</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -5522,6 +5696,12 @@ export default function AnalyticsPage() {
                             <td style={modernTdStyle}>{row.firstName || "—"}</td>
                             <td style={modernTdStyle}>{row.lastName || "—"}</td>
                             <td style={modernTdStyle}>{row.position || "—"}</td>
+                            <td style={modernTdStyle}>
+                              {row.rosterYear ||
+                                (row.graduationYear
+                                  ? String(row.graduationYear)
+                                  : "No year supplied")}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
