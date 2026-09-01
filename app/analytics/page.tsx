@@ -21,6 +21,39 @@ type Player = {
   seasonId?: string;
 };
 
+type RosterImportRow = {
+  firstName: string;
+  lastName: string;
+  jersey: string;
+  position: string;
+};
+
+type SpreadsheetCell = string | number | boolean | null | undefined;
+
+type SpreadsheetRow = Record<string, SpreadsheetCell>;
+
+type XlsxWorkbookLike = {
+  SheetNames: string[];
+  Sheets: Record<string, unknown>;
+};
+
+type XlsxLibraryLike = {
+  read: (
+    data: ArrayBuffer,
+    options: { type: "array" },
+  ) => XlsxWorkbookLike;
+  utils: {
+    sheet_to_json: (
+      sheet: unknown,
+      options: { defval: string },
+    ) => SpreadsheetRow[];
+  };
+};
+
+type WindowWithXlsx = Window & {
+  XLSX?: XlsxLibraryLike;
+};
+
 type Season = {
   id: string;
   name: string;
@@ -322,6 +355,10 @@ export default function AnalyticsPage() {
   const [playerLast, setPlayerLast] = useState("");
   const [playerNumber, setPlayerNumber] = useState("");
   const [playerPosition, setPlayerPosition] = useState("");
+
+  const [rosterImportRows, setRosterImportRows] = useState<RosterImportRow[]>([]);
+  const [rosterImportFileName, setRosterImportFileName] = useState("");
+  const [rosterImportLoading, setRosterImportLoading] = useState(false);
 
   const [formationSetup, setFormationSetup] = useState("");
   const [motionSetup, setMotionSetup] = useState("");
@@ -2251,6 +2288,399 @@ export default function AnalyticsPage() {
     setNewGameDate("");
     setActiveSection("command");
     setMessage("Game added.");
+  }
+
+  function normalizeRosterHeader(value: string) {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+  }
+
+  function spreadsheetCellText(value: SpreadsheetCell) {
+    if (value === null || value === undefined) return "";
+    return String(value).trim();
+  }
+
+  function getSpreadsheetValue(
+    row: SpreadsheetRow,
+    aliases: string[],
+  ) {
+    const normalizedAliases = new Set(
+      aliases.map((alias) => normalizeRosterHeader(alias)),
+    );
+
+    for (const [key, value] of Object.entries(row)) {
+      if (normalizedAliases.has(normalizeRosterHeader(key))) {
+        return spreadsheetCellText(value);
+      }
+    }
+
+    return "";
+  }
+
+  function splitRosterName(fullName: string) {
+    const clean = fullName.trim();
+    if (!clean) return { firstName: "", lastName: "" };
+
+    if (clean.includes(",")) {
+      const [lastName, ...firstParts] = clean
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      return {
+        firstName: firstParts.join(" "),
+        lastName: lastName ?? "",
+      };
+    }
+
+    const parts = clean.split(/\s+/).filter(Boolean);
+
+    if (parts.length === 1) {
+      return { firstName: parts[0], lastName: "" };
+    }
+
+    return {
+      firstName: parts.slice(0, -1).join(" "),
+      lastName: parts.at(-1) ?? "",
+    };
+  }
+
+  function normalizeRosterRows(rows: SpreadsheetRow[]) {
+    return rows
+      .map((row): RosterImportRow => {
+        let firstName = getSpreadsheetValue(row, [
+          "First",
+          "First Name",
+          "Firstname",
+          "Player First Name",
+        ]);
+
+        let lastName = getSpreadsheetValue(row, [
+          "Last",
+          "Last Name",
+          "Lastname",
+          "Player Last Name",
+        ]);
+
+        if (!firstName && !lastName) {
+          const fullName = getSpreadsheetValue(row, [
+            "Name",
+            "Player",
+            "Player Name",
+            "Athlete",
+            "Athlete Name",
+            "Full Name",
+          ]);
+
+          const splitName = splitRosterName(fullName);
+          firstName = splitName.firstName;
+          lastName = splitName.lastName;
+        }
+
+        const jersey = getSpreadsheetValue(row, [
+          "Number",
+          "No",
+          "No.",
+          "#",
+          "Jersey",
+          "Jersey Number",
+          "Jersey #",
+          "Player Number",
+          "Uniform Number",
+        ]).replace(/^#/, "");
+
+        const position = getSpreadsheetValue(row, [
+          "Position",
+          "Pos",
+          "Primary Position",
+          "Position 1",
+        ]);
+
+        return {
+          firstName,
+          lastName,
+          jersey,
+          position,
+        };
+      })
+      .filter(
+        (row) =>
+          Boolean(row.firstName || row.lastName || row.jersey) &&
+          ![
+            "first",
+            "firstname",
+            "name",
+            "player",
+            "number",
+            "jersey",
+          ].includes(row.firstName.toLowerCase()),
+      );
+  }
+
+  function parseCsvLine(line: string) {
+    const values: string[] = [];
+    let current = "";
+    let quoted = false;
+
+    for (let index = 0; index < line.length; index += 1) {
+      const character = line[index];
+
+      if (character === '"') {
+        if (quoted && line[index + 1] === '"') {
+          current += '"';
+          index += 1;
+        } else {
+          quoted = !quoted;
+        }
+        continue;
+      }
+
+      if (character === "," && !quoted) {
+        values.push(current.trim());
+        current = "";
+        continue;
+      }
+
+      current += character;
+    }
+
+    values.push(current.trim());
+    return values;
+  }
+
+  function parseRosterCsv(csvText: string) {
+    const lines = csvText
+      .replace(/^\uFEFF/, "")
+      .split(/\r?\n/)
+      .filter((line) => line.trim());
+
+    if (lines.length < 2) return [];
+
+    const headers = parseCsvLine(lines[0]);
+
+    const rows: SpreadsheetRow[] = lines.slice(1).map((line) => {
+      const values = parseCsvLine(line);
+      const row: SpreadsheetRow = {};
+
+      headers.forEach((header, index) => {
+        row[header] = values[index] ?? "";
+      });
+
+      return row;
+    });
+
+    return normalizeRosterRows(rows);
+  }
+
+  async function loadXlsxLibrary() {
+    const browserWindow = window as WindowWithXlsx;
+
+    if (browserWindow.XLSX) return browserWindow.XLSX;
+
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[data-coachboard-xlsx="true"]',
+    );
+
+    if (existingScript) {
+      await new Promise<void>((resolve, reject) => {
+        if (browserWindow.XLSX) {
+          resolve();
+          return;
+        }
+
+        existingScript.addEventListener("load", () => resolve(), {
+          once: true,
+        });
+        existingScript.addEventListener(
+          "error",
+          () => reject(new Error("Could not load Excel reader.")),
+          { once: true },
+        );
+      });
+
+      if (!browserWindow.XLSX) {
+        throw new Error("Excel reader loaded but was unavailable.");
+      }
+
+      return browserWindow.XLSX;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+      script.async = true;
+      script.dataset.coachboardXlsx = "true";
+      script.onload = () => resolve();
+      script.onerror = () =>
+        reject(new Error("Could not load the Excel roster reader."));
+      document.head.appendChild(script);
+    });
+
+    if (!browserWindow.XLSX) {
+      throw new Error("Excel roster reader is unavailable.");
+    }
+
+    return browserWindow.XLSX;
+  }
+
+  async function handleRosterFileUpload(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!selectedSeasonId) {
+      setMessage("Create or select a season before importing a roster.");
+      event.target.value = "";
+      return;
+    }
+
+    setRosterImportLoading(true);
+    setRosterImportRows([]);
+    setRosterImportFileName(file.name);
+    setMessage("");
+
+    try {
+      const lowerName = file.name.toLowerCase();
+      let importedRows: RosterImportRow[] = [];
+
+      if (lowerName.endsWith(".csv")) {
+        importedRows = parseRosterCsv(await file.text());
+      } else if (
+        lowerName.endsWith(".xlsx") ||
+        lowerName.endsWith(".xls")
+      ) {
+        const xlsx = await loadXlsxLibrary();
+        const workbook = xlsx.read(await file.arrayBuffer(), {
+          type: "array",
+        });
+        const firstSheetName = workbook.SheetNames[0];
+
+        if (!firstSheetName) {
+          throw new Error("The workbook does not contain a worksheet.");
+        }
+
+        const worksheet = workbook.Sheets[firstSheetName];
+        const sheetRows = xlsx.utils.sheet_to_json(worksheet, {
+          defval: "",
+        });
+
+        importedRows = normalizeRosterRows(sheetRows);
+      } else {
+        throw new Error("Choose an Excel (.xlsx/.xls) or CSV roster file.");
+      }
+
+      if (importedRows.length === 0) {
+        throw new Error(
+          "No players were detected. CoachBoard looks for name, jersey/number, and position columns.",
+        );
+      }
+
+      setRosterImportRows(importedRows);
+      setMessage(
+        `Found ${importedRows.length} player${
+          importedRows.length === 1 ? "" : "s"
+        } in ${file.name}. Review the preview, then import.`,
+      );
+    } catch (error) {
+      setRosterImportFileName("");
+      setRosterImportRows([]);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not read that roster file.",
+      );
+    } finally {
+      setRosterImportLoading(false);
+      event.target.value = "";
+    }
+  }
+
+  function importRosterRows() {
+    if (!selectedSeasonId) {
+      setMessage("Create or select a season before importing a roster.");
+      return;
+    }
+
+    if (rosterImportRows.length === 0) {
+      setMessage("Choose a roster file first.");
+      return;
+    }
+
+    let addedCount = 0;
+    let skippedCount = 0;
+
+    setPlayers((current) => {
+      const next = [...current];
+      const seasonRoster = next.filter(
+        (player) => player.seasonId === selectedSeasonId,
+      );
+
+      rosterImportRows.forEach((row) => {
+        const cleanFirst = row.firstName.trim();
+        const cleanLast = row.lastName.trim();
+        const cleanJersey = row.jersey.trim().replace(/^#/, "");
+        const cleanPosition = row.position.trim();
+
+        const duplicate = seasonRoster.some((player) => {
+          const sameJersey =
+            cleanJersey &&
+            player.jersey.trim().replace(/^#/, "") === cleanJersey;
+
+          const sameName =
+            cleanFirst &&
+            cleanLast &&
+            player.firstName.trim().toLowerCase() ===
+              cleanFirst.toLowerCase() &&
+            player.lastName.trim().toLowerCase() ===
+              cleanLast.toLowerCase();
+
+          return Boolean(sameJersey || sameName);
+        });
+
+        if (duplicate) {
+          skippedCount += 1;
+          return;
+        }
+
+        const newPlayer: Player = {
+          id: createId(),
+          firstName: cleanFirst || "Player",
+          lastName: cleanLast,
+          jersey: cleanJersey,
+          position: cleanPosition,
+          seasonId: selectedSeasonId,
+        };
+
+        next.push(newPlayer);
+        seasonRoster.push(newPlayer);
+        addedCount += 1;
+      });
+
+      return next.sort(
+        (a, b) =>
+          Number(a.jersey || 9999) - Number(b.jersey || 9999) ||
+          a.lastName.localeCompare(b.lastName),
+      );
+    });
+
+    setRosterImportRows([]);
+    setRosterImportFileName("");
+    setMessage(
+      `Roster import complete: ${addedCount} added${
+        skippedCount ? `, ${skippedCount} duplicate${skippedCount === 1 ? "" : "s"} skipped` : ""
+      }.`,
+    );
+  }
+
+  function cancelRosterImport() {
+    setRosterImportRows([]);
+    setRosterImportFileName("");
+    setMessage("");
   }
 
   function addPlayer() {
@@ -4964,6 +5394,155 @@ export default function AnalyticsPage() {
             <button style={primaryButtonStyle} onClick={addPlayer}>
               Add Player
             </button>
+
+            <div
+              style={{
+                marginTop: 14,
+                paddingTop: 14,
+                borderTop: "1px solid rgba(148,163,184,.18)",
+              }}
+            >
+              <div style={smallRedStyle}>ROSTER IMPORT</div>
+              <h3
+                style={{
+                  margin: "3px 0 6px",
+                  color: "#f8fafc",
+                  fontSize: 16,
+                }}
+              >
+                Upload Hudl / Excel Roster
+              </h3>
+              <p
+                style={{
+                  margin: "0 0 10px",
+                  color: "#64748b",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  lineHeight: 1.45,
+                }}
+              >
+                Upload .xlsx, .xls, or .csv. CoachBoard automatically looks for
+                first name, last name, jersey/number, and position columns.
+              </p>
+
+              <label
+                style={{
+                  ...primaryButtonStyle,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: rosterImportLoading ? "wait" : "pointer",
+                }}
+              >
+                {rosterImportLoading ? "Reading Roster..." : "Choose Roster File"}
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                  onChange={handleRosterFileUpload}
+                  disabled={rosterImportLoading || !selectedSeasonId}
+                  style={{ display: "none" }}
+                />
+              </label>
+
+              {rosterImportRows.length > 0 && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid rgba(148,163,184,.18)",
+                    background: "rgba(15,23,42,.55)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          color: "#f8fafc",
+                          fontWeight: 900,
+                          fontSize: 13,
+                        }}
+                      >
+                        {rosterImportFileName}
+                      </div>
+                      <div
+                        style={{
+                          color: "#64748b",
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {rosterImportRows.length} players detected
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        type="button"
+                        style={smallActionButtonStyle}
+                        onClick={cancelRosterImport}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        style={primaryButtonStyleNoMargin}
+                        onClick={importRosterRows}
+                      >
+                        Import Roster
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={tableWrapStyle}>
+                    <table style={{ ...modernTableStyle, minWidth: 560 }}>
+                      <thead>
+                        <tr>
+                          <th style={modernThStyle}>#</th>
+                          <th style={modernThStyle}>First</th>
+                          <th style={modernThStyle}>Last</th>
+                          <th style={modernThStyle}>Position</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rosterImportRows.slice(0, 10).map((row, index) => (
+                          <tr
+                            key={`${row.jersey}-${row.firstName}-${row.lastName}-${index}`}
+                          >
+                            <td style={modernTdStyle}>{row.jersey || "—"}</td>
+                            <td style={modernTdStyle}>{row.firstName || "—"}</td>
+                            <td style={modernTdStyle}>{row.lastName || "—"}</td>
+                            <td style={modernTdStyle}>{row.position || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {rosterImportRows.length > 10 && (
+                    <div
+                      style={{
+                        marginTop: 7,
+                        color: "#64748b",
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Previewing first 10 of {rosterImportRows.length} players.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <List>
               {seasonPlayers.map((player) => (
