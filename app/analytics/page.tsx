@@ -100,7 +100,9 @@ type DefensiveEvent = {
   soloTackles: number;
   assistedTackles: number;
   tacklesForLoss: number;
+  assistedTacklesForLoss?: number;
   sacks: number;
+  assistedSacks?: number;
   interceptions: number;
   passBreakups: number;
   forcedFumbles: number;
@@ -133,7 +135,9 @@ type DefensiveCallEvent = {
   tacklers?: string[];
   assistTacklers?: string[];
   sackPlayers?: string[];
+  sackAssistPlayers?: string[];
   tflPlayers?: string[];
+  tflAssistPlayers?: string[];
   interceptionPlayers?: string[];
   passBreakupPlayers?: string[];
   forcedFumblePlayers?: string[];
@@ -355,7 +359,9 @@ export default function AnalyticsPage() {
     tacklers: "",
     assistTacklers: "",
     sackPlayers: "",
+    sackAssistPlayers: "",
     tflPlayers: "",
+    tflAssistPlayers: "",
     interceptionPlayers: "",
     passBreakupPlayers: "",
     forcedFumblePlayers: "",
@@ -1618,7 +1624,9 @@ export default function AnalyticsPage() {
     tacklers,
     assistTacklers,
     sackPlayers,
+    sackAssistPlayers,
     tflPlayers,
+    tflAssistPlayers,
     interceptionPlayers,
     passBreakupPlayers,
     forcedFumblePlayers,
@@ -1628,7 +1636,9 @@ export default function AnalyticsPage() {
     tacklers: string[];
     assistTacklers: string[];
     sackPlayers: string[];
+    sackAssistPlayers: string[];
     tflPlayers: string[];
+    tflAssistPlayers: string[];
     interceptionPlayers: string[];
     passBreakupPlayers: string[];
     forcedFumblePlayers: string[];
@@ -1639,7 +1649,9 @@ export default function AnalyticsPage() {
       ...tacklers,
       ...assistTacklers,
       ...sackPlayers,
+      ...sackAssistPlayers,
       ...tflPlayers,
+      ...tflAssistPlayers,
       ...interceptionPlayers,
       ...passBreakupPlayers,
       ...forcedFumblePlayers,
@@ -1658,7 +1670,9 @@ export default function AnalyticsPage() {
       soloTackles: tacklers.includes(player) ? 1 : 0,
       assistedTackles: assistTacklers.includes(player) ? 1 : 0,
       tacklesForLoss: tflPlayers.includes(player) ? 1 : 0,
+      assistedTacklesForLoss: tflAssistPlayers.includes(player) ? 1 : 0,
       sacks: sackPlayers.includes(player) ? 1 : 0,
+      assistedSacks: sackAssistPlayers.includes(player) ? 1 : 0,
       interceptions: interceptionPlayers.includes(player) ? 1 : 0,
       passBreakups: passBreakupPlayers.includes(player) ? 1 : 0,
       forcedFumbles: forcedFumblePlayers.includes(player) ? 1 : 0,
@@ -1725,8 +1739,14 @@ export default function AnalyticsPage() {
     const sackPlayers = resolveDefensivePlayerList(
       defensiveCallEntry.sackPlayers,
     );
+    const sackAssistPlayers = resolveDefensivePlayerList(
+      defensiveCallEntry.sackAssistPlayers,
+    );
     const tflPlayers = resolveDefensivePlayerList(
       defensiveCallEntry.tflPlayers,
+    );
+    const tflAssistPlayers = resolveDefensivePlayerList(
+      defensiveCallEntry.tflAssistPlayers,
     );
     const interceptionPlayers = resolveDefensivePlayerList(
       defensiveCallEntry.interceptionPlayers,
@@ -1758,6 +1778,34 @@ export default function AnalyticsPage() {
       return;
     }
 
+    if (tflPlayers.length > 1) {
+      setMessage(
+        "A TFL can have only one solo TFL player. Use TFL Assists when multiple defenders share the TFL.",
+      );
+      return;
+    }
+
+    if (tflPlayers.length > 0 && tflAssistPlayers.length > 0) {
+      setMessage(
+        "A TFL cannot be both solo and assisted on the same play. Use either one Solo TFL or one/more TFL Assists.",
+      );
+      return;
+    }
+
+    if (sackPlayers.length > 1) {
+      setMessage(
+        "A sack can have only one solo sack player. Use Sack Assists when multiple defenders share the sack.",
+      );
+      return;
+    }
+
+    if (sackPlayers.length > 0 && sackAssistPlayers.length > 0) {
+      setMessage(
+        "A sack cannot be both solo and assisted on the same play. Use either one Solo Sack or one/more Sack Assists.",
+      );
+      return;
+    }
+
     const event: DefensiveCallEvent = {
       id: createId(),
       gameId: selectedGameId,
@@ -1784,7 +1832,9 @@ export default function AnalyticsPage() {
       tacklers,
       assistTacklers,
       sackPlayers,
+      sackAssistPlayers,
       tflPlayers,
+      tflAssistPlayers,
       interceptionPlayers,
       passBreakupPlayers,
       forcedFumblePlayers,
@@ -1799,7 +1849,9 @@ export default function AnalyticsPage() {
       tacklers,
       assistTacklers,
       sackPlayers,
+      sackAssistPlayers,
       tflPlayers,
+      tflAssistPlayers,
       interceptionPlayers,
       passBreakupPlayers,
       forcedFumblePlayers,
@@ -1836,7 +1888,9 @@ export default function AnalyticsPage() {
       tacklers: "",
       assistTacklers: "",
       sackPlayers: "",
+      sackAssistPlayers: "",
       tflPlayers: "",
+      tflAssistPlayers: "",
       interceptionPlayers: "",
       passBreakupPlayers: "",
       forcedFumblePlayers: "",
@@ -1878,7 +1932,9 @@ export default function AnalyticsPage() {
       soloTackles: numberValue(defenseEntry.soloTackles),
       assistedTackles: numberValue(defenseEntry.assistedTackles),
       tacklesForLoss: numberValue(defenseEntry.tacklesForLoss),
+      assistedTacklesForLoss: 0,
       sacks: numberValue(defenseEntry.sacks),
+      assistedSacks: 0,
       interceptions: numberValue(defenseEntry.interceptions),
       passBreakups: numberValue(defenseEntry.passBreakups),
       forcedFumbles: numberValue(defenseEntry.forcedFumbles),
@@ -4099,8 +4155,16 @@ export default function AnalyticsPage() {
                 value={`${defensiveCallStats.explosiveAllowedRate}%`}
               />
               <Metric label="Tackles" value={defenseStats.totalTackles} />
-              <Metric label="TFL" value={defenseStats.tacklesForLoss} />
-              <Metric label="Sacks" value={defenseStats.sacks} />
+              <Metric label="Solo TFL" value={defenseStats.tacklesForLoss} />
+              <Metric
+                label="TFL Assists"
+                value={defenseStats.assistedTacklesForLoss}
+              />
+              <Metric label="Solo Sacks" value={defenseStats.sacks} />
+              <Metric
+                label="Sack Assists"
+                value={defenseStats.assistedSacks}
+              />
               <Metric label="INT" value={defenseStats.interceptions} />
               <Metric label="PBU" value={defenseStats.passBreakups} />
               <Metric label="Forced Fumbles" value={defenseStats.forcedFumbles} />
@@ -4358,7 +4422,7 @@ export default function AnalyticsPage() {
               </label>
 
               <label style={possessionFieldStyle}>
-                <span>TFL Player(s)</span>
+                <span>Solo TFL</span>
                 <input
                   style={inputStyle}
                   value={defensiveCallEntry.tflPlayers}
@@ -4369,12 +4433,28 @@ export default function AnalyticsPage() {
                     }))
                   }
                   placeholder="#44"
-                  title="Use commas for multiple players."
+                  title="Only one solo TFL player may be credited on a play."
                 />
               </label>
 
               <label style={possessionFieldStyle}>
-                <span>Sack Player(s)</span>
+                <span>TFL Assist(s)</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.tflAssistPlayers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      tflAssistPlayers: event.target.value,
+                    }))
+                  }
+                  placeholder="#44, #55"
+                  title="Use commas for multiple players sharing the TFL."
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Solo Sack</span>
                 <input
                   style={inputStyle}
                   value={defensiveCallEntry.sackPlayers}
@@ -4385,7 +4465,23 @@ export default function AnalyticsPage() {
                     }))
                   }
                   placeholder="#9"
-                  title="Use commas for multiple players."
+                  title="Only one solo sack player may be credited on a play."
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Sack Assist(s)</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.sackAssistPlayers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      sackAssistPlayers: event.target.value,
+                    }))
+                  }
+                  placeholder="#9, #44"
+                  title="Use commas for multiple players sharing the sack."
                 />
               </label>
 
@@ -4547,7 +4643,7 @@ export default function AnalyticsPage() {
             </button>
 
             <div style={tableWrapStyle}>
-              <table style={{ ...modernTableStyle, minWidth: 1480 }}>
+              <table style={{ ...modernTableStyle, minWidth: 1680 }}>
                 <thead>
                   <tr>
                     <th style={modernThStyle}>#</th>
@@ -4559,8 +4655,10 @@ export default function AnalyticsPage() {
                     <th style={modernThStyle}>Result</th>
                     <th style={modernThStyle}>Solo</th>
                     <th style={modernThStyle}>Assist(s)</th>
-                    <th style={modernThStyle}>TFL</th>
-                    <th style={modernThStyle}>Sack</th>
+                    <th style={modernThStyle}>Solo TFL</th>
+                    <th style={modernThStyle}>TFL Ast</th>
+                    <th style={modernThStyle}>Solo Sack</th>
+                    <th style={modernThStyle}>Sack Ast</th>
                     <th style={modernThStyle}>Other Player Stats</th>
                     <th style={modernThStyle}>Q / Clock</th>
                     <th style={modernThStyle}></th>
@@ -4569,7 +4667,7 @@ export default function AnalyticsPage() {
                 <tbody>
                   {currentGameDefensiveCalls.length === 0 && (
                     <tr>
-                      <td style={emptyTdStyle} colSpan={14}>
+                      <td style={emptyTdStyle} colSpan={16}>
                         No defensive calls charted yet.
                       </td>
                     </tr>
@@ -4608,7 +4706,13 @@ export default function AnalyticsPage() {
                         {(event.tflPlayers ?? []).join(", ") || "—"}
                       </td>
                       <td style={modernTdStyle}>
+                        {(event.tflAssistPlayers ?? []).join(", ") || "—"}
+                      </td>
+                      <td style={modernTdStyle}>
                         {(event.sackPlayers ?? []).join(", ") || "—"}
+                      </td>
+                      <td style={modernTdStyle}>
+                        {(event.sackAssistPlayers ?? []).join(", ") || "—"}
                       </td>
                       <td style={modernTdStyle}>
                         {[
@@ -4668,8 +4772,10 @@ export default function AnalyticsPage() {
                     <th style={modernThStyle}>Player</th>
                     <th style={modernThStyle}>Solo</th>
                     <th style={modernThStyle}>Ast</th>
-                    <th style={modernThStyle}>TFL</th>
-                    <th style={modernThStyle}>Sack</th>
+                    <th style={modernThStyle}>Solo TFL</th>
+                    <th style={modernThStyle}>TFL Ast</th>
+                    <th style={modernThStyle}>Solo Sack</th>
+                    <th style={modernThStyle}>Sack Ast</th>
                     <th style={modernThStyle}>INT</th>
                     <th style={modernThStyle}>PBU</th>
                     <th style={modernThStyle}>FF</th>
@@ -4680,7 +4786,7 @@ export default function AnalyticsPage() {
                 <tbody>
                   {currentGameDefense.length === 0 && (
                     <tr>
-                      <td style={emptyTdStyle} colSpan={10}>
+                      <td style={emptyTdStyle} colSpan={12}>
                         Player totals will build automatically as defensive plays are charted.
                       </td>
                     </tr>
@@ -4690,8 +4796,12 @@ export default function AnalyticsPage() {
                       <td style={modernTdStyle}>{row.player}</td>
                       <td style={modernTdStyle}>{row.soloTackles}</td>
                       <td style={modernTdStyle}>{row.assistedTackles}</td>
-                      <td style={modernTdStyle}>{row.tacklesForLoss}</td>
-                      <td style={modernTdStyle}>{row.sacks}</td>
+                      <td style={modernTdStyle}>{row.tacklesForLoss ?? 0}</td>
+                      <td style={modernTdStyle}>
+                        {row.assistedTacklesForLoss ?? 0}
+                      </td>
+                      <td style={modernTdStyle}>{row.sacks ?? 0}</td>
+                      <td style={modernTdStyle}>{row.assistedSacks ?? 0}</td>
                       <td style={modernTdStyle}>{row.interceptions}</td>
                       <td style={modernTdStyle}>{row.passBreakups}</td>
                       <td style={modernTdStyle}>{row.forcedFumbles}</td>
@@ -5634,8 +5744,14 @@ function aggregateDefense(events: DefensiveEvent[]) {
       ...current,
       soloTackles: current.soloTackles + event.soloTackles,
       assistedTackles: current.assistedTackles + event.assistedTackles,
-      tacklesForLoss: current.tacklesForLoss + event.tacklesForLoss,
-      sacks: current.sacks + event.sacks,
+      tacklesForLoss:
+        (current.tacklesForLoss ?? 0) + (event.tacklesForLoss ?? 0),
+      assistedTacklesForLoss:
+        (current.assistedTacklesForLoss ?? 0) +
+        (event.assistedTacklesForLoss ?? 0),
+      sacks: (current.sacks ?? 0) + (event.sacks ?? 0),
+      assistedSacks:
+        (current.assistedSacks ?? 0) + (event.assistedSacks ?? 0),
       interceptions: current.interceptions + event.interceptions,
       passBreakups: current.passBreakups + event.passBreakups,
       forcedFumbles: current.forcedFumbles + event.forcedFumbles,
@@ -5662,8 +5778,19 @@ function calculateDefenseStats(events: DefensiveEvent[]) {
       (sum, row) => sum + row.soloTackles + row.assistedTackles,
       0,
     ),
-    tacklesForLoss: players.reduce((sum, row) => sum + row.tacklesForLoss, 0),
-    sacks: players.reduce((sum, row) => sum + row.sacks, 0),
+    tacklesForLoss: players.reduce(
+      (sum, row) => sum + (row.tacklesForLoss ?? 0),
+      0,
+    ),
+    assistedTacklesForLoss: players.reduce(
+      (sum, row) => sum + (row.assistedTacklesForLoss ?? 0),
+      0,
+    ),
+    sacks: players.reduce((sum, row) => sum + (row.sacks ?? 0), 0),
+    assistedSacks: players.reduce(
+      (sum, row) => sum + (row.assistedSacks ?? 0),
+      0,
+    ),
     interceptions: players.reduce((sum, row) => sum + row.interceptions, 0),
     passBreakups: players.reduce((sum, row) => sum + row.passBreakups, 0),
     forcedFumbles: players.reduce((sum, row) => sum + row.forcedFumbles, 0),
@@ -6714,8 +6841,16 @@ function DefenseReport({
           value={`${callStats.explosiveAllowedRate}%`}
         />
         <Metric label="Tackles" value={stats.totalTackles} />
-        <Metric label="TFL" value={stats.tacklesForLoss} />
-        <Metric label="Sacks" value={stats.sacks} />
+        <Metric label="Solo TFL" value={stats.tacklesForLoss} />
+        <Metric
+          label="TFL Assists"
+          value={stats.assistedTacklesForLoss}
+        />
+        <Metric label="Solo Sacks" value={stats.sacks} />
+        <Metric
+          label="Sack Assists"
+          value={stats.assistedSacks}
+        />
         <Metric label="INT" value={stats.interceptions} />
         <Metric label="PBU" value={stats.passBreakups} />
         <Metric label="FF" value={stats.forcedFumbles} />
@@ -6745,8 +6880,10 @@ function DefenseReport({
               <tr>
                 <th style={modernThStyle}>Player</th>
                 <th style={modernThStyle}>Total Tackles</th>
-                <th style={modernThStyle}>TFL</th>
-                <th style={modernThStyle}>Sacks</th>
+                <th style={modernThStyle}>Solo TFL</th>
+                <th style={modernThStyle}>TFL Ast</th>
+                <th style={modernThStyle}>Solo Sack</th>
+                <th style={modernThStyle}>Sack Ast</th>
                 <th style={modernThStyle}>INT</th>
                 <th style={modernThStyle}>PBU</th>
                 <th style={modernThStyle}>FF</th>
@@ -6757,7 +6894,7 @@ function DefenseReport({
             <tbody>
               {players.length === 0 && (
                 <tr>
-                  <td style={emptyTdStyle} colSpan={9}>
+                  <td style={emptyTdStyle} colSpan={11}>
                     No player defensive stats recorded.
                   </td>
                 </tr>
@@ -6768,8 +6905,12 @@ function DefenseReport({
                   <td style={modernTdStyle}>
                     {row.soloTackles + row.assistedTackles}
                   </td>
-                  <td style={modernTdStyle}>{row.tacklesForLoss}</td>
-                  <td style={modernTdStyle}>{row.sacks}</td>
+                  <td style={modernTdStyle}>{row.tacklesForLoss ?? 0}</td>
+                  <td style={modernTdStyle}>
+                    {row.assistedTacklesForLoss ?? 0}
+                  </td>
+                  <td style={modernTdStyle}>{row.sacks ?? 0}</td>
+                  <td style={modernTdStyle}>{row.assistedSacks ?? 0}</td>
                   <td style={modernTdStyle}>{row.interceptions}</td>
                   <td style={modernTdStyle}>{row.passBreakups}</td>
                   <td style={modernTdStyle}>{row.forcedFumbles}</td>
