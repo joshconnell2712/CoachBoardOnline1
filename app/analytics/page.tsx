@@ -127,6 +127,11 @@ type DefensiveCallEvent = {
   assistTacklers?: string[];
   sackPlayers?: string[];
   tflPlayers?: string[];
+  interceptionPlayers?: string[];
+  passBreakupPlayers?: string[];
+  forcedFumblePlayers?: string[];
+  fumbleRecoveryPlayers?: string[];
+  defensiveTouchdownPlayers?: string[];
   createdAt: string;
 };
 
@@ -337,6 +342,11 @@ export default function AnalyticsPage() {
     assistTacklers: "",
     sackPlayers: "",
     tflPlayers: "",
+    interceptionPlayers: "",
+    passBreakupPlayers: "",
+    forcedFumblePlayers: "",
+    fumbleRecoveryPlayers: "",
+    defensiveTouchdownPlayers: "",
   });
 
   const [defenseEntry, setDefenseEntry] = useState({
@@ -1595,17 +1605,32 @@ export default function AnalyticsPage() {
     assistTacklers,
     sackPlayers,
     tflPlayers,
+    interceptionPlayers,
+    passBreakupPlayers,
+    forcedFumblePlayers,
+    fumbleRecoveryPlayers,
+    defensiveTouchdownPlayers,
   }: {
     tacklers: string[];
     assistTacklers: string[];
     sackPlayers: string[];
     tflPlayers: string[];
+    interceptionPlayers: string[];
+    passBreakupPlayers: string[];
+    forcedFumblePlayers: string[];
+    fumbleRecoveryPlayers: string[];
+    defensiveTouchdownPlayers: string[];
   }) {
     const involved = new Set([
       ...tacklers,
       ...assistTacklers,
       ...sackPlayers,
       ...tflPlayers,
+      ...interceptionPlayers,
+      ...passBreakupPlayers,
+      ...forcedFumblePlayers,
+      ...fumbleRecoveryPlayers,
+      ...defensiveTouchdownPlayers,
     ]);
 
     if (involved.size === 0) return;
@@ -1620,11 +1645,11 @@ export default function AnalyticsPage() {
       assistedTackles: assistTacklers.includes(player) ? 1 : 0,
       tacklesForLoss: tflPlayers.includes(player) ? 1 : 0,
       sacks: sackPlayers.includes(player) ? 1 : 0,
-      interceptions: 0,
-      passBreakups: 0,
-      forcedFumbles: 0,
-      fumbleRecoveries: 0,
-      defensiveTouchdowns: 0,
+      interceptions: interceptionPlayers.includes(player) ? 1 : 0,
+      passBreakups: passBreakupPlayers.includes(player) ? 1 : 0,
+      forcedFumbles: forcedFumblePlayers.includes(player) ? 1 : 0,
+      fumbleRecoveries: fumbleRecoveryPlayers.includes(player) ? 1 : 0,
+      defensiveTouchdowns: defensiveTouchdownPlayers.includes(player) ? 1 : 0,
       createdAt: timestamp,
     }));
 
@@ -1680,6 +1705,21 @@ export default function AnalyticsPage() {
     const tflPlayers = resolveDefensivePlayerList(
       defensiveCallEntry.tflPlayers,
     );
+    const interceptionPlayers = resolveDefensivePlayerList(
+      defensiveCallEntry.interceptionPlayers,
+    );
+    const passBreakupPlayers = resolveDefensivePlayerList(
+      defensiveCallEntry.passBreakupPlayers,
+    );
+    const forcedFumblePlayers = resolveDefensivePlayerList(
+      defensiveCallEntry.forcedFumblePlayers,
+    );
+    const fumbleRecoveryPlayers = resolveDefensivePlayerList(
+      defensiveCallEntry.fumbleRecoveryPlayers,
+    );
+    const defensiveTouchdownPlayers = resolveDefensivePlayerList(
+      defensiveCallEntry.defensiveTouchdownPlayers,
+    );
 
     if (tacklers.length > 1) {
       setMessage(
@@ -1715,6 +1755,11 @@ export default function AnalyticsPage() {
       assistTacklers,
       sackPlayers,
       tflPlayers,
+      interceptionPlayers,
+      passBreakupPlayers,
+      forcedFumblePlayers,
+      fumbleRecoveryPlayers,
+      defensiveTouchdownPlayers,
       createdAt: new Date().toISOString(),
     };
 
@@ -1725,6 +1770,11 @@ export default function AnalyticsPage() {
       assistTacklers,
       sackPlayers,
       tflPlayers,
+      interceptionPlayers,
+      passBreakupPlayers,
+      forcedFumblePlayers,
+      fumbleRecoveryPlayers,
+      defensiveTouchdownPlayers,
     });
 
     setDefensiveCallEntry((current) => ({
@@ -1743,6 +1793,11 @@ export default function AnalyticsPage() {
       assistTacklers: "",
       sackPlayers: "",
       tflPlayers: "",
+      interceptionPlayers: "",
+      passBreakupPlayers: "",
+      forcedFumblePlayers: "",
+      fumbleRecoveryPlayers: "",
+      defensiveTouchdownPlayers: "",
     }));
 
     setMessage("Defensive call charted.");
@@ -4192,6 +4247,81 @@ export default function AnalyticsPage() {
               </label>
 
               <label style={possessionFieldStyle}>
+                <span>INT Player</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.interceptionPlayers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      interceptionPlayers: event.target.value,
+                    }))
+                  }
+                  placeholder="#2"
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>PBU Player(s)</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.passBreakupPlayers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      passBreakupPlayers: event.target.value,
+                    }))
+                  }
+                  placeholder="#7, #12"
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Forced Fumble</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.forcedFumblePlayers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      forcedFumblePlayers: event.target.value,
+                    }))
+                  }
+                  placeholder="#44"
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Fumble Recovery</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.fumbleRecoveryPlayers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      fumbleRecoveryPlayers: event.target.value,
+                    }))
+                  }
+                  placeholder="#5"
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
+                <span>Defensive TD</span>
+                <input
+                  style={inputStyle}
+                  value={defensiveCallEntry.defensiveTouchdownPlayers}
+                  onChange={(event) =>
+                    setDefensiveCallEntry((current) => ({
+                      ...current,
+                      defensiveTouchdownPlayers: event.target.value,
+                    }))
+                  }
+                  placeholder="#2"
+                />
+              </label>
+
+              <label style={possessionFieldStyle}>
                 <span>Qtr</span>
                 <select
                   style={inputStyle}
@@ -4288,6 +4418,7 @@ export default function AnalyticsPage() {
                     <th style={modernThStyle}>Assist(s)</th>
                     <th style={modernThStyle}>TFL</th>
                     <th style={modernThStyle}>Sack</th>
+                    <th style={modernThStyle}>Other Player Stats</th>
                     <th style={modernThStyle}>Q / Clock</th>
                     <th style={modernThStyle}></th>
                   </tr>
@@ -4295,7 +4426,7 @@ export default function AnalyticsPage() {
                 <tbody>
                   {currentGameDefensiveCalls.length === 0 && (
                     <tr>
-                      <td style={emptyTdStyle} colSpan={13}>
+                      <td style={emptyTdStyle} colSpan={14}>
                         No defensive calls charted yet.
                       </td>
                     </tr>
@@ -4325,6 +4456,27 @@ export default function AnalyticsPage() {
                         {(event.sackPlayers ?? []).join(", ") || "—"}
                       </td>
                       <td style={modernTdStyle}>
+                        {[
+                          (event.interceptionPlayers ?? []).length
+                            ? `INT: ${(event.interceptionPlayers ?? []).join(", ")}`
+                            : "",
+                          (event.passBreakupPlayers ?? []).length
+                            ? `PBU: ${(event.passBreakupPlayers ?? []).join(", ")}`
+                            : "",
+                          (event.forcedFumblePlayers ?? []).length
+                            ? `FF: ${(event.forcedFumblePlayers ?? []).join(", ")}`
+                            : "",
+                          (event.fumbleRecoveryPlayers ?? []).length
+                            ? `FR: ${(event.fumbleRecoveryPlayers ?? []).join(", ")}`
+                            : "",
+                          (event.defensiveTouchdownPlayers ?? []).length
+                            ? `TD: ${(event.defensiveTouchdownPlayers ?? []).join(", ")}`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" • ") || "—"}
+                      </td>
+                      <td style={modernTdStyle}>
                         Q{event.quarter} {event.clock}
                         {event.opponentPossessionStart ? " • START" : ""}
                         {event.opponentPossessionEnd ? " • END" : ""}
@@ -4348,64 +4500,11 @@ export default function AnalyticsPage() {
           <section style={panelStyle}>
             <div>
               <div style={smallRedStyle}>PLAYER PRODUCTION</div>
-              <h2 style={panelTitleStyle}>Defensive Player Stats</h2>
+              <h2 style={panelTitleStyle}>Defensive Player Totals</h2>
               <div style={{ color: "#64748b", fontSize: 12, fontWeight: 700 }}>
-                A tackle is credited as either one solo tackle or shared assists,
-                never both on the same play. TFLs and sacks entered above are
-                automatically credited here. Use this section for corrections or
-                additional stats such as INT, PBU, FF, FR, and TD.
+                Player stats are generated directly from the defensive play charting above.
               </div>
             </div>
-
-            <div style={defenseEntryGridStyle}>
-              <label style={possessionFieldStyle}>
-                <span>Player #</span>
-                <input
-                  style={inputStyle}
-                  placeholder="#"
-                  value={defenseEntry.player}
-                  onChange={(event) =>
-                    setDefenseEntry((current) => ({
-                      ...current,
-                      player: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-
-              {[
-                ["Solo", "soloTackles"],
-                ["Assists", "assistedTackles"],
-                ["TFL", "tacklesForLoss"],
-                ["Sacks", "sacks"],
-                ["INT", "interceptions"],
-                ["PBU", "passBreakups"],
-                ["FF", "forcedFumbles"],
-                ["FR", "fumbleRecoveries"],
-                ["TD", "defensiveTouchdowns"],
-              ].map(([label, key]) => (
-                <label key={key} style={possessionFieldStyle}>
-                  <span>{label}</span>
-                  <input
-                    style={inputStyle}
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={defenseEntry[key as keyof typeof defenseEntry]}
-                    onChange={(event) =>
-                      setDefenseEntry((current) => ({
-                        ...current,
-                        [key]: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-              ))}
-            </div>
-
-            <button style={saveButtonStyle} onClick={saveDefensiveEvent}>
-              SAVE PLAYER DEFENSIVE STATS
-            </button>
 
             <div style={tableWrapStyle}>
               <table style={modernTableStyle}>
@@ -4421,14 +4520,13 @@ export default function AnalyticsPage() {
                     <th style={modernThStyle}>FF</th>
                     <th style={modernThStyle}>FR</th>
                     <th style={modernThStyle}>TD</th>
-                    <th style={modernThStyle}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentGameDefense.length === 0 && (
                     <tr>
-                      <td style={emptyTdStyle} colSpan={11}>
-                        No defensive stats recorded.
+                      <td style={emptyTdStyle} colSpan={10}>
+                        Player totals will build automatically as defensive plays are charted.
                       </td>
                     </tr>
                   )}
@@ -4444,14 +4542,6 @@ export default function AnalyticsPage() {
                       <td style={modernTdStyle}>{row.forcedFumbles}</td>
                       <td style={modernTdStyle}>{row.fumbleRecoveries}</td>
                       <td style={modernTdStyle}>{row.defensiveTouchdowns}</td>
-                      <td style={modernTdStyle}>
-                        <button
-                          style={miniDeleteButtonStyle}
-                          onClick={() => deleteDefensiveEvent(row.lastEventId)}
-                        >
-                          ×
-                        </button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
