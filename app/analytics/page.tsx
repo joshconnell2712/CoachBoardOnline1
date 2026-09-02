@@ -5755,133 +5755,120 @@ export default function AnalyticsPage() {
                     {isEditing ? (
                       <div
                         style={{
-                          display: "grid",
-                          gridTemplateColumns:
-                            "minmax(110px, 1fr) minmax(110px, 1fr) 90px minmax(100px, .8fr)",
-                          gap: 8,
                           width: "100%",
-                          alignItems: "center",
-                        }}
-                      >
-                        <input
-                          style={inputStyle}
-                          value={editingRosterPlayer.firstName}
-                          onChange={(event) =>
-                            setEditingRosterPlayer((current) => ({
-                              ...current,
-                              firstName: event.target.value,
-                            }))
-                          }
-                          aria-label="Player first name"
-                        />
-                        <input
-                          style={inputStyle}
-                          value={editingRosterPlayer.lastName}
-                          onChange={(event) =>
-                            setEditingRosterPlayer((current) => ({
-                              ...current,
-                              lastName: event.target.value,
-                            }))
-                          }
-                          aria-label="Player last name"
-                        />
-                        <input
-                          style={inputStyle}
-                          value={editingRosterPlayer.jersey}
-                          onChange={(event) =>
-                            setEditingRosterPlayer((current) => ({
-                              ...current,
-                              jersey: event.target.value,
-                            }))
-                          }
-                          aria-label="Player jersey number"
-                        />
-                        <input
-                          style={inputStyle}
-                          value={editingRosterPlayer.position}
-                          onChange={(event) =>
-                            setEditingRosterPlayer((current) => ({
-                              ...current,
-                              position: event.target.value,
-                            }))
-                          }
-                          aria-label="Player position"
-                        />
-                      </div>
-                    ) : (
-                      <span
-                        style={{
-                          flex: "1 1 auto",
                           minWidth: 0,
-                          paddingRight: 12,
-                          lineHeight: 1.35,
+                          display: "grid",
+                          gap: 10,
                         }}
                       >
-                        {playerLabel(player)}
-                      </span>
-                    )}
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                            gap: 8,
+                            width: "100%",
+                            minWidth: 0,
+                          }}
+                        >
+                          {[
+                            ["First Name", "firstName"],
+                            ["Last Name", "lastName"],
+                            ["Number", "jersey"],
+                            ["Position", "position"],
+                          ].map(([label, key]) => (
+                            <label
+                              key={key}
+                              style={{ display: "grid", gap: 4, minWidth: 0 }}
+                            >
+                              <span style={{ fontSize: 11, fontWeight: 900 }}>
+                                {label}
+                              </span>
+                              <input
+                                style={{ ...inputStyle, width: "100%", minWidth: 0 }}
+                                value={editingRosterPlayer[key as keyof typeof editingRosterPlayer]}
+                                onChange={(event) =>
+                                  setEditingRosterPlayer((current) => ({
+                                    ...current,
+                                    [key]: event.target.value,
+                                  }))
+                                }
+                                aria-label={`Player ${label.toLowerCase()}`}
+                              />
+                            </label>
+                          ))}
+                        </div>
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "72px 100px",
-                        gap: 8,
-                        alignItems: "center",
-                        flex: "0 0 180px",
-                        marginLeft: "auto",
-                      }}
-                    >
-                      {isEditing ? (
-                        <>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            gap: 8,
+                            width: "100%",
+                            flexWrap: "wrap",
+                          }}
+                        >
                           <button
                             type="button"
-                            style={{
-                              ...primaryButtonStyleNoMargin,
-                              width: "72px",
-                              minWidth: "72px",
-                            }}
+                            style={{ ...primaryButtonStyleNoMargin, minWidth: 86 }}
                             onClick={saveRosterPlayerEdit}
                           >
                             Save
                           </button>
                           <button
                             type="button"
-                            style={{
-                              ...smallActionButtonStyle,
-                              width: "100px",
-                              minWidth: "100px",
-                            }}
+                            style={{ ...smallActionButtonStyle, minWidth: 86 }}
                             onClick={cancelEditRosterPlayer}
                           >
                             Cancel
                           </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
+                          <button
+                            type="button"
+                            style={{ ...dangerButtonStyle, minWidth: 86 }}
+                            onClick={() => deletePlayer(player.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <span
                           style={{
-                            ...smallActionButtonStyle,
-                            width: "72px",
-                            minWidth: "72px",
+                            flex: "1 1 auto",
+                            minWidth: 0,
+                            paddingRight: 12,
+                            lineHeight: 1.35,
                           }}
-                          onClick={() => beginEditRosterPlayer(player)}
                         >
-                          Edit
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        style={{
-                          ...dangerButtonStyle,
-                          width: "100px",
-                          minWidth: "100px",
-                        }}
-                        onClick={() => deletePlayer(player.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
+                          {playerLabel(player)}
+                        </span>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "72px 100px",
+                            gap: 8,
+                            alignItems: "center",
+                            flex: "0 0 180px",
+                            marginLeft: "auto",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            style={{ ...smallActionButtonStyle, width: "72px", minWidth: "72px" }}
+                            onClick={() => beginEditRosterPlayer(player)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            style={{ ...dangerButtonStyle, width: "100px", minWidth: "100px" }}
+                            onClick={() => deletePlayer(player.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </Row>
                 );
               })}
