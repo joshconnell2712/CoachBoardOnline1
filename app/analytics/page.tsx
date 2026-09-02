@@ -194,6 +194,9 @@ type DefensiveCallReportRow = {
   explosiveAllowedRate: number;
 };
 
+type HashLocation = "" | "Left" | "Middle" | "Right";
+type RunDirection = "" | "Left" | "Middle" | "Right";
+
 type ChartPlay = {
   id: string;
   gameId: string;
@@ -210,6 +213,8 @@ type ChartPlay = {
   rusher: string;
   passer: string;
   receiver: string;
+  ballHash?: HashLocation;
+  runDirection?: RunDirection;
   result: string;
   touchdown: boolean;
   firstDown: boolean;
@@ -230,6 +235,8 @@ type EntryState = {
   rusher: string;
   passer: string;
   receiver: string;
+  ballHash: HashLocation;
+  runDirection: RunDirection;
   result: string;
   penalty: string;
   seriesStart: boolean;
@@ -249,6 +256,8 @@ type EditPlayDraft = {
   rusher: string;
   passer: string;
   receiver: string;
+  ballHash: HashLocation;
+  runDirection: RunDirection;
   seriesStart: boolean;
   firstDown: boolean;
   result: string;
@@ -305,6 +314,7 @@ export default function AnalyticsPage() {
     playerAnalytics: true,
     penalties: true,
     possessions: true,
+    offensiveTendencies: true,
     playRankings: true,
     formationRankings: true,
     motionRankings: true,
@@ -444,6 +454,8 @@ export default function AnalyticsPage() {
     rusher: "",
     passer: "",
     receiver: "",
+    ballHash: "",
+    runDirection: "",
     result: "",
     penalty: "",
     seriesStart: false,
@@ -1073,6 +1085,76 @@ export default function AnalyticsPage() {
     [reportPlays],
   );
 
+  const runDirectionReport = useMemo(
+    () =>
+      makeReport(
+        reportPlays.filter(
+          (row) => row.playType === "Run" && Boolean(row.runDirection),
+        ),
+        (row) => row.runDirection ?? "",
+      ),
+    [reportPlays],
+  );
+
+  const runHashReport = useMemo(
+    () =>
+      makeReport(
+        reportPlays.filter(
+          (row) => row.playType === "Run" && Boolean(row.ballHash),
+        ),
+        (row) => `${row.ballHash} Hash`,
+      ),
+    [reportPlays],
+  );
+
+  const fieldBoundaryReport = useMemo(
+    () =>
+      makeReport(
+        reportPlays.filter(
+          (row) =>
+            row.playType === "Run" &&
+            Boolean(row.ballHash) &&
+            Boolean(row.runDirection) &&
+            Boolean(getFieldBoundaryDirection(row)),
+        ),
+        (row) => getFieldBoundaryDirection(row),
+      ),
+    [reportPlays],
+  );
+
+  const hashDirectionReport = useMemo(
+    () =>
+      makeReport(
+        reportPlays.filter(
+          (row) =>
+            row.playType === "Run" &&
+            Boolean(row.ballHash) &&
+            Boolean(row.runDirection),
+        ),
+        (row) => {
+          const relationship = getFieldBoundaryDirection(row);
+          return `${row.ballHash} Hash → ${row.runDirection}${
+            relationship ? ` (${relationship})` : ""
+          }`;
+        },
+      ),
+    [reportPlays],
+  );
+
+  const formationFieldBoundaryReport = useMemo(
+    () =>
+      makeReport(
+        reportPlays.filter(
+          (row) =>
+            row.playType === "Run" &&
+            Boolean(row.formation) &&
+            Boolean(getFieldBoundaryDirection(row)),
+        ),
+        (row) => `${row.formation} — ${getFieldBoundaryDirection(row)}`,
+      ),
+    [reportPlays],
+  );
+
   const formationReport = useMemo(
     () => makeReport(reportPlays, (row) => row.formation),
     [reportPlays],
@@ -1456,6 +1538,9 @@ export default function AnalyticsPage() {
       rusher: isPunt ? "" : resolvePlayerInput(entry.rusher, seasonPlayers),
       passer: isPunt ? "" : resolvePlayerInput(entry.passer, seasonPlayers),
       receiver: isPunt ? "" : resolvePlayerInput(entry.receiver, seasonPlayers),
+      ballHash: isPunt ? "" : entry.ballHash,
+      runDirection:
+        isPunt || playType !== "Run" ? "" : entry.runDirection,
       result:
         [
           isTouchdown ? "TD" : "",
@@ -1571,6 +1656,8 @@ export default function AnalyticsPage() {
       rusher: "",
       passer: "",
       receiver: "",
+      ballHash: "",
+      runDirection: "",
       result: "",
       penalty: "",
       seriesStart: false,
@@ -2886,6 +2973,8 @@ export default function AnalyticsPage() {
       rusher: playToEdit.rusher ?? "",
       passer: playToEdit.passer ?? "",
       receiver: playToEdit.receiver ?? "",
+      ballHash: playToEdit.ballHash ?? "",
+      runDirection: playToEdit.runDirection ?? "",
       seriesStart: playToEdit.seriesStart ?? false,
       firstDown: playToEdit.firstDown ?? false,
       result: playToEdit.result ?? "",
@@ -2946,6 +3035,8 @@ export default function AnalyticsPage() {
       rusher: editPlayDraft.rusher,
       passer: editPlayDraft.passer,
       receiver: editPlayDraft.receiver,
+      ballHash: editPlayDraft.ballHash,
+      runDirection: editPlayDraft.runDirection,
       result: editPlayDraft.result,
       penalty: editPlayDraft.penalty,
       seriesStart: editPlayDraft.seriesStart,
@@ -3010,6 +3101,11 @@ export default function AnalyticsPage() {
               receiver: isPunt
                 ? ""
                 : resolvePlayerInput(editPlayDraft.receiver, seasonPlayers),
+              ballHash: isPunt ? "" : editPlayDraft.ballHash,
+              runDirection:
+                isPunt || playType !== "Run"
+                  ? ""
+                  : editPlayDraft.runDirection,
               result: resultUpper,
               touchdown: isTouchdown,
               firstDown: isTouchdown ? false : editPlayDraft.firstDown,
@@ -3208,6 +3304,7 @@ export default function AnalyticsPage() {
             "playerAnalytics",
             "penalties",
             "possessions",
+            "offensiveTendencies",
             "playRankings",
             "formationRankings",
             "motionRankings",
@@ -3240,6 +3337,7 @@ export default function AnalyticsPage() {
           ["playerAnalytics", "Player Analytics"],
           ["penalties", "Penalty Analytics"],
           ["possessions", "Possession Analytics"],
+          ["offensiveTendencies", "Run / Hash Tendencies"],
           ["playRankings", "Play Rankings"],
           ["formationRankings", "Formation Rankings"],
           ["motionRankings", "Motion Rankings"],
@@ -3497,6 +3595,10 @@ export default function AnalyticsPage() {
           <section className="analytics-metric-grid" style={topMetricGridStyle}>
             <Metric label="Total Yards" value={stats.yards} />
             <Metric label="Rush" value={stats.rushYards} />
+            <Metric
+              label="Runs L / M / R"
+              value={`${currentGamePlays.filter((play) => play.playType === "Run" && play.runDirection === "Left").length} / ${currentGamePlays.filter((play) => play.playType === "Run" && play.runDirection === "Middle").length} / ${currentGamePlays.filter((play) => play.playType === "Run" && play.runDirection === "Right").length}`}
+            />
             <Metric label="Pass" value={stats.passYards} />
             <Metric label="Plays" value={stats.total} />
             <Metric label="TDs" value={stats.tds} />
@@ -3570,6 +3672,44 @@ export default function AnalyticsPage() {
                     onKeyDown={handleEnterSave}
                   />
                 </div>
+                <label style={sheetInputWrapStyle}>
+                  <span>Ball Hash</span>
+                  <select
+                    style={sheetInputStyle}
+                    value={entry.ballHash}
+                    onChange={(event) =>
+                      setEntry((current) => ({
+                        ...current,
+                        ballHash: event.target.value as HashLocation,
+                      }))
+                    }
+                  >
+                    <option value=""></option>
+                    <option value="Left">Left</option>
+                    <option value="Middle">Middle</option>
+                    <option value="Right">Right</option>
+                  </select>
+                </label>
+
+                <label style={sheetInputWrapStyle}>
+                  <span>Run Direction</span>
+                  <select
+                    style={sheetInputStyle}
+                    value={entry.runDirection}
+                    onChange={(event) =>
+                      setEntry((current) => ({
+                        ...current,
+                        runDirection: event.target.value as RunDirection,
+                      }))
+                    }
+                  >
+                    <option value=""></option>
+                    <option value="Left">Left</option>
+                    <option value="Middle">Middle</option>
+                    <option value="Right">Right</option>
+                  </select>
+                </label>
+
                 <SheetInput
                   label="Formation"
                   value={entry.formation}
@@ -3969,6 +4109,44 @@ export default function AnalyticsPage() {
                                   )
                                 }
                               />
+                          <label style={sheetInputWrapStyle}>
+                            <span>Ball Hash</span>
+                            <select
+                              style={sheetInputStyle}
+                              value={editPlayDraft.ballHash}
+                              onChange={(event) =>
+                                updateEditPlayDraft(
+                                  "ballHash",
+                                  event.target.value as HashLocation,
+                                )
+                              }
+                            >
+                              <option value=""></option>
+                              <option value="Left">Left</option>
+                              <option value="Middle">Middle</option>
+                              <option value="Right">Right</option>
+                            </select>
+                          </label>
+
+                          <label style={sheetInputWrapStyle}>
+                            <span>Run Direction</span>
+                            <select
+                              style={sheetInputStyle}
+                              value={editPlayDraft.runDirection}
+                              onChange={(event) =>
+                                updateEditPlayDraft(
+                                  "runDirection",
+                                  event.target.value as RunDirection,
+                                )
+                              }
+                            >
+                              <option value=""></option>
+                              <option value="Left">Left</option>
+                              <option value="Middle">Middle</option>
+                              <option value="Right">Right</option>
+                            </select>
+                          </label>
+
                             </td>
 
                             <td style={modernTdStyle}>
@@ -6303,6 +6481,22 @@ export default function AnalyticsPage() {
                 </PrintableExpandableReport>
 
                 <PrintableExpandableReport
+                  title="Run / Hash Tendencies"
+                  printSelected={printSelections.offensiveTendencies}
+                  fullWidth
+                >
+                  <OffensiveTendencyReport
+                    rows={reportPlays}
+                    runDirectionRows={runDirectionReport}
+                    runHashRows={runHashReport}
+                    fieldBoundaryRows={fieldBoundaryReport}
+                    hashDirectionRows={hashDirectionReport}
+                    formationFieldBoundaryRows={formationFieldBoundaryReport}
+                    scopeLabel={reportScopeLabel}
+                  />
+                </PrintableExpandableReport>
+
+                <PrintableExpandableReport
                   title="Penalty Analytics"
                   printSelected={printSelections.penalties}
                 >
@@ -6919,6 +7113,30 @@ function nextDownDistance(current: string, yards: number) {
   if (nextDown > 4) return "1 and 10";
 
   return `${nextDown} and ${Math.max(1, parsed.distance - yards)}`;
+}
+
+function getFieldBoundaryDirection(play: ChartPlay) {
+  if (play.playType !== "Run") return "";
+
+  const hash = play.ballHash ?? "";
+  const direction = play.runDirection ?? "";
+
+  if (!hash || !direction) return "";
+
+  if (direction === "Middle") return "Middle";
+  if (hash === "Middle") return direction === "Left" ? "Left" : "Right";
+
+  if (hash === "Left") {
+    if (direction === "Left") return "Boundary";
+    if (direction === "Right") return "Field";
+  }
+
+  if (hash === "Right") {
+    if (direction === "Right") return "Boundary";
+    if (direction === "Left") return "Field";
+  }
+
+  return "";
 }
 
 function detectPlayType(entry: EntryState): PlayType {
@@ -8566,6 +8784,109 @@ function PrintableExpandableReport({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function OffensiveTendencyReport({
+  rows,
+  runDirectionRows,
+  runHashRows,
+  fieldBoundaryRows,
+  hashDirectionRows,
+  formationFieldBoundaryRows,
+  scopeLabel,
+}: {
+  rows: ChartPlay[];
+  runDirectionRows: ReportRow[];
+  runHashRows: ReportRow[];
+  fieldBoundaryRows: ReportRow[];
+  hashDirectionRows: ReportRow[];
+  formationFieldBoundaryRows: ReportRow[];
+  scopeLabel: string;
+}) {
+  const runs = rows.filter(
+    (play) =>
+      !play.penalty &&
+      play.playType === "Run" &&
+      !play.result.toUpperCase().includes("2PT"),
+  );
+
+  const directionalRuns = runs.filter((play) => Boolean(play.runDirection));
+  const fieldBoundaryRuns = runs.filter((play) => {
+    const relationship = getFieldBoundaryDirection(play);
+    return relationship === "Field" || relationship === "Boundary";
+  });
+
+  const countDirection = (direction: RunDirection) =>
+    directionalRuns.filter((play) => play.runDirection === direction).length;
+
+  const countRelationship = (relationship: "Field" | "Boundary") =>
+    fieldBoundaryRuns.filter(
+      (play) => getFieldBoundaryDirection(play) === relationship,
+    ).length;
+
+  const pct = (part: number, total: number) =>
+    total ? Math.round((part / total) * 100) : 0;
+
+  const leftRuns = countDirection("Left");
+  const middleRuns = countDirection("Middle");
+  const rightRuns = countDirection("Right");
+  const fieldRuns = countRelationship("Field");
+  const boundaryRuns = countRelationship("Boundary");
+
+  return (
+    <div style={panelStyle}>
+      <div style={smallRedStyle}>OFFENSIVE TENDENCIES</div>
+      <h2 style={panelTitleStyle}>Run Direction / Hash Analysis</h2>
+      <p style={{ ...subTitleStyle, margin: "0 0 12px" }}>
+        {scopeLabel}. Field/boundary is calculated automatically from the ball
+        hash and run direction. Left hash + left run = boundary; left hash +
+        right run = field. Right hash works the opposite way.
+      </p>
+
+      <div className="analytics-metric-grid" style={topMetricGridStyle}>
+        <Metric label="Runs Charted" value={runs.length} />
+        <Metric
+          label="Run Left"
+          value={`${leftRuns} • ${pct(leftRuns, directionalRuns.length)}%`}
+        />
+        <Metric
+          label="Run Middle"
+          value={`${middleRuns} • ${pct(middleRuns, directionalRuns.length)}%`}
+        />
+        <Metric
+          label="Run Right"
+          value={`${rightRuns} • ${pct(rightRuns, directionalRuns.length)}%`}
+        />
+        <Metric
+          label="Run to Field"
+          value={`${fieldRuns} • ${pct(fieldRuns, fieldBoundaryRuns.length)}%`}
+        />
+        <Metric
+          label="Run to Boundary"
+          value={`${boundaryRuns} • ${pct(
+            boundaryRuns,
+            fieldBoundaryRuns.length,
+          )}%`}
+        />
+      </div>
+
+      <div
+        className="print-reports-grid"
+        style={{ ...reportsGridStyle, marginTop: 10 }}
+      >
+        <Report title="Run Direction" rows={runDirectionRows} />
+        <Report title="Runs by Hash" rows={runHashRows} />
+        <Report title="Field vs Boundary" rows={fieldBoundaryRows} />
+        <Report title="Hash + Run Direction" rows={hashDirectionRows} />
+        <div style={{ gridColumn: "1 / -1" }}>
+          <Report
+            title="Formation + Field / Boundary"
+            rows={formationFieldBoundaryRows}
+          />
+        </div>
+      </div>
     </div>
   );
 }
