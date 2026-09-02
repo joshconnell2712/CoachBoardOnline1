@@ -1102,7 +1102,12 @@ export default function AnalyticsPage() {
         reportPlays.filter(
           (row) => row.playType === "Run" && Boolean(row.ballHash),
         ),
-        (row) => `${row.ballHash} Hash`,
+        (row) =>
+          row.ballHash === "Left"
+            ? "Left Hash"
+            : row.ballHash === "Right"
+              ? "Right Hash"
+              : "Middle",
       ),
     [reportPlays],
   );
@@ -3337,7 +3342,7 @@ export default function AnalyticsPage() {
           ["playerAnalytics", "Player Analytics"],
           ["penalties", "Penalty Analytics"],
           ["possessions", "Possession Analytics"],
-          ["offensiveTendencies", "Run / Hash Tendencies"],
+          ["offensiveTendencies", "Play Direction / Ball Location Tendencies"],
           ["playRankings", "Play Rankings"],
           ["formationRankings", "Formation Rankings"],
           ["motionRankings", "Motion Rankings"],
@@ -3596,7 +3601,7 @@ export default function AnalyticsPage() {
             <Metric label="Total Yards" value={stats.yards} />
             <Metric label="Rush" value={stats.rushYards} />
             <Metric
-              label="Runs L / M / R"
+              label="Plays L / M / R"
               value={`${currentGamePlays.filter((play) => play.playType === "Run" && play.runDirection === "Left").length} / ${currentGamePlays.filter((play) => play.playType === "Run" && play.runDirection === "Middle").length} / ${currentGamePlays.filter((play) => play.playType === "Run" && play.runDirection === "Right").length}`}
             />
             <Metric label="Pass" value={stats.passYards} />
@@ -3673,7 +3678,7 @@ export default function AnalyticsPage() {
                   />
                 </div>
                 <label style={sheetInputWrapStyle}>
-                  <span>Ball Hash</span>
+                  <span>Ball Location</span>
                   <select
                     style={sheetInputStyle}
                     value={entry.ballHash}
@@ -3685,14 +3690,14 @@ export default function AnalyticsPage() {
                     }
                   >
                     <option value=""></option>
-                    <option value="Left">Left</option>
+                    <option value="Left">Left Hash</option>
                     <option value="Middle">Middle</option>
-                    <option value="Right">Right</option>
+                    <option value="Right">Right Hash</option>
                   </select>
                 </label>
 
                 <label style={sheetInputWrapStyle}>
-                  <span>Run Direction</span>
+                  <span>Play Direction</span>
                   <select
                     style={sheetInputStyle}
                     value={entry.runDirection}
@@ -4110,7 +4115,7 @@ export default function AnalyticsPage() {
                                 }
                               />
                           <label style={sheetInputWrapStyle}>
-                            <span>Ball Hash</span>
+                            <span>Ball Location</span>
                             <select
                               style={sheetInputStyle}
                               value={editPlayDraft.ballHash}
@@ -4129,7 +4134,7 @@ export default function AnalyticsPage() {
                           </label>
 
                           <label style={sheetInputWrapStyle}>
-                            <span>Run Direction</span>
+                            <span>Play Direction</span>
                             <select
                               style={sheetInputStyle}
                               value={editPlayDraft.runDirection}
@@ -6481,7 +6486,7 @@ export default function AnalyticsPage() {
                 </PrintableExpandableReport>
 
                 <PrintableExpandableReport
-                  title="Run / Hash Tendencies"
+                  title="Play Direction / Ball Location Tendencies"
                   printSelected={printSelections.offensiveTendencies}
                   fullWidth
                 >
@@ -8838,11 +8843,11 @@ function OffensiveTendencyReport({
   return (
     <div style={panelStyle}>
       <div style={smallRedStyle}>OFFENSIVE TENDENCIES</div>
-      <h2 style={panelTitleStyle}>Run Direction / Hash Analysis</h2>
+      <h2 style={panelTitleStyle}>Play Direction / Ball Location Analysis</h2>
       <p style={{ ...subTitleStyle, margin: "0 0 12px" }}>
         {scopeLabel}. Field/boundary is calculated automatically from the ball
-        hash and run direction. Left hash + left run = boundary; left hash +
-        right run = field. Right hash works the opposite way.
+        location and play direction. Left hash + left = boundary; left hash +
+        right = field. Right hash works the opposite way.
       </p>
 
       <div className="analytics-metric-grid" style={topMetricGridStyle}>
@@ -8876,10 +8881,10 @@ function OffensiveTendencyReport({
         className="print-reports-grid"
         style={{ ...reportsGridStyle, marginTop: 10 }}
       >
-        <Report title="Run Direction" rows={runDirectionRows} />
-        <Report title="Runs by Hash" rows={runHashRows} />
+        <Report title="Play Direction" rows={runDirectionRows} />
+        <Report title="Runs by Ball Location" rows={runHashRows} />
         <Report title="Field vs Boundary" rows={fieldBoundaryRows} />
-        <Report title="Hash + Run Direction" rows={hashDirectionRows} />
+        <Report title="Ball Location + Play Direction" rows={hashDirectionRows} />
         <div style={{ gridColumn: "1 / -1" }}>
           <Report
             title="Formation + Field / Boundary"
