@@ -7698,11 +7698,31 @@ function CoachBoardWebApp() {
     });
   }
 
+  function applyDefensePresetPlayers(middlePlayers: Player[]) {
+    const activeHash =
+      FIELD_HASH_PRESETS[fieldTemplate] ??
+      FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
+
+    const savedMiddlePlayers = middlePlayers.map((player) => ({
+      ...player,
+    }));
+
+    middleDefensePlayersRef.current = savedMiddlePlayers;
+
+    const shiftedPlayers = positionDefenseForBallSpot(
+      savedMiddlePlayers,
+      ballSpot,
+      activeHash,
+    );
+
+    applyDefensePlayers(shiftedPlayers);
+  }
+
   function loadDefensePreset(preset: DefensePreset) {
     if (footballTeamSize !== "11man") return;
     setSelectedDefenseFront(preset);
     if (preset === "4-3 Over")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -7716,7 +7736,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "4-3 Under")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 30, LOS_YARDS - 8),
@@ -7730,7 +7750,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-4 Base")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -7744,7 +7764,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 61, LOS_YARDS - 1, true),
       ]);
     if (preset === "4-2-5")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 66, LOS_YARDS - 8),
@@ -7758,7 +7778,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-3 Stack")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -7772,7 +7792,7 @@ function CoachBoardWebApp() {
         makeD("d11", "ROV", 30, LOS_YARDS - 6),
       ]);
     if (preset === "Bear")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         // Bear = 5-man front + 3 linebackers + 3 defensive backs.
         // This keeps both edges on the LOS instead of accidentally leaving the front short.
         makeD("d1", "CB", 10, LOS_YARDS - 7),
@@ -7788,7 +7808,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DT", 59, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-5")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         // 3-5 = 3 down linemen + 5 linebackers + 3 defensive backs.
         // The previous version only had two true down linemen; this restores the full 3-man front.
         makeD("d1", "CB", 10, LOS_YARDS - 7),
@@ -7804,7 +7824,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 61, LOS_YARDS - 1, true),
       ]);
     if (preset === "Nickel")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 42, LOS_YARDS - 12),
         makeD("d3", "SS", 62, LOS_YARDS - 12),
@@ -7818,7 +7838,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "Dime")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 42, LOS_YARDS - 12),
         makeD("d3", "SS", 62, LOS_YARDS - 12),
@@ -7832,7 +7852,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "Goal Line")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 20, LOS_YARDS - 4),
         makeD("d2", "S", 50, LOS_YARDS - 7),
         makeD("d3", "CB", 80, LOS_YARDS - 4),
