@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { RealtimeChannel, User } from "@supabase/supabase-js";
@@ -265,6 +265,10 @@ type EditPlayDraft = {
 };
 
 type SavedState = {
+  syncMeta?: {
+    clientId: string;
+    savedAt: string;
+  };
   seasons?: Season[];
   selectedSeasonId?: string;
   players: Player[];
@@ -335,6 +339,14 @@ export default function AnalyticsPage() {
   const [activeTeamName, setActiveTeamName] = useState("");
   const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
   const [syncingAnalytics, setSyncingAnalytics] = useState(false);
+
+  const analyticsClientIdRef = useRef(
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `analytics-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
+  const sharedStateHydratedRef = useRef(false);
+  const skipNextSharedAutosaveRef = useRef(false);
 
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState("");
@@ -472,6 +484,7 @@ export default function AnalyticsPage() {
     let cancelled = false;
 
     async function initializeSharedAnalytics() {
+      sharedStateHydratedRef.current = false;
       setMessage("");
       setAnalyticsLoaded(false);
 
@@ -532,7 +545,7 @@ export default function AnalyticsPage() {
 
       const { data: sharedRow, error: sharedError } = await supabase
         .from(SHARED_STATE_TABLE)
-        .select("state")
+        .select("state, updated_at")
         .eq("team_id", membership.team_id)
         .maybeSingle();
 
@@ -561,7 +574,13 @@ export default function AnalyticsPage() {
               .upsert(
                 {
                   team_id: membership.team_id,
-                  state: saved,
+                  state: {
+                    ...saved,
+                    syncMeta: {
+                      clientId: analyticsClientIdRef.current,
+                      savedAt: new Date().toISOString(),
+                    },
+                  },
                   updated_by: signedInUser.id,
                   updated_at: new Date().toISOString(),
                 },
@@ -582,9 +601,11 @@ export default function AnalyticsPage() {
       }
 
       if (saved) {
+        skipNextSharedAutosaveRef.current = true;
         applySavedAnalyticsState(saved);
       }
 
+      sharedStateHydratedRef.current = true;
       setAnalyticsLoaded(true);
     }
 
@@ -596,9 +617,25 @@ export default function AnalyticsPage() {
   }, []);
 
   useEffect(() => {
-    if (!analyticsLoaded || !activeTeamId || !user) return;
+    if (
+      !analyticsLoaded ||
+      !activeTeamId ||
+      !user ||
+      !sharedStateHydratedRef.current
+    ) {
+      return;
+    }
+
+    if (skipNextSharedAutosaveRef.current) {
+      skipNextSharedAutosaveRef.current = false;
+      return;
+    }
 
     const state: SavedState = {
+      syncMeta: {
+        clientId: analyticsClientIdRef.current,
+        savedAt: new Date().toISOString(),
+      },
       seasons,
       selectedSeasonId,
       players,
@@ -674,13 +711,20 @@ export default function AnalyticsPage() {
           filter: `team_id=eq.${activeTeamId}`,
         },
         (payload) => {
-          const row = payload.new as { state?: SavedState; updated_by?: string };
+          const row = payload.new as {
+            state?: SavedState;
+            updated_by?: string;
+          };
 
-          // Ignore our own save; state is already current on this browser.
-          if (!row.state || row.updated_by === user?.id) return;
+          if (!row.state) return;
 
+          if (row.state.syncMeta?.clientId === analyticsClientIdRef.current) {
+            return;
+          }
+
+          skipNextSharedAutosaveRef.current = true;
           applySavedAnalyticsState(row.state);
-          setMessage("Shared analytics updated by another coach.");
+          setMessage("Shared analytics updated by another coach/device.");
         },
       )
       .subscribe();
@@ -688,7 +732,7 @@ export default function AnalyticsPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeTeamId, user?.id]);
+  }, [activeTeamId]);
 
   function applySavedAnalyticsState(saved: SavedState) {
     const rawPlayers = saved.players ?? [];
