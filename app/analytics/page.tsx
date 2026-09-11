@@ -133,6 +133,7 @@ type DefensiveEvent = {
   id: string;
   gameId: string;
   player: string;
+  sourceDefensiveCallId?: string;
   soloTackles: number;
   assistedTackles: number;
   tacklesForLoss: number;
@@ -1809,6 +1810,8 @@ export default function AnalyticsPage() {
   }
 
   function addDefensiveProductionFromCall({
+    sourceDefensiveCallId,
+    createdAt,
     tacklers,
     assistTacklers,
     sackPlayers,
@@ -1821,6 +1824,8 @@ export default function AnalyticsPage() {
     fumbleRecoveryPlayers,
     defensiveTouchdownPlayers,
   }: {
+    sourceDefensiveCallId: string;
+    createdAt: string;
     tacklers: string[];
     assistTacklers: string[];
     sackPlayers: string[];
@@ -1849,12 +1854,11 @@ export default function AnalyticsPage() {
 
     if (involved.size === 0) return;
 
-    const timestamp = new Date().toISOString();
-
     const events: DefensiveEvent[] = Array.from(involved).map((player) => ({
       id: createId(),
       gameId: selectedGameId,
       player,
+      sourceDefensiveCallId,
       soloTackles: tacklers.includes(player) ? 1 : 0,
       assistedTackles: assistTacklers.includes(player) ? 1 : 0,
       tacklesForLoss: tflPlayers.includes(player) ? 1 : 0,
@@ -1866,7 +1870,7 @@ export default function AnalyticsPage() {
       forcedFumbles: forcedFumblePlayers.includes(player) ? 1 : 0,
       fumbleRecoveries: fumbleRecoveryPlayers.includes(player) ? 1 : 0,
       defensiveTouchdowns: defensiveTouchdownPlayers.includes(player) ? 1 : 0,
-      createdAt: timestamp,
+      createdAt,
     }));
 
     setDefensiveEvents((current) => [...current, ...events]);
@@ -2060,8 +2064,11 @@ export default function AnalyticsPage() {
       penalty: defensiveCallEntry.penalty,
     });
 
+    const defensiveCallId = createId();
+    const defensiveCallCreatedAt = new Date().toISOString();
+
     const event: DefensiveCallEvent = {
-      id: createId(),
+      id: defensiveCallId,
       gameId: selectedGameId,
       down: parsed.down,
       distance: parsed.distance,
@@ -2098,12 +2105,14 @@ export default function AnalyticsPage() {
       forcedFumblePlayers,
       fumbleRecoveryPlayers,
       defensiveTouchdownPlayers,
-      createdAt: new Date().toISOString(),
+      createdAt: defensiveCallCreatedAt,
     };
 
     setDefensiveCallEvents((current) => [...current, event]);
 
     addDefensiveProductionFromCall({
+      sourceDefensiveCallId: defensiveCallId,
+      createdAt: defensiveCallCreatedAt,
       tacklers,
       assistTacklers,
       sackPlayers,
@@ -2162,9 +2171,75 @@ export default function AnalyticsPage() {
     setMessage("Defensive call charted.");
   }
 
+  function defensiveStatMatchesCall(
+    stat: DefensiveEvent,
+    call: DefensiveCallEvent,
+  ) {
+    if (stat.gameId !== call.gameId) return false;
+
+    // New records are linked directly and are always safe to remove.
+    if (stat.sourceDefensiveCallId) {
+      return stat.sourceDefensiveCallId === call.id;
+    }
+
+    // Backward compatibility for defensive stats created before source ids
+    // were added. Those generated rows used a timestamp within milliseconds
+    // of the charted defensive call, so match only within a tight window and
+    // require the player's credited stat to agree with that call.
+    const statTime = Date.parse(stat.createdAt);
+    const callTime = Date.parse(call.createdAt);
+
+    if (
+      !Number.isFinite(statTime) ||
+      !Number.isFinite(callTime) ||
+      Math.abs(statTime - callTime) > 2000
+    ) {
+      return false;
+    }
+
+    const player = stat.player;
+
+    return (
+      ((call.tacklers ?? []).includes(player) && stat.soloTackles > 0) ||
+      ((call.assistTacklers ?? []).includes(player) &&
+        stat.assistedTackles > 0) ||
+      ((call.tflPlayers ?? []).includes(player) &&
+        stat.tacklesForLoss > 0) ||
+      ((call.tflAssistPlayers ?? []).includes(player) &&
+        (stat.assistedTacklesForLoss ?? 0) > 0) ||
+      ((call.sackPlayers ?? []).includes(player) && stat.sacks > 0) ||
+      ((call.sackAssistPlayers ?? []).includes(player) &&
+        (stat.assistedSacks ?? 0) > 0) ||
+      ((call.interceptionPlayers ?? []).includes(player) &&
+        stat.interceptions > 0) ||
+      ((call.passBreakupPlayers ?? []).includes(player) &&
+        stat.passBreakups > 0) ||
+      ((call.forcedFumblePlayers ?? []).includes(player) &&
+        stat.forcedFumbles > 0) ||
+      ((call.fumbleRecoveryPlayers ?? []).includes(player) &&
+        stat.fumbleRecoveries > 0) ||
+      ((call.defensiveTouchdownPlayers ?? []).includes(player) &&
+        stat.defensiveTouchdowns > 0)
+    );
+  }
+
   function deleteDefensiveCallEvent(id: string) {
+    const callToDelete = defensiveCallEvents.find((event) => event.id === id);
+
     setDefensiveCallEvents((current) =>
       current.filter((event) => event.id !== id),
+    );
+
+    if (callToDelete) {
+      setDefensiveEvents((current) =>
+        current.filter(
+          (stat) => !defensiveStatMatchesCall(stat, callToDelete),
+        ),
+      );
+    }
+
+    setMessage(
+      "Defensive play deleted. Linked player stats were removed too.",
     );
   }
 
