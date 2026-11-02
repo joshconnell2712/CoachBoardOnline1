@@ -2385,6 +2385,11 @@ function CoachBoardWebApp() {
   const playerPx = Math.max(18, fieldPixelHeight * 0.025);
 
   // Fullscreen only visually scales the icons after they are positioned.
+  const specialTeamsUsesExpandedField =
+    coachFocus === "specialTeams" &&
+    (specialTeamsPreset === "Kickoff" ||
+      specialTeamsPreset === "Kickoff Return");
+
   // This makes them easier to see without moving their field locations.
   const visualPlayerScale = fieldFullscreen
     ? specialTeamsUsesExpandedField
@@ -4208,11 +4213,6 @@ function CoachBoardWebApp() {
   // to the 10-yard line, and mirrors only the PLAYER/ROUTE coordinates around
   // that LOS so defensive coaches see defense on the bottom without rotating
   // or stretching the field itself.
-  const specialTeamsUsesExpandedField =
-    coachFocus === "specialTeams" &&
-    (specialTeamsPreset === "Kickoff" ||
-      specialTeamsPreset === "Kickoff Return");
-
   const activeLosYards =
     coachFocus === "defense"
       ? 10
