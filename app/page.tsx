@@ -14437,7 +14437,7 @@ function CoachBoardWebApp() {
                     }}
                   />
                 </>
-              ))}
+              )}
 
               <div
                 style={{
