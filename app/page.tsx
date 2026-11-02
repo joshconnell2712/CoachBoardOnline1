@@ -2459,6 +2459,8 @@ function CoachBoardWebApp() {
     coachFocus === "specialTeams" &&
     (specialTeamsPreset === "Kickoff" ||
       specialTeamsPreset === "Kickoff Return");
+  const specialTeamsUsesHighSchoolFocusedKickoff =
+    specialTeamsUsesExpandedField && fieldTemplate === "highschool";
   const kickoffRule = kickoffRuleForTemplate(fieldTemplate);
   const specialTeamsPlayableYards =
     fieldTemplate === "highschool" &&
@@ -4339,6 +4341,16 @@ function CoachBoardWebApp() {
   }
 
   const specialTeamsFieldYFromYards = (yards: number) => {
+    if (specialTeamsUsesHighSchoolFocusedKickoff) {
+      const focusedMaxYards =
+        specialTeamsPlayableYards === 80 ? 60 : 70;
+      const focusedVisibleYards = focusedMaxYards + 10;
+      const endZonePct = (10 / focusedVisibleYards) * 100;
+      const playablePct = (focusedMaxYards / focusedVisibleYards) * 100;
+      const safe = Math.max(0, Math.min(focusedMaxYards, yards));
+      return endZonePct + (safe / focusedMaxYards) * playablePct;
+    }
+
     const endZonePct = (10 / specialTeamsVisibleYards) * 100;
     const playablePct =
       (specialTeamsPlayableYards / specialTeamsVisibleYards) * 100;
@@ -4347,6 +4359,19 @@ function CoachBoardWebApp() {
   };
 
   const specialTeamsYardsFromPercentY = (percentY: number) => {
+    if (specialTeamsUsesHighSchoolFocusedKickoff) {
+      const focusedMaxYards =
+        specialTeamsPlayableYards === 80 ? 60 : 70;
+      const focusedVisibleYards = focusedMaxYards + 10;
+      const endZonePct = (10 / focusedVisibleYards) * 100;
+      const playablePct = (focusedMaxYards / focusedVisibleYards) * 100;
+      const playableY = Math.max(
+        endZonePct,
+        Math.min(endZonePct + playablePct, percentY),
+      );
+      return ((playableY - endZonePct) / playablePct) * focusedMaxYards;
+    }
+
     const endZonePct = (10 / specialTeamsVisibleYards) * 100;
     const playablePct =
       (specialTeamsPlayableYards / specialTeamsVisibleYards) * 100;
@@ -7041,31 +7066,31 @@ function CoachBoardWebApp() {
 
   function getSpecialTeamsAlignment(preset: SpecialTeamsPreset) {
     const fgUnit: Player[] = [
-      makeSpecialTeamsPlayer("st-le", "LE", "offense", 27, LOS_YARDS, true),
-      makeSpecialTeamsPlayer("st-lt", "LT", "offense", 34, LOS_YARDS, true),
-      makeSpecialTeamsPlayer("st-lg", "LG", "offense", 41, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-le", "LE", "offense", 39, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lt", "LT", "offense", 43, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lg", "LG", "offense", 47, LOS_YARDS, true),
       makeSpecialTeamsPlayer("st-ls", "LS", "offense", 50, LOS_YARDS, true),
-      makeSpecialTeamsPlayer("st-rg", "RG", "offense", 59, LOS_YARDS, true),
-      makeSpecialTeamsPlayer("st-rt", "RT", "offense", 66, LOS_YARDS, true),
-      makeSpecialTeamsPlayer("st-re", "RE", "offense", 73, LOS_YARDS, true),
-      makeSpecialTeamsPlayer("st-lw", "LW", "offense", 18, LOS_YARDS, true),
-      makeSpecialTeamsPlayer("st-rw", "RW", "offense", 82, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rg", "RG", "offense", 53, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rt", "RT", "offense", 57, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-re", "RE", "offense", 61, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lw", "LW", "offense", 35, LOS_YARDS + 0.5),
+      makeSpecialTeamsPlayer("st-rw", "RW", "offense", 65, LOS_YARDS + 0.5),
       makeSpecialTeamsPlayer("st-h", "H", "offense", 50, LOS_YARDS + 7),
-      makeSpecialTeamsPlayer("st-k", "K", "offense", 59, LOS_YARDS + 10),
+      makeSpecialTeamsPlayer("st-k", "K", "offense", 58, LOS_YARDS + 10.5),
     ];
 
     const fgBlock: Player[] = [
-      makeSpecialTeamsPlayer("std-1", "E", "defense", 20, LOS_YARDS - 1, true),
-      makeSpecialTeamsPlayer("std-2", "R", "defense", 28, LOS_YARDS - 1, true),
-      makeSpecialTeamsPlayer("std-3", "T", "defense", 36, LOS_YARDS - 1, true),
-      makeSpecialTeamsPlayer("std-4", "T", "defense", 44, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-1", "E", "defense", 34, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-2", "R", "defense", 38, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-3", "T", "defense", 42, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-4", "T", "defense", 46, LOS_YARDS - 1, true),
       makeSpecialTeamsPlayer("std-5", "N", "defense", 50, LOS_YARDS - 1, true),
-      makeSpecialTeamsPlayer("std-6", "T", "defense", 56, LOS_YARDS - 1, true),
-      makeSpecialTeamsPlayer("std-7", "T", "defense", 64, LOS_YARDS - 1, true),
-      makeSpecialTeamsPlayer("std-8", "R", "defense", 72, LOS_YARDS - 1, true),
-      makeSpecialTeamsPlayer("std-9", "E", "defense", 80, LOS_YARDS - 1, true),
-      makeSpecialTeamsPlayer("std-10", "J", "defense", 43, LOS_YARDS - 4),
-      makeSpecialTeamsPlayer("std-11", "R", "defense", 57, LOS_YARDS - 16),
+      makeSpecialTeamsPlayer("std-6", "T", "defense", 54, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-7", "T", "defense", 58, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-8", "R", "defense", 62, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-9", "E", "defense", 66, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-10", "J", "defense", 44, LOS_YARDS - 4),
+      makeSpecialTeamsPlayer("std-11", "R", "defense", 56, LOS_YARDS - 13),
     ];
 
     const puntUnit: Player[] = [
@@ -7146,9 +7171,11 @@ function CoachBoardWebApp() {
     const makeTraditionalKickoff = () => {
       const coverageCount = Math.max(1, playerCount - 1);
       const xs =
-        playerCount === 9
-          ? [8, 20, 32, 43, 57, 68, 80, 92]
-          : balancedXs(coverageCount);
+        playerCount === 11
+          ? [8, 17, 26, 35, 44, 56, 65, 74, 83, 92]
+          : playerCount === 9
+            ? [8, 20, 32, 43, 57, 68, 80, 92]
+            : balancedXs(coverageCount);
       const coverage = xs.map((x, index) =>
         makeSpecialTeamsPlayer(
           `ko-${index + 1}`,
@@ -7166,7 +7193,7 @@ function CoachBoardWebApp() {
           "K",
           "offense",
           50,
-          Math.min(playableYards - 2, effectiveKickSpot + 6),
+          Math.min(playableYards - 2, effectiveKickSpot + 4.5),
         ),
       );
 
@@ -7215,18 +7242,22 @@ function CoachBoardWebApp() {
         ];
       }
 
+      const frontY = Math.max(18, effectiveReceiveLine - 8);
+      const secondY = playableYards === 80 ? 20 : 28;
+      const deepY = playableYards === 80 ? 7 : 9;
+
       return [
-        makeSpecialTeamsPlayer("kr-1", "F1", "defense", 10, effectiveReceiveLine - 2),
-        makeSpecialTeamsPlayer("kr-2", "F2", "defense", 30, effectiveReceiveLine - 2),
-        makeSpecialTeamsPlayer("kr-3", "F3", "defense", 50, effectiveReceiveLine - 2),
-        makeSpecialTeamsPlayer("kr-4", "F4", "defense", 70, effectiveReceiveLine - 2),
-        makeSpecialTeamsPlayer("kr-5", "F5", "defense", 90, effectiveReceiveLine - 2),
-        makeSpecialTeamsPlayer("kr-6", "B1", "defense", 18, 32),
-        makeSpecialTeamsPlayer("kr-7", "B2", "defense", 39, 32),
-        makeSpecialTeamsPlayer("kr-8", "B3", "defense", 61, 32),
-        makeSpecialTeamsPlayer("kr-9", "B4", "defense", 82, 32),
-        makeSpecialTeamsPlayer("kr-10", "KR", "defense", 38, 8),
-        makeSpecialTeamsPlayer("kr-11", "KR", "defense", 62, 8),
+        makeSpecialTeamsPlayer("kr-1", "F1", "defense", 10, frontY),
+        makeSpecialTeamsPlayer("kr-2", "F2", "defense", 30, frontY),
+        makeSpecialTeamsPlayer("kr-3", "F3", "defense", 50, frontY),
+        makeSpecialTeamsPlayer("kr-4", "F4", "defense", 70, frontY),
+        makeSpecialTeamsPlayer("kr-5", "F5", "defense", 90, frontY),
+        makeSpecialTeamsPlayer("kr-6", "B1", "defense", 18, secondY),
+        makeSpecialTeamsPlayer("kr-7", "B2", "defense", 39, secondY),
+        makeSpecialTeamsPlayer("kr-8", "B3", "defense", 61, secondY),
+        makeSpecialTeamsPlayer("kr-9", "B4", "defense", 82, secondY),
+        makeSpecialTeamsPlayer("kr-10", "KR", "defense", 38, deepY),
+        makeSpecialTeamsPlayer("kr-11", "KR", "defense", 62, deepY),
       ];
     };
 
@@ -10175,14 +10206,25 @@ function CoachBoardWebApp() {
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
 
 
+  const focusedSpecialTeamsPlayableYards =
+    specialTeamsUsesHighSchoolFocusedKickoff
+      ? specialTeamsPlayableYards === 80
+        ? 60
+        : 70
+      : specialTeamsPlayableYards;
+  const focusedSpecialTeamsVisibleYards =
+    focusedSpecialTeamsPlayableYards + 10;
+
   const artworkEndZonePct = specialTeamsUsesExpandedField
-    ? (10 / specialTeamsVisibleYards) * 100
+    ? (10 / focusedSpecialTeamsVisibleYards) * 100
     : (END_ZONE_YARDS / FIELD_VISIBLE_YARDS) * 100;
   const artworkPlayablePct = specialTeamsUsesExpandedField
-    ? (specialTeamsPlayableYards / specialTeamsVisibleYards) * 100
+    ? (focusedSpecialTeamsPlayableYards /
+        focusedSpecialTeamsVisibleYards) *
+      100
     : (PLAYABLE_YARDS / FIELD_VISIBLE_YARDS) * 100;
   const artworkPlayableYards = specialTeamsUsesExpandedField
-    ? specialTeamsPlayableYards
+    ? focusedSpecialTeamsPlayableYards
     : PLAYABLE_YARDS;
   const artworkYFromYards = (yards: number) =>
     specialTeamsUsesExpandedField
@@ -14018,9 +14060,11 @@ function CoachBoardWebApp() {
                 aspectRatio: fieldFullscreen
                   ? undefined
                   : specialTeamsUsesExpandedField
-                    ? specialTeamsPlayableYards === 80
-                      ? "8 / 16"
-                      : "8 / 18"
+                    ? specialTeamsUsesHighSchoolFocusedKickoff
+                      ? "8 / 12"
+                      : specialTeamsPlayableYards === 80
+                        ? "8 / 16"
+                        : "8 / 18"
                     : "10 / 11",
                 maxHeight: fieldFullscreen
                   ? undefined
@@ -14245,7 +14289,7 @@ function CoachBoardWebApp() {
               />
               {/* Major yard lines every 5 yards */}
               {Array.from({
-                length: specialTeamsUsesExpandedField ? specialTeamsPlayableYards / 5 + 1 : 11,
+                length: specialTeamsUsesExpandedField ? focusedSpecialTeamsPlayableYards / 5 + 1 : 11,
               }).map((_, i) => (
                 <div
                   key={i}
@@ -14259,7 +14303,7 @@ function CoachBoardWebApp() {
                       artworkEndZonePct +
                       i *
                         (artworkPlayablePct /
-                          (specialTeamsUsesExpandedField ? specialTeamsPlayableYards / 5 : 10))
+                          (specialTeamsUsesExpandedField ? focusedSpecialTeamsPlayableYards / 5 : 10))
                     }%`,
                     zIndex: 3,
                   }}
@@ -14267,7 +14311,7 @@ function CoachBoardWebApp() {
               ))}
               {/* Real field-style hash marks: sideline ticks + inside hashes every yard */}
               {Array.from({
-                length: specialTeamsUsesExpandedField ? specialTeamsPlayableYards + 1 : 51,
+                length: specialTeamsUsesExpandedField ? focusedSpecialTeamsPlayableYards + 1 : 51,
               }).map((_, i) => {
                 const y =
                   artworkEndZonePct +
@@ -14326,13 +14370,15 @@ function CoachBoardWebApp() {
               })}
               {/* Yard numbers */}
               {(specialTeamsUsesExpandedField
-                ? Array.from(
-                    {
-                      length:
-                        Math.floor(specialTeamsPlayableYards / 10) - 1,
-                    },
-                    (_, index) => (index + 1) * 10,
-                  )
+                ? specialTeamsUsesHighSchoolFocusedKickoff
+                  ? [10, 20, 30]
+                  : Array.from(
+                      {
+                        length:
+                          Math.floor(specialTeamsPlayableYards / 10) - 1,
+                      },
+                      (_, index) => (index + 1) * 10,
+                    )
                 : [10, 20, 30, 40, 50]
               ).map((yard) => {
                 const midfield = specialTeamsPlayableYards / 2;
@@ -14412,7 +14458,8 @@ function CoachBoardWebApp() {
                 </>
               )}
 
-              {specialTeamsUsesExpandedField && (
+              {specialTeamsUsesExpandedField &&
+                !specialTeamsUsesHighSchoolFocusedKickoff && (
                 <>
                   <div
                     style={{
@@ -14444,33 +14491,13 @@ function CoachBoardWebApp() {
                   position: "absolute",
                   left: "1%",
                   right: "1%",
-                  height: 3,
+                  height: specialTeamsUsesExpandedField ? 2 : 3,
                   background: "#38bdf8",
                   top: losTop,
                   zIndex: 1000,
                   pointerEvents: "none",
                 }}
               />
-              <div
-                style={{
-                  position: "absolute",
-                  left: 4,
-                  top: losTop,
-                  transform: "translateY(-50%)",
-                  background: "#ef4444",
-                  color: "white",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  borderRadius: 6,
-                  padding: "4px 8px",
-                  zIndex: 1001,
-                  pointerEvents: "none",
-                }}
-              >
-                {specialTeamsUsesExpandedField
-                  ? `KICK • ${kickoffRule.label} ${kickoffRule.kickSpotLabel}`
-                  : "LOS"}
-              </div>
 
               <svg
                 width="100%"
