@@ -249,7 +249,14 @@ type TeamBranding = {
 
 type FieldTemplate = "highschool" | "college" | "nfl";
 type FootballTeamSize = "11man" | "9man" | "8man" | "6man";
-type CoachFocus = "offense" | "defense";
+type CoachFocus = "offense" | "defense" | "specialTeams";
+type SpecialTeamsPreset =
+  | "FG"
+  | "FG Block"
+  | "Punt"
+  | "Punt Return"
+  | "Kickoff"
+  | "Kickoff Return";
 type DefensiveCoveragePreset =
   | "Cover 0"
   | "Cover 1"
@@ -312,6 +319,11 @@ const COACH_FOCUS_OPTIONS: Record<
     description:
       "Starts CoachBoard on defensive players, fronts, techniques, coverage drawings, and defensive play planning.",
   },
+  specialTeams: {
+    label: "Special Teams",
+    description:
+      "Opens special teams with a second setup selector for field goal, punt, kickoff, and return units.",
+  },
 };
 
 const FOOTBALL_TEAM_SIZE_OPTIONS: Record<
@@ -355,6 +367,15 @@ const DEFENSIVE_FRONTS_11: DefensePreset[] = [
 const DEFENSIVE_COVERAGES: DefensiveCoveragePreset[] = [];
 const DEFENSIVE_PRESSURES: DefensivePressurePreset[] = [];
 const DEFENSIVE_PACKAGE_LINE_PREFIX = "defpkg-";
+
+const SPECIAL_TEAMS_PRESETS: SpecialTeamsPreset[] = [
+  "FG",
+  "FG Block",
+  "Punt",
+  "Punt Return",
+  "Kickoff",
+  "Kickoff Return",
+];
 
 const FIELD_HASH_PRESETS: Record<FieldTemplate, FieldHashPreset> = {
   highschool: {
@@ -2188,6 +2209,8 @@ function CoachBoardWebApp() {
   const [footballTeamSizeHydrated, setFootballTeamSizeHydrated] =
     useState(false);
   const [coachFocus, setCoachFocus] = useState<CoachFocus>(DEFAULT_COACH_FOCUS);
+  const [specialTeamsPreset, setSpecialTeamsPreset] =
+    useState<SpecialTeamsPreset>("Punt");
   const [offensePlayers, setOffensePlayers] = useState<Player[]>(() =>
     getDefaultOffensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE),
   );
@@ -2363,7 +2386,11 @@ function CoachBoardWebApp() {
 
   // Fullscreen only visually scales the icons after they are positioned.
   // This makes them easier to see without moving their field locations.
-  const visualPlayerScale = fieldFullscreen ? 1.4 : 1;
+  const visualPlayerScale = fieldFullscreen
+    ? specialTeamsUsesExpandedField
+      ? 1.18
+      : 1.4
+    : 1;
   const visualPlayerPx = playerPx * visualPlayerScale;
 
   // Keep mini-screen lettering exactly like the original.
@@ -2584,6 +2611,10 @@ function CoachBoardWebApp() {
 
       if (payload.type === "SET_COACH_FOCUS") {
         setCoachFocus(payload.coachFocus);
+      }
+
+      if (payload.type === "SET_SPECIAL_TEAMS_PRESET") {
+        setSpecialTeamsPreset(payload.specialTeamsPreset);
       }
 
       if (payload.type === "SET_READ_KEYS") {
@@ -4177,7 +4208,17 @@ function CoachBoardWebApp() {
   // to the 10-yard line, and mirrors only the PLAYER/ROUTE coordinates around
   // that LOS so defensive coaches see defense on the bottom without rotating
   // or stretching the field itself.
-  const activeLosYards = coachFocus === "defense" ? 10 : LOS_YARDS;
+  const specialTeamsUsesExpandedField =
+    coachFocus === "specialTeams" &&
+    (specialTeamsPreset === "Kickoff" ||
+      specialTeamsPreset === "Kickoff Return");
+
+  const activeLosYards =
+    coachFocus === "defense"
+      ? 10
+      : specialTeamsUsesExpandedField
+        ? 10
+        : LOS_YARDS;
   const isDefensiveFocusView = coachFocus === "defense";
   const losYardOffset = activeLosYards - LOS_YARDS;
   const clampPlayableYards = (yards: number) =>
@@ -6450,6 +6491,23 @@ function CoachBoardWebApp() {
 
   useEffect(() => {
     const saved = window.localStorage.getItem(
+      "coachboard_special_teams_preset",
+    ) as SpecialTeamsPreset | null;
+
+    if (saved && SPECIAL_TEAMS_PRESETS.includes(saved)) {
+      setSpecialTeamsPreset(saved);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      "coachboard_special_teams_preset",
+      specialTeamsPreset,
+    );
+  }, [specialTeamsPreset]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(
       "coachboard_football_team_size",
     ) as FootballTeamSize | null;
 
@@ -6794,6 +6852,212 @@ function CoachBoardWebApp() {
     }
   }
 
+  function makeSpecialTeamsPlayer(
+    id: string,
+    position: string,
+    side: Side,
+    x: number,
+    yardsFromGoal: number,
+    onLOS = false,
+  ): Player {
+    return {
+      id,
+      position,
+      side,
+      x,
+      yardsFromGoal,
+      onLOS,
+    };
+  }
+
+  function getSpecialTeamsAlignment(preset: SpecialTeamsPreset) {
+    const fgUnit: Player[] = [
+      makeSpecialTeamsPlayer("st-le", "LE", "offense", 27, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lt", "LT", "offense", 34, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lg", "LG", "offense", 41, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-ls", "LS", "offense", 50, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rg", "RG", "offense", 59, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rt", "RT", "offense", 66, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-re", "RE", "offense", 73, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lw", "LW", "offense", 18, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rw", "RW", "offense", 82, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-h", "H", "offense", 50, LOS_YARDS + 7),
+      makeSpecialTeamsPlayer("st-k", "K", "offense", 59, LOS_YARDS + 10),
+    ];
+
+    const fgBlock: Player[] = [
+      makeSpecialTeamsPlayer("std-1", "E", "defense", 20, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-2", "R", "defense", 28, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-3", "T", "defense", 36, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-4", "T", "defense", 44, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-5", "N", "defense", 50, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-6", "T", "defense", 56, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-7", "T", "defense", 64, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-8", "R", "defense", 72, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-9", "E", "defense", 80, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-10", "J", "defense", 43, LOS_YARDS - 4),
+      makeSpecialTeamsPlayer("std-11", "R", "defense", 57, LOS_YARDS - 16),
+    ];
+
+    const puntUnit: Player[] = [
+      makeSpecialTeamsPlayer("st-gun-l", "GUN", "offense", 8, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lt", "LT", "offense", 36, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lg", "LG", "offense", 43, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-ls", "LS", "offense", 50, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rg", "RG", "offense", 57, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rt", "RT", "offense", 64, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-gun-r", "GUN", "offense", 92, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-wl", "W", "offense", 39, LOS_YARDS + 4),
+      makeSpecialTeamsPlayer("st-wr", "W", "offense", 61, LOS_YARDS + 4),
+      makeSpecialTeamsPlayer("st-up", "UP", "offense", 50, LOS_YARDS + 8),
+      makeSpecialTeamsPlayer("st-p", "P", "offense", 50, LOS_YARDS + 16),
+    ];
+
+    const puntReturn: Player[] = [
+      makeSpecialTeamsPlayer("std-1", "C", "defense", 8, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-2", "E", "defense", 34, LOS_YARDS - 2, true),
+      makeSpecialTeamsPlayer("std-3", "T", "defense", 42, LOS_YARDS - 2, true),
+      makeSpecialTeamsPlayer("std-4", "N", "defense", 50, LOS_YARDS - 2, true),
+      makeSpecialTeamsPlayer("std-5", "T", "defense", 58, LOS_YARDS - 2, true),
+      makeSpecialTeamsPlayer("std-6", "E", "defense", 66, LOS_YARDS - 2, true),
+      makeSpecialTeamsPlayer("std-7", "C", "defense", 92, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-8", "H", "defense", 27, LOS_YARDS - 6),
+      makeSpecialTeamsPlayer("std-9", "H", "defense", 73, LOS_YARDS - 6),
+      makeSpecialTeamsPlayer("std-10", "S", "defense", 50, LOS_YARDS - 11),
+      makeSpecialTeamsPlayer("std-11", "PR", "defense", 50, LOS_YARDS - 23),
+    ];
+
+    const puntSafe: Player[] = [
+      makeSpecialTeamsPlayer("std-1", "C", "defense", 8, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-2", "E", "defense", 35, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-3", "T", "defense", 43, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-4", "N", "defense", 50, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-5", "T", "defense", 57, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-6", "E", "defense", 65, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-7", "C", "defense", 92, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-8", "LB", "defense", 35, LOS_YARDS - 7),
+      makeSpecialTeamsPlayer("std-9", "LB", "defense", 65, LOS_YARDS - 7),
+      makeSpecialTeamsPlayer("std-10", "S", "defense", 50, LOS_YARDS - 12),
+      makeSpecialTeamsPlayer("std-11", "PR", "defense", 50, LOS_YARDS - 23),
+    ];
+
+    // Kickoff uses the expanded/taller whiteboard view. The kicking line is
+    // near the bottom and the return unit is spread through the remaining field.
+    const kickoffUnit: Player[] = [
+      makeSpecialTeamsPlayer("ko-1", "1", "offense", 8, 10, true),
+      makeSpecialTeamsPlayer("ko-2", "2", "offense", 17, 10, true),
+      makeSpecialTeamsPlayer("ko-3", "3", "offense", 26, 10, true),
+      makeSpecialTeamsPlayer("ko-4", "4", "offense", 35, 10, true),
+      makeSpecialTeamsPlayer("ko-5", "5", "offense", 44, 10, true),
+      makeSpecialTeamsPlayer("ko-6", "6", "offense", 56, 10, true),
+      makeSpecialTeamsPlayer("ko-7", "7", "offense", 65, 10, true),
+      makeSpecialTeamsPlayer("ko-8", "8", "offense", 74, 10, true),
+      makeSpecialTeamsPlayer("ko-9", "9", "offense", 83, 10, true),
+      makeSpecialTeamsPlayer("ko-10", "10", "offense", 92, 10, true),
+      makeSpecialTeamsPlayer("ko-k", "K", "offense", 50, 16),
+    ];
+
+    const kickoffReturn: Player[] = [
+      makeSpecialTeamsPlayer("kr-1", "F1", "defense", 12, 20),
+      makeSpecialTeamsPlayer("kr-2", "F2", "defense", 31, 20),
+      makeSpecialTeamsPlayer("kr-3", "F3", "defense", 50, 20),
+      makeSpecialTeamsPlayer("kr-4", "F4", "defense", 69, 20),
+      makeSpecialTeamsPlayer("kr-5", "F5", "defense", 88, 20),
+      makeSpecialTeamsPlayer("kr-6", "B1", "defense", 20, 29),
+      makeSpecialTeamsPlayer("kr-7", "B2", "defense", 40, 29),
+      makeSpecialTeamsPlayer("kr-8", "B3", "defense", 60, 29),
+      makeSpecialTeamsPlayer("kr-9", "B4", "defense", 80, 29),
+      makeSpecialTeamsPlayer("kr-10", "KR", "defense", 40, 42),
+      makeSpecialTeamsPlayer("kr-11", "KR", "defense", 60, 42),
+    ];
+
+    if (preset === "FG") {
+      return { offense: fgUnit, defense: fgBlock };
+    }
+
+    if (preset === "FG Block") {
+      return { offense: fgUnit, defense: fgBlock };
+    }
+
+    if (preset === "Punt") {
+      return { offense: puntUnit, defense: puntSafe };
+    }
+
+    if (preset === "Punt Return") {
+      return { offense: puntUnit, defense: puntReturn };
+    }
+
+    return { offense: kickoffUnit, defense: kickoffReturn };
+  }
+
+  function loadSpecialTeamsPreset(preset: SpecialTeamsPreset) {
+    if (footballTeamSize !== "11man") return;
+
+    const alignment = getSpecialTeamsAlignment(preset);
+    const nextOffense = alignment.offense.map((player) => ({ ...player }));
+    const nextDefense = alignment.defense.map((player) => ({ ...player }));
+    const returnOrBlock =
+      preset === "FG Block" ||
+      preset === "Punt Return" ||
+      preset === "Kickoff Return";
+
+    middleOffensePlayersRef.current = nextOffense.map((player) => ({
+      ...player,
+    }));
+    middleDefensePlayersRef.current = nextDefense.map((player) => ({
+      ...player,
+    }));
+
+    setSpecialTeamsPreset(preset);
+    setBallSpot("middle");
+    setOffensePlayers(nextOffense);
+    setDefensePlayers(nextDefense);
+    setSelectedSide(returnOrBlock ? "defense" : "offense");
+    setSelectedPlayerId(
+      (returnOrBlock ? nextDefense[0]?.id : nextOffense[0]?.id) ?? "",
+    );
+    setActivePanelTab("player");
+    setSelectedPlayId("");
+    setSelectedPlayFormationId("");
+    setActivePlaybookBuildId("");
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_SPECIAL_TEAMS_PRESET",
+        specialTeamsPreset: preset,
+      },
+    });
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_BALL_SPOT",
+        ballSpot: "middle",
+      },
+    });
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_OFFENSE_PLAYERS",
+        offensePlayers: nextOffense,
+      },
+    });
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_DEFENSE_PLAYERS",
+        defensePlayers: nextDefense,
+      },
+    });
+  }
+
   function applyCoachFocus(nextFocus: CoachFocus) {
     // Preserve drawings/routes/coverage when changing the working view.
     // The board is only erased by the explicit Clear All action.
@@ -6824,6 +7088,8 @@ function CoachBoardWebApp() {
       setSelectedSide("offense");
       setSelectedPlayerId(firstOffender);
       setActivePanelTab("player");
+    } else if (nextFocus === "specialTeams") {
+      loadSpecialTeamsPreset(specialTeamsPreset);
     } else {
       setActivePanelTab("player");
     }
@@ -6838,6 +7104,10 @@ function CoachBoardWebApp() {
         : (nextOffense[0]?.id ?? "x");
     const nextSelectedSide = coachFocus === "defense" ? "defense" : "offense";
     const nextActivePanelTab = coachFocus === "defense" ? "defense" : "player";
+
+    if (nextSize !== "11man" && coachFocus === "specialTeams") {
+      setCoachFocus("offense");
+    }
 
     setFootballTeamSize(nextSize);
     setOffensePlayers(nextOffense);
@@ -9095,6 +9365,7 @@ function CoachBoardWebApp() {
     window.localStorage.removeItem("coachboard_field_template");
     window.localStorage.removeItem("coachboard_football_team_size");
     window.localStorage.removeItem("coachboard_coach_focus");
+    window.localStorage.removeItem("coachboard_special_teams_preset");
   }
 
   function createGamePlan() {
@@ -10947,7 +11218,7 @@ function CoachBoardWebApp() {
 
           .coach-tools-view-group {
             display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
             gap: 6px !important;
             padding: 5px !important;
             border-radius: 12px !important;
@@ -12169,6 +12440,44 @@ function CoachBoardWebApp() {
             >
               Defense View
             </button>
+            <button
+              className="coach-tool-view-button"
+              style={{
+                ...buttonBase,
+                width: "100%",
+                background:
+                  coachFocus === "specialTeams" ? "#dc2626" : "#090b10",
+                color: "white",
+                padding: "8px",
+              }}
+              disabled={footballTeamSize !== "11man"}
+              onClick={() => applyCoachFocus("specialTeams")}
+            >
+              Special Teams
+            </button>
+            {coachFocus === "specialTeams" && (
+              <select
+                value={specialTeamsPreset}
+                onChange={(event) =>
+                  loadSpecialTeamsPreset(
+                    event.target.value as SpecialTeamsPreset,
+                  )
+                }
+                style={{
+                  ...inputStyle,
+                  width: "100%",
+                  minHeight: 38,
+                  gridColumn: "1 / -1",
+                  fontWeight: 800,
+                }}
+              >
+                {SPECIAL_TEAMS_PRESETS.map((preset) => (
+                  <option key={preset} value={preset}>
+                    {preset}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <button className="coach-tool-nav-button"
             style={{
@@ -12970,6 +13279,42 @@ function CoachBoardWebApp() {
                   >
                     Defense View
                   </button>
+                  <button
+                    style={{
+                      ...buttonBase,
+                      width: "100%",
+                      background:
+                        coachFocus === "specialTeams" ? "#dc2626" : "#090b10",
+                      color: "white",
+                      padding: "8px",
+                    }}
+                    disabled={footballTeamSize !== "11man"}
+                    onClick={() => applyCoachFocus("specialTeams")}
+                  >
+                    Special Teams
+                  </button>
+                  {coachFocus === "specialTeams" && (
+                    <select
+                      value={specialTeamsPreset}
+                      onChange={(event) =>
+                        loadSpecialTeamsPreset(
+                          event.target.value as SpecialTeamsPreset,
+                        )
+                      }
+                      style={{
+                        ...inputStyle,
+                        width: "100%",
+                        minHeight: 38,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {SPECIAL_TEAMS_PRESETS.map((preset) => (
+                        <option key={preset} value={preset}>
+                          {preset}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <button
                   style={{
@@ -13143,8 +13488,16 @@ function CoachBoardWebApp() {
                 width: fieldFullscreen ? "100%" : "100%",
                 height: fieldFullscreen ? "100%" : undefined,
                 minHeight: fieldFullscreen ? "100%" : undefined,
-                aspectRatio: fieldFullscreen ? undefined : "10 / 11",
-                maxHeight: fieldFullscreen ? undefined : "78vh",
+                aspectRatio: fieldFullscreen
+                  ? undefined
+                  : specialTeamsUsesExpandedField
+                    ? "10 / 15"
+                    : "10 / 11",
+                maxHeight: fieldFullscreen
+                  ? undefined
+                  : specialTeamsUsesExpandedField
+                    ? "92vh"
+                    : "78vh",
                 margin: fieldFullscreen ? 0 : undefined,
                 borderRadius: fieldFullscreen ? 0 : 28,
                 overflow: "hidden",
