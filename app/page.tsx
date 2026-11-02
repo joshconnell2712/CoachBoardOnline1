@@ -14410,7 +14410,7 @@ function CoachBoardWebApp() {
                     }}
                   />
                 </>
-              ))}
+              )}
 
               {specialTeamsUsesExpandedField && (
                 <>
