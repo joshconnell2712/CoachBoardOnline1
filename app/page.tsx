@@ -7076,7 +7076,7 @@ function CoachBoardWebApp() {
       makeSpecialTeamsPlayer("st-lw", "LW", "offense", 35, LOS_YARDS + 0.5),
       makeSpecialTeamsPlayer("st-rw", "RW", "offense", 65, LOS_YARDS + 0.5),
       makeSpecialTeamsPlayer("st-h", "H", "offense", 50, LOS_YARDS + 7),
-      makeSpecialTeamsPlayer("st-k", "K", "offense", 58, LOS_YARDS + 10.5),
+      makeSpecialTeamsPlayer("st-k", "K", "offense", 42, LOS_YARDS + 10.5),
     ];
 
     const fgBlock: Player[] = [
@@ -14371,7 +14371,15 @@ function CoachBoardWebApp() {
               {/* Yard numbers */}
               {(specialTeamsUsesExpandedField
                 ? specialTeamsUsesHighSchoolFocusedKickoff
-                  ? [10, 20, 30]
+                  ? Array.from(
+                      {
+                        length:
+                          Math.floor(
+                            focusedSpecialTeamsPlayableYards / 10,
+                          ),
+                      },
+                      (_, index) => (index + 1) * 10,
+                    )
                   : Array.from(
                       {
                         length:
