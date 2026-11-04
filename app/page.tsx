@@ -7073,8 +7073,8 @@ function CoachBoardWebApp() {
       makeSpecialTeamsPlayer("st-rg", "RG", "offense", 53, LOS_YARDS, true),
       makeSpecialTeamsPlayer("st-rt", "RT", "offense", 57, LOS_YARDS, true),
       makeSpecialTeamsPlayer("st-re", "RE", "offense", 61, LOS_YARDS, true),
-      makeSpecialTeamsPlayer("st-lw", "LW", "offense", 35, LOS_YARDS + 0.5),
-      makeSpecialTeamsPlayer("st-rw", "RW", "offense", 65, LOS_YARDS + 0.5),
+      makeSpecialTeamsPlayer("st-lw", "LW", "offense", 35, LOS_YARDS + 1.75, false),
+      makeSpecialTeamsPlayer("st-rw", "RW", "offense", 65, LOS_YARDS + 1.75, false),
       makeSpecialTeamsPlayer("st-h", "H", "offense", 50, LOS_YARDS + 7),
       makeSpecialTeamsPlayer("st-k", "K", "offense", 42, LOS_YARDS + 10.5),
     ];
@@ -7158,9 +7158,10 @@ function CoachBoardWebApp() {
     const effectiveCoverageLine = isShortField
       ? Math.min(playableYards - 2, effectiveKickSpot + 2)
       : rule.coverageLine;
-    const effectiveReceiveLine = isShortField
-      ? Math.max(20, effectiveKickSpot - 10)
-      : rule.receiveLine;
+    // Traditional free-kick receiving restraining line is 10 yards toward
+    // the receiving goal line from the kick spot. Yard coordinates decrease
+    // in that direction. NFL dynamic kickoff is built separately below.
+    const effectiveReceiveLine = Math.max(0, effectiveKickSpot - 10);
 
     const balancedXs = (count: number) =>
       Array.from({ length: count }, (_, index) => {
@@ -7203,9 +7204,9 @@ function CoachBoardWebApp() {
     const makeTraditionalReturn = () => {
       if (playerCount === 6) {
         return [
-          makeSpecialTeamsPlayer("kr-1", "F1", "defense", 16, effectiveReceiveLine - 2),
-          makeSpecialTeamsPlayer("kr-2", "F2", "defense", 50, effectiveReceiveLine - 2),
-          makeSpecialTeamsPlayer("kr-3", "F3", "defense", 84, effectiveReceiveLine - 2),
+          makeSpecialTeamsPlayer("kr-1", "F1", "defense", 16, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-2", "F2", "defense", 50, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-3", "F3", "defense", 84, effectiveReceiveLine),
           makeSpecialTeamsPlayer("kr-4", "B1", "defense", 32, 22),
           makeSpecialTeamsPlayer("kr-5", "B2", "defense", 68, 22),
           makeSpecialTeamsPlayer("kr-6", "KR", "defense", 50, 7),
@@ -7214,10 +7215,10 @@ function CoachBoardWebApp() {
 
       if (playerCount === 8) {
         return [
-          makeSpecialTeamsPlayer("kr-1", "F1", "defense", 12, effectiveReceiveLine - 2),
-          makeSpecialTeamsPlayer("kr-2", "F2", "defense", 37, effectiveReceiveLine - 2),
-          makeSpecialTeamsPlayer("kr-3", "F3", "defense", 63, effectiveReceiveLine - 2),
-          makeSpecialTeamsPlayer("kr-4", "F4", "defense", 88, effectiveReceiveLine - 2),
+          makeSpecialTeamsPlayer("kr-1", "F1", "defense", 12, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-2", "F2", "defense", 37, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-3", "F3", "defense", 63, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-4", "F4", "defense", 88, effectiveReceiveLine),
           makeSpecialTeamsPlayer("kr-5", "B1", "defense", 23, 22),
           makeSpecialTeamsPlayer("kr-6", "B2", "defense", 50, 22),
           makeSpecialTeamsPlayer("kr-7", "B3", "defense", 77, 22),
@@ -7230,11 +7231,11 @@ function CoachBoardWebApp() {
         const returnerY = playableYards === 80 ? 7 : 8;
 
         return [
-          makeSpecialTeamsPlayer("kr-1", "F1", "defense", 10, effectiveReceiveLine - 2),
-          makeSpecialTeamsPlayer("kr-2", "F2", "defense", 30, effectiveReceiveLine - 2),
-          makeSpecialTeamsPlayer("kr-3", "F3", "defense", 50, effectiveReceiveLine - 2),
-          makeSpecialTeamsPlayer("kr-4", "F4", "defense", 70, effectiveReceiveLine - 2),
-          makeSpecialTeamsPlayer("kr-5", "F5", "defense", 90, effectiveReceiveLine - 2),
+          makeSpecialTeamsPlayer("kr-1", "F1", "defense", 10, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-2", "F2", "defense", 30, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-3", "F3", "defense", 50, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-4", "F4", "defense", 70, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-5", "F5", "defense", 90, effectiveReceiveLine),
           makeSpecialTeamsPlayer("kr-6", "B1", "defense", 24, secondLevelY),
           makeSpecialTeamsPlayer("kr-7", "B2", "defense", 50, secondLevelY),
           makeSpecialTeamsPlayer("kr-8", "B3", "defense", 76, secondLevelY),
@@ -7242,7 +7243,7 @@ function CoachBoardWebApp() {
         ];
       }
 
-      const frontY = Math.max(18, effectiveReceiveLine - 8);
+      const frontY = effectiveReceiveLine;
       const secondY = playableYards === 80 ? 20 : 28;
       const deepY = playableYards === 80 ? 7 : 9;
 
@@ -7352,40 +7353,39 @@ function CoachBoardWebApp() {
         .map((player) => ({ ...player }));
     };
 
-    const formattedFgUnit =
+    // FG/PAT keeps a compact protection front with wing players OFF the line.
+    // The reduced-player formats use a smaller legal-player-count shell.
+    const fgSelection =
       formatPlayerCount === 11
         ? fgUnit
         : formatPlayerCount === 9
           ? pickById(fgUnit, [
-              "st-le",
-              "st-lt",
-              "st-lg",
-              "st-ls",
-              "st-rg",
-              "st-rt",
-              "st-re",
-              "st-h",
-              "st-k",
+              "st-lt", "st-lg", "st-ls", "st-rg", "st-rt",
+              "st-lw", "st-rw", "st-h", "st-k",
             ])
           : formatPlayerCount === 8
             ? pickById(fgUnit, [
-                "st-le",
-                "st-lt",
-                "st-ls",
-                "st-rg",
-                "st-rt",
-                "st-re",
-                "st-h",
-                "st-k",
+                "st-lt", "st-lg", "st-ls", "st-rg",
+                "st-lw", "st-rw", "st-h", "st-k",
               ])
             : pickById(fgUnit, [
-                "st-lt",
-                "st-lg",
-                "st-ls",
-                "st-rg",
-                "st-h",
-                "st-k",
+                "st-lg", "st-ls", "st-rg", "st-rw", "st-h", "st-k",
               ]);
+
+    // Keep wings tucked just outside the OUTERMOST front player of each
+    // selected format (not at fixed, overly-wide 11-man positions).
+    const frontPlayers = fgSelection.filter((p) => p.onLOS);
+    const leftEdge = Math.min(...frontPlayers.map((p) => p.x));
+    const rightEdge = Math.max(...frontPlayers.map((p) => p.x));
+    const formattedFgUnit = fgSelection.map((player) => {
+      if (player.id === "st-lw") {
+        return { ...player, x: leftEdge - 4, onLOS: false };
+      }
+      if (player.id === "st-rw") {
+        return { ...player, x: rightEdge + 4, onLOS: false };
+      }
+      return player;
+    });
 
     const formattedFgBlock = balancedSubset(
       fgBlock,
