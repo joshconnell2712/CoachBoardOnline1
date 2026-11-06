@@ -2444,6 +2444,21 @@ function CoachBoardWebApp() {
   const [ballSpot, setBallSpot] = useState<BallSpot>("middle");
   const fieldRef = useRef<HTMLDivElement | null>(null);
 
+  // Offense/Defense use the same editable board. Special Teams has a separate
+  // formation, so remember the normal board before loading a kicking unit.
+  // Restoring both arrays (and their middle-hash sources) prevents FG/kickoff
+  // players from remaining on the field after changing the active view.
+  const standardViewSnapshotRef = useRef<{
+    offense: Player[];
+    defense: Player[];
+    middleOffense: Player[];
+    middleDefense: Player[];
+    ballSpot: BallSpot;
+    selectedPlayId: string;
+    selectedPlayFormationId: string;
+    activePlaybookBuildId: string;
+  } | null>(null);
+
   // ===============================
   // ===============================
   // PLAYER + UI SCALING SYSTEM
@@ -7073,8 +7088,8 @@ function CoachBoardWebApp() {
       makeSpecialTeamsPlayer("st-rg", "RG", "offense", 53, LOS_YARDS, true),
       makeSpecialTeamsPlayer("st-rt", "RT", "offense", 57, LOS_YARDS, true),
       makeSpecialTeamsPlayer("st-re", "RE", "offense", 61, LOS_YARDS, true),
-      makeSpecialTeamsPlayer("st-lw", "LW", "offense", 35, LOS_YARDS + 1.75, false),
-      makeSpecialTeamsPlayer("st-rw", "RW", "offense", 65, LOS_YARDS + 1.75, false),
+      makeSpecialTeamsPlayer("st-lw", "LW", "offense", 36, LOS_YARDS + 2.25, false),
+      makeSpecialTeamsPlayer("st-rw", "RW", "offense", 64, LOS_YARDS + 2.25, false),
       makeSpecialTeamsPlayer("st-h", "H", "offense", 50, LOS_YARDS + 7),
       makeSpecialTeamsPlayer("st-k", "K", "offense", 42, LOS_YARDS + 10.5),
     ];
@@ -7379,10 +7394,10 @@ function CoachBoardWebApp() {
     const rightEdge = Math.max(...frontPlayers.map((p) => p.x));
     const formattedFgUnit = fgSelection.map((player) => {
       if (player.id === "st-lw") {
-        return { ...player, x: leftEdge - 4, onLOS: false };
+        return { ...player, x: leftEdge - 3, yardsFromGoal: LOS_YARDS + 2.25, onLOS: false };
       }
       if (player.id === "st-rw") {
-        return { ...player, x: rightEdge + 4, onLOS: false };
+        return { ...player, x: rightEdge + 3, yardsFromGoal: LOS_YARDS + 2.25, onLOS: false };
       }
       return player;
     });
@@ -7541,8 +7556,28 @@ function CoachBoardWebApp() {
   }
 
   function applyCoachFocus(nextFocus: CoachFocus) {
-    // Preserve drawings/routes/coverage when changing the working view.
-    // The board is only erased by the explicit Clear All action.
+    const previousFocus = coachFocus;
+    // Remember the actual offense/defense formation BEFORE the Special Teams
+    // preset replaces both player arrays. Keep the same snapshot when moving
+    // among FG, Punt and Kickoff presets.
+    if (nextFocus === "specialTeams" && previousFocus !== "specialTeams") {
+      standardViewSnapshotRef.current = {
+        offense: offensePlayers.map((player) => ({ ...player })),
+        defense: defensePlayers.map((player) => ({ ...player })),
+        middleOffense: middleOffensePlayersRef.current.map((player) => ({
+          ...player,
+        })),
+        middleDefense: middleDefensePlayersRef.current.map((player) => ({
+          ...player,
+        })),
+        ballSpot,
+        selectedPlayId,
+        selectedPlayFormationId,
+        activePlaybookBuildId,
+      };
+    }
+
+    // A view change does not clear routes, drawings, or zone assignments.
     setCoachFocus(nextFocus);
 
     realtimeChannelRef.current?.send({
@@ -7553,6 +7588,74 @@ function CoachBoardWebApp() {
         coachFocus: nextFocus,
       },
     });
+
+    if (previousFocus === "specialTeams" && nextFocus !== "specialTeams") {
+      // Restore the ordinary formation rather than leaving the special-teams
+      // unit on the offensive/defensive field. The fallback also handles a
+      // page opened directly in Special Teams with no prior normal snapshot.
+      const saved = standardViewSnapshotRef.current;
+      const nextOffense = (
+        saved?.offense ?? getDefaultOffensePlayers(footballTeamSize)
+      ).map((player) => ({ ...player }));
+      const nextDefense = (
+        saved?.defense ?? getDefaultDefensePlayers(footballTeamSize)
+      ).map((player) => ({ ...player }));
+
+      middleOffensePlayersRef.current = (
+        saved?.middleOffense ?? nextOffense
+      ).map((player) => ({ ...player }));
+      middleDefensePlayersRef.current = (
+        saved?.middleDefense ?? nextDefense
+      ).map((player) => ({ ...player }));
+
+      setOffensePlayers(nextOffense);
+      setDefensePlayers(nextDefense);
+      setBallSpot(saved?.ballSpot ?? "middle");
+      setSelectedPlayId(saved?.selectedPlayId ?? "");
+      setSelectedPlayFormationId(saved?.selectedPlayFormationId ?? "");
+      setActivePlaybookBuildId(saved?.activePlaybookBuildId ?? "");
+      setSelectedFieldItem(null);
+      setSelectedZoneId(null);
+      setActiveLineId(null);
+
+      // Broadcast the restored board as well as the focus change so other
+      // coaches in the Gameday Room don't keep seeing special-teams players.
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_OFFENSE_PLAYERS",
+          offensePlayers: nextOffense,
+        },
+      });
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_DEFENSE_PLAYERS",
+          defensePlayers: nextDefense,
+        },
+      });
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_BALL_SPOT",
+          ballSpot: saved?.ballSpot ?? "middle",
+        },
+      });
+
+      if (nextFocus === "defense") {
+        setSelectedSide("defense");
+        setSelectedPlayerId(nextDefense[0]?.id ?? "d1");
+        setActivePanelTab("defense");
+      } else {
+        setSelectedSide("offense");
+        setSelectedPlayerId(nextOffense[0]?.id ?? "x");
+        setActivePanelTab("player");
+      }
+      return;
+    }
 
     if (nextFocus === "defense") {
       const firstDefender =
@@ -7580,6 +7683,8 @@ function CoachBoardWebApp() {
   function applyFootballTeamSize(nextSize: FootballTeamSize) {
     const nextOffense = getDefaultOffensePlayers(nextSize);
     const nextDefense = getDefaultDefensePlayers(nextSize);
+    // A saved 11-man lineup must never reappear on a 9-, 8-, or 6-man field.
+    standardViewSnapshotRef.current = null;
     const nextSelectedPlayerId =
       coachFocus === "defense"
         ? (nextDefense[0]?.id ?? "d1")
@@ -7675,7 +7780,32 @@ function CoachBoardWebApp() {
     };
   }
 
+  // FG/PAT wings sit a step behind the tight end of the protection front.
+  // On-LOS players render their centers half an icon behind the scrimmage line;
+  // the wings must use that SAME center baseline, otherwise their ~2-yard
+  // backfield offset gets visually cancelled and they appear on the LOS.
+  function isFieldGoalWing(player: Player) {
+    return (
+      coachFocus === "specialTeams" &&
+      (specialTeamsPreset === "FG" || specialTeamsPreset === "FG Block") &&
+      player.side === "offense" &&
+      (player.id === "st-lw" || player.id === "st-rw")
+    );
+  }
+
+  const fgWingIconOffsetPx =
+    playerPx / 2 + (fieldFullscreen ? visualPlayerPx / 4 : 0);
+  const fgWingIconOffsetPct =
+    fieldPixelHeight > 0 ? (fgWingIconOffsetPx / fieldPixelHeight) * 100 : 0;
+
   function visiblePlayerPoint(player: Player): FieldPoint {
+    if (isFieldGoalWing(player)) {
+      return {
+        x: player.x,
+        y: fieldDisplayYFromYards(player.yardsFromGoal) + fgWingIconOffsetPct,
+      };
+    }
+
     if (specialTeamsUsesExpandedField) {
       return {
         x: player.x,
@@ -7710,6 +7840,10 @@ function CoachBoardWebApp() {
   }
 
   function playerTop(player: Player) {
+    if (isFieldGoalWing(player)) {
+      return `calc(${fieldDisplayYFromYards(player.yardsFromGoal)}% + ${fgWingIconOffsetPx}px)`;
+    }
+
     if (specialTeamsUsesExpandedField) {
       return `${fieldDisplayYFromYards(player.yardsFromGoal)}%`;
     }
@@ -8280,11 +8414,23 @@ function CoachBoardWebApp() {
         const moved = players.map((p) => {
           if (p.id !== draggingId) return p;
 
-          const canAlignOnLOS = offenseCanBeOnLOS(p);
+          const draggingFieldGoalWing = isFieldGoalWing(p);
+          const canAlignOnLOS =
+            !draggingFieldGoalWing && offenseCanBeOnLOS(p);
           const nextOnLOS =
             canAlignOnLOS && Math.abs(rawYards - LOS_YARDS) < 2.6;
 
-          const nextYards = nextOnLOS ? OFFENSE_ON_LOS_YARDS : rawYards;
+          // The FG wing icon has a deliberate half-icon visual anchor offset;
+          // subtract that amount when dragging so its center follows the cursor.
+          const wingAdjustedYards = draggingFieldGoalWing
+            ? rawYards -
+              (fgWingIconOffsetPct / 100) * FIELD_VISIBLE_YARDS
+            : rawYards;
+          const nextYards = nextOnLOS
+            ? OFFENSE_ON_LOS_YARDS
+            : draggingFieldGoalWing
+              ? Math.max(OFFENSE_ON_LOS_YARDS + BACKFIELD_MIN_DEPTH, wingAdjustedYards)
+              : rawYards;
 
           return { ...p, x, yardsFromGoal: nextYards, onLOS: nextOnLOS };
         });
