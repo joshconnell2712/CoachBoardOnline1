@@ -228,6 +228,17 @@ type UndoSnapshot = {
   manAssignments: Record<string, string>;
 };
 
+type PersistedBoardState = {
+  offensePlayers: Player[];
+  defensePlayers: Player[];
+  drawnLines: DrawLine[];
+  routes: RouteModel[];
+  zoneAssignments: CustomZoneAssignment[];
+  manAssignments: Record<string, string>;
+  ballSpot: BallSpot;
+  selectedSide: Side;
+};
+
 type TeamBranding = {
   schoolName: string;
   mascot: string;
@@ -238,7 +249,15 @@ type TeamBranding = {
 
 type FieldTemplate = "highschool" | "college" | "nfl";
 type FootballTeamSize = "11man" | "9man" | "8man" | "6man";
-type CoachFocus = "offense" | "defense";
+type CoachFocus = "offense" | "defense" | "specialTeams";
+type NineManFieldLength = "80" | "100";
+type SpecialTeamsPreset =
+  | "FG"
+  | "FG Block"
+  | "Punt"
+  | "Punt Return"
+  | "Kickoff"
+  | "Kickoff Return";
 type DefensiveCoveragePreset =
   | "Cover 0"
   | "Cover 1"
@@ -301,6 +320,11 @@ const COACH_FOCUS_OPTIONS: Record<
     description:
       "Starts CoachBoard on defensive players, fronts, techniques, coverage drawings, and defensive play planning.",
   },
+  specialTeams: {
+    label: "Special Teams",
+    description:
+      "Opens special teams with a second setup selector for field goal, punt, kickoff, and return units.",
+  },
 };
 
 const FOOTBALL_TEAM_SIZE_OPTIONS: Record<
@@ -344,6 +368,15 @@ const DEFENSIVE_FRONTS_11: DefensePreset[] = [
 const DEFENSIVE_COVERAGES: DefensiveCoveragePreset[] = [];
 const DEFENSIVE_PRESSURES: DefensivePressurePreset[] = [];
 const DEFENSIVE_PACKAGE_LINE_PREFIX = "defpkg-";
+
+const SPECIAL_TEAMS_PRESETS: SpecialTeamsPreset[] = [
+  "FG",
+  "FG Block",
+  "Punt",
+  "Punt Return",
+  "Kickoff",
+  "Kickoff Return",
+];
 
 const FIELD_HASH_PRESETS: Record<FieldTemplate, FieldHashPreset> = {
   highschool: {
@@ -1113,6 +1146,73 @@ function yardsFromPercentY(percentY: number) {
   return ((playableY - endZonePct) / playablePct) * PLAYABLE_YARDS;
 }
 
+const FULL_FIELD_PLAYABLE_YARDS = 100;
+const FULL_FIELD_VISIBLE_YARDS = 120;
+const FULL_FIELD_END_ZONE_YARDS = 10;
+
+function fullFieldYFromYards(yards: number) {
+  const endZonePct =
+    (FULL_FIELD_END_ZONE_YARDS / FULL_FIELD_VISIBLE_YARDS) * 100;
+  const playablePct =
+    (FULL_FIELD_PLAYABLE_YARDS / FULL_FIELD_VISIBLE_YARDS) * 100;
+  const safe = Math.max(0, Math.min(100, yards));
+  return endZonePct + (safe / 100) * playablePct;
+}
+
+function fullFieldYardsFromPercentY(percentY: number) {
+  const endZonePct =
+    (FULL_FIELD_END_ZONE_YARDS / FULL_FIELD_VISIBLE_YARDS) * 100;
+  const playablePct =
+    (FULL_FIELD_PLAYABLE_YARDS / FULL_FIELD_VISIBLE_YARDS) * 100;
+  const playableY = Math.max(
+    endZonePct,
+    Math.min(endZonePct + playablePct, percentY),
+  );
+  return ((playableY - endZonePct) / playablePct) * 100;
+}
+
+function kickoffRuleForTemplate(template: FieldTemplate) {
+  if (template === "highschool") {
+    return {
+      label: "NFHS",
+      kickSpot: 60,
+      kickSpotLabel: "K 40",
+      coverageLine: 62,
+      receiveLine: 50,
+      dynamic: false,
+      setupStart: 0,
+      setupEnd: 0,
+      landingEnd: 0,
+    };
+  }
+
+  if (template === "college") {
+    return {
+      label: "NCAA",
+      kickSpot: 65,
+      kickSpotLabel: "K 35",
+      coverageLine: 68,
+      receiveLine: 55,
+      dynamic: false,
+      setupStart: 0,
+      setupEnd: 0,
+      landingEnd: 0,
+    };
+  }
+
+  return {
+    label: "NFL",
+    kickSpot: 65,
+    kickSpotLabel: "K 35",
+    coverageLine: 40,
+    receiveLine: 35,
+    dynamic: true,
+    setupStart: 30,
+    setupEnd: 35,
+    landingEnd: 20,
+  };
+}
+
 function autoSpaceOffensiveLine(players: Player[]) {
   const LINE_SPACING_GAP = 4;
   const NEAR_OL_DISTANCE = 8;
@@ -1859,6 +1959,18 @@ const panelHeaderStyle: React.CSSProperties = {
   textTransform: "uppercase",
 };
 
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  minWidth: 0,
+  background: "#090b10",
+  color: "white",
+  border: "1px solid rgba(255,255,255,.12)",
+  borderRadius: 10,
+  padding: "10px 12px",
+  outline: "none",
+  fontSize: 14,
+};
+
 const COACHBOARD_COLOR_OPTIONS = [
   { name: "White", value: "#f3f4f6" },
   { name: "Gold", value: "#facc15" },
@@ -1918,6 +2030,26 @@ function getDefaultPlayerColor(
         ? "#FFFFFF"
         : teamBranding.primaryColor || DEFAULT_TEAM_BRANDING.primaryColor;
   }
+}
+
+function getPlayerLabelFontSize(
+  label: string,
+  baseFontPx: number,
+  isReadPlayer = false,
+) {
+  const length = label.trim().length;
+
+  let scale = 1;
+
+  if (length === 3) scale = 0.78;
+  else if (length === 4) scale = 0.62;
+  else if (length >= 5) scale = 0.52;
+
+  if (isReadPlayer) {
+    scale *= 0.72;
+  }
+
+  return Math.max(5.5, baseFontPx * scale);
 }
 
 function getPlayerTextColor(player: Player, fillColor: string) {
@@ -2023,14 +2155,26 @@ type RoomCoach = {
   joinedAt: string;
 };
 
+type OrganizationRole = "owner" | "admin" | "coach" | "viewer";
+
 type CoachBoardOrganization = {
   team_id: string;
   team_name: string;
   season: number;
   invite_code: string | null;
-  role: "owner" | "admin" | "coach" | "viewer";
+  role: OrganizationRole;
   football_type: FootballTeamSize;
   field_template: FieldTemplate;
+};
+
+type CoachBoardOrganizationMember = {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  role: OrganizationRole;
+  joined_at: string | null;
 };
 
 function generateTeamCode(length = 6) {
@@ -2091,8 +2235,29 @@ function CoachBoardWebApp() {
   const [lastName, setLastName] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
+  const [showCoachProfile, setShowCoachProfile] = useState(false);
+  const [profileFirstName, setProfileFirstName] = useState("");
+  const [profileLastName, setProfileLastName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileNewPassword, setProfileNewPassword] = useState("");
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileError, setProfileError] = useState("");
+
   const [organization, setOrganization] =
     useState<CoachBoardOrganization | null>(null);
+
+  const [organizationMembers, setOrganizationMembers] = useState<
+    CoachBoardOrganizationMember[]
+  >([]);
+  const [organizationMembersLoading, setOrganizationMembersLoading] =
+    useState(false);
+  const [organizationMemberActionId, setOrganizationMemberActionId] =
+    useState<string | null>(null);
+  const [organizationMembersError, setOrganizationMembersError] = useState("");
+  const [organizationMembersMessage, setOrganizationMembersMessage] =
+    useState("");
   const [organizationChecked, setOrganizationChecked] = useState(false);
   const [organizationMode, setOrganizationMode] =
     useState<"choose" | "create" | "join">("choose");
@@ -2112,6 +2277,10 @@ function CoachBoardWebApp() {
   const [footballTeamSizeHydrated, setFootballTeamSizeHydrated] =
     useState(false);
   const [coachFocus, setCoachFocus] = useState<CoachFocus>(DEFAULT_COACH_FOCUS);
+  const [specialTeamsPreset, setSpecialTeamsPreset] =
+    useState<SpecialTeamsPreset>("Punt");
+  const [nineManFieldLength, setNineManFieldLength] =
+    useState<NineManFieldLength>("80");
   const [offensePlayers, setOffensePlayers] = useState<Player[]>(() =>
     getDefaultOffensePlayers(DEFAULT_FOOTBALL_TEAM_SIZE),
   );
@@ -2138,7 +2307,10 @@ function CoachBoardWebApp() {
   const [zoneAssignments, setZoneAssignments] = useState<
     CustomZoneAssignment[]
   >([]);
+  const zoneAssignmentsRef = useRef<CustomZoneAssignment[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+
+
   const [zoneDraftId, setZoneDraftId] = useState<string | null>(null);
   const [zoneDrag, setZoneDrag] = useState<{
     id: string;
@@ -2168,12 +2340,46 @@ function CoachBoardWebApp() {
   const [drawingStyle, setDrawingStyle] = useState<DrawLineStyle>("solid");
   const [drawingMode, setDrawingMode] = useState<DrawLineMode>("curve");
   const [drawnLines, setDrawnLines] = useState<DrawLine[]>([]);
+
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const realtimeClientIdRef = useRef<string>(crypto.randomUUID());
+  const initialBoardStateReceivedRef = useRef(false);
+  const drawnLinesRef = useRef<DrawLine[]>([]);
+  const routesRef = useRef<RouteModel[]>([]);
+  const manAssignmentsRef = useRef<Record<string, string>>({});
+  const activeBoardStorageKeyRef = useRef<string | null>(null);
+  const activeBoardHadSavedSnapshotRef = useRef(false);
+  const restoredBoardWasSpecialTeamsRef = useRef(false);
+  const boardStorageInvalidRef = useRef(false);
+  const [boardPersistenceReady, setBoardPersistenceReady] = useState(false);
+
+  useEffect(() => {
+    drawnLinesRef.current = drawnLines.map((line) => ({ ...line }));
+  }, [drawnLines]);
+
+  useEffect(() => {
+    routesRef.current = routes.map((route) => ({ ...route }));
+  }, [routes]);
+
+  useEffect(() => {
+    manAssignmentsRef.current = { ...manAssignments };
+  }, [manAssignments]);
+
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
   const [lineEditDrag, setLineEditDrag] =
     useState<LineEditDrag | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingSide, setDraggingSide] = useState<Side | null>(null);
-  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const playerLongPressTimerRef = useRef<number | null>(null);
+  const playerLongPressStartRef = useRef<{
+    playerId: string;
+    side: Side;
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const playerLongPressActivatedRef = useRef(false);
+  const suppressNextPlayerClickRef = useRef(false);
   const [customPresetName, setCustomPresetName] = useState("");
   const [customOffensePresets, setCustomOffensePresets] = useState<
     CustomOffensePreset[]
@@ -2188,6 +2394,10 @@ function CoachBoardWebApp() {
   const [showManageConcepts, setShowManageConcepts] = useState(false);
   const [selectedPresetDropdownId, setSelectedPresetDropdownId] = useState("");
   const [formationsHydrated, setFormationsHydrated] = useState(false);
+  const [savedLibraryHydrated, setSavedLibraryHydrated] = useState(false);
+  const [coachFocusHydrated, setCoachFocusHydrated] = useState(false);
+  const formationStorageInvalidRef = useRef(false);
+  const libraryStorageInvalidKeysRef = useRef<Set<string>>(new Set());
   const [startupRankOneFormationId, setStartupRankOneFormationId] =
     useState("");
   const didOpenRankOneFormationRef = useRef(false);
@@ -2240,6 +2450,21 @@ function CoachBoardWebApp() {
   const [ballSpot, setBallSpot] = useState<BallSpot>("middle");
   const fieldRef = useRef<HTMLDivElement | null>(null);
 
+  // Offense/Defense use the same editable board. Special Teams has a separate
+  // formation, so remember the normal board before loading a kicking unit.
+  // Restoring both arrays (and their middle-hash sources) prevents FG/kickoff
+  // players from remaining on the field after changing the active view.
+  const standardViewSnapshotRef = useRef<{
+    offense: Player[];
+    defense: Player[];
+    middleOffense: Player[];
+    middleDefense: Player[];
+    ballSpot: BallSpot;
+    selectedPlayId: string;
+    selectedPlayFormationId: string;
+    activePlaybookBuildId: string;
+  } | null>(null);
+
   // ===============================
   // ===============================
   // PLAYER + UI SCALING SYSTEM
@@ -2251,8 +2476,28 @@ function CoachBoardWebApp() {
   const playerPx = Math.max(18, fieldPixelHeight * 0.025);
 
   // Fullscreen only visually scales the icons after they are positioned.
+  const specialTeamsUsesExpandedField =
+    coachFocus === "specialTeams" &&
+    (specialTeamsPreset === "Kickoff" ||
+      specialTeamsPreset === "Kickoff Return");
+  const specialTeamsUsesHighSchoolFocusedKickoff =
+    specialTeamsUsesExpandedField && fieldTemplate === "highschool";
+  const kickoffRule = kickoffRuleForTemplate(fieldTemplate);
+  const specialTeamsPlayableYards =
+    fieldTemplate === "highschool" &&
+    (footballTeamSize === "8man" ||
+      footballTeamSize === "6man" ||
+      (footballTeamSize === "9man" && nineManFieldLength === "80"))
+      ? 80
+      : 100;
+  const specialTeamsVisibleYards = specialTeamsPlayableYards + 20;
+
   // This makes them easier to see without moving their field locations.
-  const visualPlayerScale = fieldFullscreen ? 1.4 : 1;
+  const visualPlayerScale = fieldFullscreen
+    ? specialTeamsUsesExpandedField
+      ? 1.18
+      : 1.4
+    : 1;
   const visualPlayerPx = playerPx * visualPlayerScale;
 
   // Keep mini-screen lettering exactly like the original.
@@ -2398,9 +2643,13 @@ function CoachBoardWebApp() {
   function clearWhiteboardForGamedayRoom() {
     // Clear every drawing/assignment that could carry over from the coach's
     // previous local board before entering a Gameday Room.
+    drawnLinesRef.current = [];
     setDrawnLines([]);
+    routesRef.current = [];
     setRoutes([]);
+    zoneAssignmentsRef.current = [];
     setZoneAssignments([]);
+    manAssignmentsRef.current = {};
     setManAssignments({});
     setDefensiveReadPlayerIds([]);
     setUndoStack([]);
@@ -2422,11 +2671,9 @@ function CoachBoardWebApp() {
   useEffect(() => {
     if (!ROOM_ID || !user) return;
 
-    // ROOM_ID changes whenever a coach enters a different room. Clearing here
-    // guarantees the old local board is removed before the new realtime
-    // channel subscribes—even when the room was entered from saved localStorage.
-    clearWhiteboardForGamedayRoom();
-
+    // Do not clear the board on refresh/reconnect. Room-specific persistence
+    // below decides whether to restore an existing board or start this room
+    // blank. Whiteboard work should only be destroyed by an explicit clear.
     const channel = supabase.channel(ROOM_ID, {
       config: {
         presence: {
@@ -2453,15 +2700,28 @@ function CoachBoardWebApp() {
 
     channel.on("broadcast", { event: "board-event" }, ({ payload }) => {
       if (payload.type === "SET_DRAWN_LINES") {
-        setDrawnLines(payload.drawnLines);
+        const nextLines = Array.isArray(payload.drawnLines)
+          ? payload.drawnLines
+          : [];
+        drawnLinesRef.current = nextLines.map((line: DrawLine) => ({ ...line }));
+        setDrawnLines(drawnLinesRef.current);
       }
 
       if (payload.type === "SET_MAN_ASSIGNMENTS") {
-        setManAssignments(payload.manAssignments);
+        const nextAssignments =
+          payload.manAssignments && typeof payload.manAssignments === "object"
+            ? payload.manAssignments
+            : {};
+        manAssignmentsRef.current = { ...nextAssignments };
+        setManAssignments(manAssignmentsRef.current);
       }
 
       if (payload.type === "SET_COACH_FOCUS") {
         setCoachFocus(payload.coachFocus);
+      }
+
+      if (payload.type === "SET_SPECIAL_TEAMS_PRESET") {
+        setSpecialTeamsPreset(payload.specialTeamsPreset);
       }
 
       if (payload.type === "SET_READ_KEYS") {
@@ -2469,12 +2729,9 @@ function CoachBoardWebApp() {
       }
 
       if (payload.type === "SET_SELECTED_SIDE") {
+        // Changing offense/defense view should not destroy whiteboard work.
+        // Markup remains until the coach explicitly uses Clear All.
         setSelectedSide(payload.selectedSide);
-        setDrawnLines([]);
-        setRoutes([]);
-        setZoneAssignments([]);
-        setManAssignments({});
-        setUndoStack([]);
         setSelectedFieldItem(null);
         setSelectedZoneId(null);
         setZoneDraftId(null);
@@ -2483,15 +2740,79 @@ function CoachBoardWebApp() {
         setLineEditDrag(null);
       }
 
+      if (payload.type === "REQUEST_BOARD_STATE") {
+        if (
+          payload.requestingClientId &&
+          payload.requestingClientId !== realtimeClientIdRef.current
+        ) {
+          sendCompleteBoardState(payload.requestingClientId);
+        }
+        return;
+      }
+
       if (payload.type === "SET_BOARD_STATE") {
-        setDrawnLines(payload.drawnLines);
-        setRoutes(payload.routes);
-        setZoneAssignments(payload.zoneAssignments);
-        setManAssignments(payload.manAssignments);
+        if (
+          payload.targetClientId &&
+          payload.targetClientId !== realtimeClientIdRef.current
+        ) {
+          return;
+        }
+
+        // When joining, multiple existing coaches may answer the request.
+        // Accept the first targeted snapshot only so later responses cannot
+        // overwrite it with a slightly older local render.
+        if (
+          payload.targetClientId === realtimeClientIdRef.current &&
+          initialBoardStateReceivedRef.current
+        ) {
+          return;
+        }
+
+        if (payload.targetClientId === realtimeClientIdRef.current) {
+          initialBoardStateReceivedRef.current = true;
+        }
+
+        const nextLines = Array.isArray(payload.drawnLines)
+          ? payload.drawnLines
+          : [];
+        drawnLinesRef.current = nextLines.map((line: DrawLine) => ({ ...line }));
+        setDrawnLines(drawnLinesRef.current);
+
+        const nextRoutes: RouteModel[] = Array.isArray(payload.routes)
+          ? (payload.routes as RouteModel[])
+          : [];
+
+        routesRef.current = nextRoutes.map((route: RouteModel) => ({
+          ...route,
+        }));
+        setRoutes(routesRef.current);
+
+        const nextZones = Array.isArray(payload.zoneAssignments)
+          ? payload.zoneAssignments
+          : [];
+        zoneAssignmentsRef.current = nextZones.map(
+          (zone: CustomZoneAssignment) => ({ ...zone }),
+        );
+        setZoneAssignments(zoneAssignmentsRef.current);
+
+        const nextAssignments =
+          payload.manAssignments && typeof payload.manAssignments === "object"
+            ? payload.manAssignments
+            : {};
+        manAssignmentsRef.current = { ...nextAssignments };
+        setManAssignments(manAssignmentsRef.current);
+        return;
       }
 
       if (payload.type === "SET_ROUTES") {
-        setRoutes(payload.routes);
+        const nextRoutes: RouteModel[] = Array.isArray(payload.routes)
+          ? (payload.routes as RouteModel[])
+          : [];
+
+        routesRef.current = nextRoutes.map((route: RouteModel) => ({
+          ...route,
+        }));
+        setRoutes(routesRef.current);
       }
 
       if (payload.type === "SET_OFFENSE_PLAYERS") {
@@ -2507,7 +2828,23 @@ function CoachBoardWebApp() {
       }
 
       if (payload.type === "SET_ZONES") {
-        setZoneAssignments(payload.zoneAssignments);
+        const nextZones = Array.isArray(payload.zoneAssignments)
+          ? payload.zoneAssignments
+          : [];
+        zoneAssignmentsRef.current = nextZones.map(
+          (zone: CustomZoneAssignment) => ({ ...zone }),
+        );
+        setZoneAssignments(zoneAssignmentsRef.current);
+
+        if (
+          selectedZoneId &&
+          !zoneAssignmentsRef.current.some((zone) => zone.id === selectedZoneId)
+        ) {
+          setSelectedZoneId(null);
+          setSelectedFieldItem(null);
+          setZoneDraftId(null);
+          setZoneDrag(null);
+        }
       }
 
       if (payload.type === "SET_TEAM_SETUP") {
@@ -2532,6 +2869,15 @@ function CoachBoardWebApp() {
           name: getCoachDisplayName(user),
           joinedAt: new Date().toISOString(),
         });
+
+        // Existing Supabase broadcasts are not replayed to late joiners.
+        // Request a fresh authoritative board snapshot as soon as this coach
+        // joins so anything already drawn appears immediately.
+        window.setTimeout(() => {
+          if (!activeBoardHadSavedSnapshotRef.current) {
+            requestCompleteBoardState();
+          }
+        }, 100);
       }
     });
 
@@ -2672,20 +3018,14 @@ function CoachBoardWebApp() {
 
     const clampedRadius = Math.max(2.5, Math.min(18, nextRadius));
 
-    const nextZones = zoneAssignments.map((zone) =>
-      zone.id === selectedZoneId ? { ...zone, radius: clampedRadius } : zone,
+    const nextZones = zoneAssignmentsRef.current.map((zone) =>
+      zone.id === selectedZoneId
+        ? { ...zone, radius: clampedRadius }
+        : { ...zone },
     );
 
-    setZoneAssignments(nextZones);
-
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_ZONES",
-        zoneAssignments: nextZones,
-      },
-    });
+    applyZoneAssignmentsLocally(nextZones);
+    broadcastZoneAssignments(nextZones);
   }
 
   const activeToolLabel = (() => {
@@ -2736,10 +3076,17 @@ function CoachBoardWebApp() {
       const nextRoutes = cloneRoutesForHistory(snapshot.routes);
       const nextZones = cloneZonesForHistory(snapshot.zoneAssignments);
 
-      setDrawnLines(nextLines);
-      setRoutes(nextRoutes);
-      setZoneAssignments(nextZones);
-      setManAssignments({ ...snapshot.manAssignments });
+      drawnLinesRef.current = nextLines.map((line) => ({ ...line }));
+      setDrawnLines(drawnLinesRef.current);
+
+      routesRef.current = nextRoutes.map((route) => ({ ...route }));
+      setRoutes(routesRef.current);
+
+      zoneAssignmentsRef.current = nextZones.map((zone) => ({ ...zone }));
+      setZoneAssignments(zoneAssignmentsRef.current);
+
+      manAssignmentsRef.current = { ...snapshot.manAssignments };
+      setManAssignments(manAssignmentsRef.current);
 
       realtimeChannelRef.current?.send({
         type: "broadcast",
@@ -2797,10 +3144,17 @@ function CoachBoardWebApp() {
     }
 
     if (selectedFieldItem.type === "zone") {
-      setZoneAssignments((current) =>
-        current.filter((zone) => zone.id !== selectedFieldItem.id),
+      const nextZones = zoneAssignmentsRef.current.filter(
+        (zone) => zone.id !== selectedFieldItem.id,
       );
+
+      applyZoneAssignmentsLocally(nextZones);
+      broadcastZoneAssignments(nextZones);
+
       setSelectedZoneId(null);
+      setSelectedFieldItem(null);
+      setZoneDraftId(null);
+      setZoneDrag(null);
     }
     if (selectedFieldItem.type === "man") {
       const nextAssignments = { ...manAssignments };
@@ -3961,13 +4315,33 @@ function CoachBoardWebApp() {
   // to the 10-yard line, and mirrors only the PLAYER/ROUTE coordinates around
   // that LOS so defensive coaches see defense on the bottom without rotating
   // or stretching the field itself.
-  const activeLosYards = coachFocus === "defense" ? 10 : LOS_YARDS;
+  const effectiveKickSpot =
+    fieldTemplate === "highschool" &&
+    (footballTeamSize === "8man" ||
+      footballTeamSize === "6man" ||
+      (footballTeamSize === "9man" && nineManFieldLength === "80"))
+      ? 40
+      : kickoffRule.kickSpot;
+
+  const activeLosYards =
+    coachFocus === "defense"
+      ? 10
+      : specialTeamsUsesExpandedField
+        ? effectiveKickSpot
+        : LOS_YARDS;
   const isDefensiveFocusView = coachFocus === "defense";
   const losYardOffset = activeLosYards - LOS_YARDS;
   const clampPlayableYards = (yards: number) =>
-    Math.max(0, Math.min(50, yards));
+    Math.max(
+      0,
+      Math.min(specialTeamsUsesExpandedField ? specialTeamsPlayableYards : 50, yards),
+    );
 
   function displayYardsFromCanonical(canonicalYards: number) {
+    if (specialTeamsUsesExpandedField) {
+      return clampPlayableYards(canonicalYards);
+    }
+
     return clampPlayableYards(
       isDefensiveFocusView
         ? activeLosYards - (canonicalYards - LOS_YARDS)
@@ -3976,6 +4350,10 @@ function CoachBoardWebApp() {
   }
 
   function canonicalYardsFromDisplay(displayYards: number) {
+    if (specialTeamsUsesExpandedField) {
+      return clampPlayableYards(displayYards);
+    }
+
     return clampPlayableYards(
       isDefensiveFocusView
         ? LOS_YARDS + (activeLosYards - displayYards)
@@ -3983,13 +4361,77 @@ function CoachBoardWebApp() {
     );
   }
 
-  const fieldDisplayYFromYards = (yardsFromGoal: number) =>
-    fieldYFromYards(displayYardsFromCanonical(yardsFromGoal));
+  const specialTeamsFieldYFromYards = (yards: number) => {
+    if (specialTeamsUsesHighSchoolFocusedKickoff) {
+      const focusedMaxYards =
+        specialTeamsPlayableYards === 80 ? 60 : 70;
+      const focusedVisibleYards = focusedMaxYards + 10;
+      const endZonePct = (10 / focusedVisibleYards) * 100;
+      const playablePct = (focusedMaxYards / focusedVisibleYards) * 100;
+      const safe = Math.max(0, Math.min(focusedMaxYards, yards));
+      return endZonePct + (safe / focusedMaxYards) * playablePct;
+    }
 
-  const displayPoint = (point: FieldPoint): FieldPoint => ({
-    ...point,
-    y: fieldYFromYards(displayYardsFromCanonical(yardsFromPercentY(point.y))),
-  });
+    const endZonePct = (10 / specialTeamsVisibleYards) * 100;
+    const playablePct =
+      (specialTeamsPlayableYards / specialTeamsVisibleYards) * 100;
+    const safe = Math.max(0, Math.min(specialTeamsPlayableYards, yards));
+    return endZonePct + (safe / specialTeamsPlayableYards) * playablePct;
+  };
+
+  const specialTeamsYardsFromPercentY = (percentY: number) => {
+    if (specialTeamsUsesHighSchoolFocusedKickoff) {
+      const focusedMaxYards =
+        specialTeamsPlayableYards === 80 ? 60 : 70;
+      const focusedVisibleYards = focusedMaxYards + 10;
+      const endZonePct = (10 / focusedVisibleYards) * 100;
+      const playablePct = (focusedMaxYards / focusedVisibleYards) * 100;
+      const playableY = Math.max(
+        endZonePct,
+        Math.min(endZonePct + playablePct, percentY),
+      );
+      return ((playableY - endZonePct) / playablePct) * focusedMaxYards;
+    }
+
+    const endZonePct = (10 / specialTeamsVisibleYards) * 100;
+    const playablePct =
+      (specialTeamsPlayableYards / specialTeamsVisibleYards) * 100;
+    const playableY = Math.max(
+      endZonePct,
+      Math.min(endZonePct + playablePct, percentY),
+    );
+    return (
+      ((playableY - endZonePct) / playablePct) *
+      specialTeamsPlayableYards
+    );
+  };
+
+  const fieldDisplayYFromYards = (yardsFromGoal: number) =>
+    specialTeamsUsesExpandedField
+      ? specialTeamsFieldYFromYards(
+          displayYardsFromCanonical(yardsFromGoal),
+        )
+      : fieldYFromYards(displayYardsFromCanonical(yardsFromGoal));
+
+  const displayPoint = (point: FieldPoint): FieldPoint => {
+    if (specialTeamsUsesExpandedField) {
+      return {
+        ...point,
+        y: specialTeamsFieldYFromYards(
+          displayYardsFromCanonical(
+            specialTeamsYardsFromPercentY(point.y),
+          ),
+        ),
+      };
+    }
+
+    return {
+      ...point,
+      y: fieldYFromYards(
+        displayYardsFromCanonical(yardsFromPercentY(point.y)),
+      ),
+    };
+  };
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -4040,11 +4482,15 @@ function CoachBoardWebApp() {
     if (fieldFullscreen) {
       document.body.style.overflow = "hidden";
       document.documentElement.style.overflow = "hidden";
+      document.body.classList.add("coachboard-field-fullscreen-active");
+    } else {
+      document.body.classList.remove("coachboard-field-fullscreen-active");
     }
 
     return () => {
       document.body.style.overflow = previousBodyOverflow;
       document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.classList.remove("coachboard-field-fullscreen-active");
     };
   }, [fieldFullscreen]);
 
@@ -4691,6 +5137,12 @@ function CoachBoardWebApp() {
 
       {activePanelTab === "formations" && (
         <>
+          <button
+            style={{ ...buttonBase, background: "#166534", color: "white", padding: "9px 12px", marginBottom: 8 }}
+            onClick={downloadCoachBoardBackup}
+          >
+            Download CoachBoard Data Backup
+          </button>
           <div>
             <div
               style={{
@@ -4966,7 +5418,9 @@ function CoachBoardWebApp() {
                     padding: "8px 10px",
                   }}
                   onClick={() => {
+                    manAssignmentsRef.current = {};
                     setManAssignments({});
+                    zoneAssignmentsRef.current = [];
                     setZoneAssignments([]);
                   }}
                 >
@@ -5568,7 +6022,7 @@ function CoachBoardWebApp() {
           <select
             value={selectedDefenseFront}
             onChange={(e) => loadDefensePreset(e.target.value as DefensePreset)}
-            disabled={footballTeamSize !== "11man"}
+            
             style={{
               height: 32,
               minWidth: 0,
@@ -5620,7 +6074,7 @@ function CoachBoardWebApp() {
           <select
             value={selectedDefenseFront}
             onChange={(e) => loadDefensePreset(e.target.value as DefensePreset)}
-            disabled={footballTeamSize !== "11man"}
+            
             style={{
               height: 32,
               minWidth: 0,
@@ -5681,7 +6135,9 @@ function CoachBoardWebApp() {
               whiteSpace: "nowrap",
             }}
             onClick={() => {
+              manAssignmentsRef.current = {};
               setManAssignments({});
+              zoneAssignmentsRef.current = [];
               setZoneAssignments([]);
             }}
           >
@@ -5873,6 +6329,7 @@ function CoachBoardWebApp() {
     );
 
     try {
+      formationStorageInvalidRef.current = false;
       let deletedSystemFormationIds: string[] = [];
       if (savedDeletedSystemFormationIds) {
         const parsedDeleted = JSON.parse(savedDeletedSystemFormationIds);
@@ -5896,6 +6353,9 @@ function CoachBoardWebApp() {
       const parsedPresets = savedPresets
         ? (JSON.parse(savedPresets) as CustomOffensePreset[])
         : [];
+      if (!Array.isArray(parsedPresets)) {
+        throw new Error("Invalid saved formation data — preserved for recovery");
+      }
 
       const userPresets = Array.isArray(parsedPresets)
         ? parsedPresets
@@ -5960,7 +6420,11 @@ function CoachBoardWebApp() {
       setCustomOffensePresets(hydratedPresets);
       setStartupRankOneFormationId(rankOne?.id ?? "");
       setFormationsHydrated(true);
-    } catch {
+    } catch (error) {
+      // Preserve the original localStorage value for recovery instead of
+      // overwriting malformed saved data with an empty/default list.
+      console.warn("CoachBoard formation data could not be read safely:", error);
+      formationStorageInvalidRef.current = true;
       const fallbackPresets = makeDefaultOffensePresets(footballTeamSize);
       const rankOne =
         fallbackPresets.find((preset) => preset.isMain) ??
@@ -5974,6 +6438,7 @@ function CoachBoardWebApp() {
 
   useEffect(() => {
     if (!formationsHydrated) return;
+    if (formationStorageInvalidRef.current) return;
     if (!didOpenRankOneFormationRef.current) return;
 
     const userOnly = customOffensePresets.filter((preset) => !preset.isSystem);
@@ -6005,8 +6470,23 @@ function CoachBoardWebApp() {
   useEffect(() => {
     if (!footballTeamSizeHydrated) return;
     if (!formationsHydrated) return;
+    // Wait for the saved board to restore before deciding whether a ranked
+    // formation should replace it. This prevents a late board-load race.
+    if (!boardPersistenceReady) return;
     if (didOpenRankOneFormationRef.current) return;
     if (!startupRankOneFormationId) return;
+
+    // If this browser/account already restored a persisted board for the
+    // current room, that board wins over the normal #1-formation startup.
+    // Otherwise the automatic formation loader would clear routes/lines
+    // immediately after persistence restored them.
+    if (
+      activeBoardHadSavedSnapshotRef.current &&
+      !restoredBoardWasSpecialTeamsRef.current
+    ) {
+      didOpenRankOneFormationRef.current = true;
+      return;
+    }
 
     const rankedFormation = customOffensePresets.find(
       (preset) => preset.id === startupRankOneFormationId,
@@ -6021,6 +6501,7 @@ function CoachBoardWebApp() {
     footballTeamSizeHydrated,
     formationsHydrated,
     startupRankOneFormationId,
+    boardPersistenceReady,
   ]);
 
   useEffect(() => {
@@ -6029,22 +6510,28 @@ function CoachBoardWebApp() {
 
     try {
       const parsed = JSON.parse(saved) as SavedPlay[];
-      if (!Array.isArray(parsed)) return;
+      if (!Array.isArray(parsed)) {
+        libraryStorageInvalidKeysRef.current.add("coachboard_saved_plays");
+        return;
+      }
       setSavedPlays(parsed);
 
       // CoachBoard now opens to the #1 ranked formation instead of
       // automatically opening a previously marked preload play.
     } catch {
+      libraryStorageInvalidKeysRef.current.add("coachboard_saved_plays");
       setSavedPlays([]);
     }
   }, []);
 
   useEffect(() => {
+    if (!savedLibraryHydrated) return;
+    if (libraryStorageInvalidKeysRef.current.has("coachboard_saved_plays")) return;
     window.localStorage.setItem(
       "coachboard_saved_plays",
       JSON.stringify(savedPlays),
     );
-  }, [savedPlays]);
+  }, [savedPlays, savedLibraryHydrated]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coachboard_play_folders");
@@ -6053,17 +6540,21 @@ function CoachBoardWebApp() {
     try {
       const parsed = JSON.parse(saved) as PlayFolder[];
       if (Array.isArray(parsed)) setPlayFolders(parsed);
+      else libraryStorageInvalidKeysRef.current.add("coachboard_play_folders");
     } catch {
+      libraryStorageInvalidKeysRef.current.add("coachboard_play_folders");
       setPlayFolders([]);
     }
   }, []);
 
   useEffect(() => {
+    if (!savedLibraryHydrated) return;
+    if (libraryStorageInvalidKeysRef.current.has("coachboard_play_folders")) return;
     window.localStorage.setItem(
       "coachboard_play_folders",
       JSON.stringify(playFolders),
     );
-  }, [playFolders]);
+  }, [playFolders, savedLibraryHydrated]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coachboard_playbooks");
@@ -6072,17 +6563,21 @@ function CoachBoardWebApp() {
     try {
       const parsed = JSON.parse(saved) as Playbook[];
       if (Array.isArray(parsed)) setPlaybooks(parsed);
+      else libraryStorageInvalidKeysRef.current.add("coachboard_playbooks");
     } catch {
+      libraryStorageInvalidKeysRef.current.add("coachboard_playbooks");
       setPlaybooks([]);
     }
   }, []);
 
   useEffect(() => {
+    if (!savedLibraryHydrated) return;
+    if (libraryStorageInvalidKeysRef.current.has("coachboard_playbooks")) return;
     window.localStorage.setItem(
       "coachboard_playbooks",
       JSON.stringify(playbooks),
     );
-  }, [playbooks]);
+  }, [playbooks, savedLibraryHydrated]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coachboard_play_concepts");
@@ -6091,17 +6586,21 @@ function CoachBoardWebApp() {
     try {
       const parsed = JSON.parse(saved) as PlayConcept[];
       if (Array.isArray(parsed)) setPlayConcepts(parsed);
+      else libraryStorageInvalidKeysRef.current.add("coachboard_play_concepts");
     } catch {
+      libraryStorageInvalidKeysRef.current.add("coachboard_play_concepts");
       setPlayConcepts([]);
     }
   }, []);
 
   useEffect(() => {
+    if (!savedLibraryHydrated) return;
+    if (libraryStorageInvalidKeysRef.current.has("coachboard_play_concepts")) return;
     window.localStorage.setItem(
       "coachboard_play_concepts",
       JSON.stringify(playConcepts),
     );
-  }, [playConcepts]);
+  }, [playConcepts, savedLibraryHydrated]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coachboard_game_plans");
@@ -6110,17 +6609,21 @@ function CoachBoardWebApp() {
     try {
       const parsed = JSON.parse(saved) as GamePlan[];
       if (Array.isArray(parsed)) setGamePlans(parsed);
+      else libraryStorageInvalidKeysRef.current.add("coachboard_game_plans");
     } catch {
+      libraryStorageInvalidKeysRef.current.add("coachboard_game_plans");
       setGamePlans([]);
     }
   }, []);
 
   useEffect(() => {
+    if (!savedLibraryHydrated) return;
+    if (libraryStorageInvalidKeysRef.current.has("coachboard_game_plans")) return;
     window.localStorage.setItem(
       "coachboard_game_plans",
       JSON.stringify(gamePlans),
     );
-  }, [gamePlans]);
+  }, [gamePlans, savedLibraryHydrated]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coachboard_defensive_packages");
@@ -6128,17 +6631,27 @@ function CoachBoardWebApp() {
     try {
       const parsed = JSON.parse(saved) as DefensivePackage[];
       if (Array.isArray(parsed)) setSavedDefensivePackages(parsed);
+      else libraryStorageInvalidKeysRef.current.add("coachboard_defensive_packages");
     } catch {
+      libraryStorageInvalidKeysRef.current.add("coachboard_defensive_packages");
       setSavedDefensivePackages([]);
     }
   }, []);
 
+  // All play/formation library reads have now run. Never persist the empty
+  // React startup arrays over existing browser data before hydration.
   useEffect(() => {
+    setSavedLibraryHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!savedLibraryHydrated) return;
+    if (libraryStorageInvalidKeysRef.current.has("coachboard_defensive_packages")) return;
     window.localStorage.setItem(
       "coachboard_defensive_packages",
       JSON.stringify(savedDefensivePackages),
     );
-  }, [savedDefensivePackages]);
+  }, [savedDefensivePackages, savedLibraryHydrated]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coachboard_team_branding");
@@ -6206,14 +6719,64 @@ function CoachBoardWebApp() {
       "coachboard_coach_focus",
     ) as CoachFocus | null;
 
-    if (saved && COACH_FOCUS_OPTIONS[saved]) {
-      applyCoachFocus(saved);
+    // Always start in an ordinary view so saved formations and plays are
+    // accessible, even if the coach last closed the app on Special Teams.
+    // Loading a ST preset during hydration used to overwrite the normal lineup.
+    setCoachFocus(saved === "defense" ? "defense" : "offense");
+    setCoachFocusHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!coachFocusHydrated) return;
+    window.localStorage.setItem("coachboard_coach_focus", coachFocus);
+  }, [coachFocus, coachFocusHydrated]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(
+      "coachboard_special_teams_preset",
+    ) as SpecialTeamsPreset | null;
+
+    if (saved && SPECIAL_TEAMS_PRESETS.includes(saved)) {
+      setSpecialTeamsPreset(saved);
     }
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("coachboard_coach_focus", coachFocus);
-  }, [coachFocus]);
+    window.localStorage.setItem(
+      "coachboard_special_teams_preset",
+      specialTeamsPreset,
+    );
+  }, [specialTeamsPreset]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(
+      "coachboard_9man_field_length",
+    ) as NineManFieldLength | null;
+
+    if (saved === "80" || saved === "100") {
+      setNineManFieldLength(saved);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      "coachboard_9man_field_length",
+      nineManFieldLength,
+    );
+  }, [nineManFieldLength]);
+
+  useEffect(() => {
+    if (
+      coachFocus === "specialTeams" &&
+      footballTeamSize === "9man" &&
+      (specialTeamsPreset === "Kickoff" ||
+        specialTeamsPreset === "Kickoff Return")
+    ) {
+      loadSpecialTeamsPreset(specialTeamsPreset);
+    }
+    // Only the 9-man field-length switch should trigger this regeneration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nineManFieldLength]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(
@@ -6241,8 +6804,6 @@ function CoachBoardWebApp() {
     setSelectedSide("offense");
     setSelectedPlayId("");
     setSelectedPlayFormationId("");
-    setRoutes([]);
-    setDrawnLines([]);
 
     // Only after the saved football type is established do we allow
     // formation hydration to load the coach's true #1 ranked formation.
@@ -6258,6 +6819,341 @@ function CoachBoardWebApp() {
     );
   }, [footballTeamSize, footballTeamSizeHydrated]);
 
+  function isSpecialTeamsLineup(players: Player[] | undefined): boolean {
+    return Boolean(
+      players?.length &&
+        players.some((player) =>
+          /^(?:st-|std-|ko-|kr-)/.test(player.id),
+        ),
+    );
+  }
+
+  function getStandardViewBackupKey() {
+    return `${getBoardPersistenceKey()}:standard-view-players`;
+  }
+
+  function readStandardViewBackup() {
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = window.localStorage.getItem(getStandardViewBackupKey());
+      if (!stored) return null;
+      const parsed = JSON.parse(stored) as typeof standardViewSnapshotRef.current;
+      return parsed &&
+        Array.isArray(parsed.offense) &&
+        parsed.offense.length > 0 &&
+        Array.isArray(parsed.defense) &&
+        !isSpecialTeamsLineup(parsed.offense)
+        ? parsed
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function getBoardPersistenceKey() {
+    const accountId = user?.id ?? "anonymous";
+    const boardId = ROOM_ID || "local-board";
+    return `coachboard_live_board_state:${accountId}:${boardId}`;
+  }
+
+  function getBoardBackupKey() {
+    return `${getBoardPersistenceKey()}:last-working-copy`;
+  }
+
+  function boardSnapshotHasMarkup(
+    snapshot: Partial<PersistedBoardState> | null | undefined,
+  ) {
+    if (!snapshot) return false;
+
+    return (
+      (Array.isArray(snapshot.drawnLines) && snapshot.drawnLines.length > 0) ||
+      (Array.isArray(snapshot.routes) && snapshot.routes.length > 0) ||
+      (Array.isArray(snapshot.zoneAssignments) &&
+        snapshot.zoneAssignments.length > 0) ||
+      Boolean(
+        snapshot.manAssignments &&
+          Object.keys(snapshot.manAssignments).length > 0,
+      )
+    );
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+
+    const storageKey = getBoardPersistenceKey();
+
+    // Prevent the outgoing board from being written into a newly selected
+    // room while React is switching room state.
+    activeBoardStorageKeyRef.current = null;
+    setBoardPersistenceReady(false);
+
+    const saved = window.localStorage.getItem(storageKey);
+    const backupSaved = window.localStorage.getItem(getBoardBackupKey());
+
+    let savedStateText = saved;
+
+    try {
+      const primaryParsed = saved
+        ? (JSON.parse(saved) as Partial<PersistedBoardState>)
+        : null;
+      const backupParsed = backupSaved
+        ? (JSON.parse(backupSaved) as Partial<PersistedBoardState>)
+        : null;
+
+      // If a transient startup render ever wrote an empty board to the
+      // primary key, keep the last real working copy instead. Clear All
+      // removes both keys, so an intentional board clear still stays clear.
+      if (
+        !boardSnapshotHasMarkup(primaryParsed) &&
+        boardSnapshotHasMarkup(backupParsed)
+      ) {
+        savedStateText = backupSaved;
+      }
+    } catch {
+      // The normal parse block below will handle any malformed saved state.
+    }
+
+    activeBoardHadSavedSnapshotRef.current = Boolean(savedStateText);
+    restoredBoardWasSpecialTeamsRef.current = false;
+    boardStorageInvalidRef.current = false;
+
+    if (savedStateText) {
+      try {
+        const parsed = JSON.parse(
+          savedStateText,
+        ) as Partial<PersistedBoardState>;
+
+        const persistedOffense = Array.isArray(parsed.offensePlayers)
+          ? parsed.offensePlayers
+          : undefined;
+        const persistedDefense = Array.isArray(parsed.defensePlayers)
+          ? parsed.defensePlayers
+          : undefined;
+        const persistedWasSpecialTeams = isSpecialTeamsLineup(persistedOffense);
+        const savedNormalView = readStandardViewBackup();
+        const restoredOffense = persistedWasSpecialTeams
+          ? savedNormalView?.offense
+          : persistedOffense;
+        const restoredDefense = persistedWasSpecialTeams
+          ? savedNormalView?.defense
+          : persistedDefense;
+
+        restoredBoardWasSpecialTeamsRef.current =
+          persistedWasSpecialTeams && !savedNormalView;
+
+        if (restoredOffense?.length) {
+          setOffensePlayers(restoredOffense);
+          middleOffensePlayersRef.current =
+            (persistedWasSpecialTeams
+              ? savedNormalView?.middleOffense
+              : undefined) ?? restoredOffense.map((player) => ({ ...player }));
+        }
+        if (restoredDefense?.length) {
+          setDefensePlayers(restoredDefense);
+          middleDefensePlayersRef.current =
+            (persistedWasSpecialTeams
+              ? savedNormalView?.middleDefense
+              : undefined) ?? restoredDefense.map((player) => ({ ...player }));
+        }
+        if (savedNormalView && persistedWasSpecialTeams) {
+          standardViewSnapshotRef.current = savedNormalView;
+        }
+
+        const nextLines = Array.isArray(parsed.drawnLines)
+          ? parsed.drawnLines
+          : [];
+        drawnLinesRef.current = nextLines.map((line) => ({ ...line }));
+        setDrawnLines(drawnLinesRef.current);
+
+        const nextRoutes = Array.isArray(parsed.routes) ? parsed.routes : [];
+        routesRef.current = nextRoutes.map((route) => ({ ...route }));
+        setRoutes(routesRef.current);
+
+        const nextZones = Array.isArray(parsed.zoneAssignments)
+          ? parsed.zoneAssignments
+          : [];
+        zoneAssignmentsRef.current = nextZones.map((zone) => ({ ...zone }));
+        setZoneAssignments(zoneAssignmentsRef.current);
+
+        const nextManAssignments =
+          parsed.manAssignments &&
+          typeof parsed.manAssignments === "object"
+            ? parsed.manAssignments
+            : {};
+        manAssignmentsRef.current = { ...nextManAssignments };
+        setManAssignments(manAssignmentsRef.current);
+
+        if (
+          parsed.ballSpot === "leftHash" ||
+          parsed.ballSpot === "middle" ||
+          parsed.ballSpot === "rightHash"
+        ) {
+          setBallSpot(parsed.ballSpot);
+        }
+
+        if (
+          parsed.selectedSide === "offense" ||
+          parsed.selectedSide === "defense"
+        ) {
+          setSelectedSide(parsed.selectedSide);
+        }
+      } catch (error) {
+        console.warn("Unable to restore saved CoachBoard whiteboard:", error);
+        boardStorageInvalidRef.current = true;
+        // Do not autosave a blank board over the unreadable original.
+        activeBoardHadSavedSnapshotRef.current = false;
+      }
+    } else {
+      drawnLinesRef.current = [];
+      setDrawnLines([]);
+
+      routesRef.current = [];
+      setRoutes([]);
+
+      zoneAssignmentsRef.current = [];
+      setZoneAssignments([]);
+
+      manAssignmentsRef.current = {};
+      setManAssignments({});
+
+      setUndoStack([]);
+      setSelectedFieldItem(null);
+      setSelectedZoneId(null);
+      setZoneDraftId(null);
+      setZoneDrag(null);
+      setActiveLineId(null);
+      setLineEditDrag(null);
+    }
+
+    // Wait until the restored state has rendered before allowing autosave.
+    window.setTimeout(() => {
+      activeBoardStorageKeyRef.current = storageKey;
+      setBoardPersistenceReady(true);
+    }, 0);
+  }, [ROOM_ID, user?.id]);
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      !user ||
+      !boardPersistenceReady
+    ) {
+      return;
+    }
+
+    const storageKey = getBoardPersistenceKey();
+
+    if (activeBoardStorageKeyRef.current !== storageKey) {
+      return;
+    }
+    if (boardStorageInvalidRef.current) return;
+
+    const snapshot: PersistedBoardState = {
+      offensePlayers: (
+        coachFocus === "specialTeams"
+          ? standardViewSnapshotRef.current?.offense ?? readStandardViewBackup()?.offense ?? offensePlayers
+          : offensePlayers
+      ).map((player) => ({ ...player })),
+      defensePlayers: (
+        coachFocus === "specialTeams"
+          ? standardViewSnapshotRef.current?.defense ?? readStandardViewBackup()?.defense ?? defensePlayers
+          : defensePlayers
+      ).map((player) => ({ ...player })),
+      drawnLines: drawnLines.map((line) => ({ ...line })),
+      routes: routes.map((route) => ({ ...route })),
+      zoneAssignments: zoneAssignments.map((zone) => ({ ...zone })),
+      manAssignments: { ...manAssignments },
+      ballSpot,
+      selectedSide,
+    };
+
+    const serializedSnapshot = JSON.stringify(snapshot);
+
+    window.localStorage.setItem(storageKey, serializedSnapshot);
+
+    if (boardSnapshotHasMarkup(snapshot)) {
+      window.localStorage.setItem(
+        getBoardBackupKey(),
+        serializedSnapshot,
+      );
+    }
+
+    activeBoardHadSavedSnapshotRef.current = true;
+  }, [
+    ROOM_ID,
+    user?.id,
+    boardPersistenceReady,
+    offensePlayers,
+    defensePlayers,
+    drawnLines,
+    routes,
+    zoneAssignments,
+    manAssignments,
+    ballSpot,
+    selectedSide,
+    coachFocus,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+
+    const saveWorkingBoardBeforeExit = () => {
+      if (boardStorageInvalidRef.current) return;
+      const storageKey = getBoardPersistenceKey();
+
+      const snapshot: PersistedBoardState = {
+        offensePlayers: (
+          coachFocus === "specialTeams"
+            ? standardViewSnapshotRef.current?.offense ?? readStandardViewBackup()?.offense ?? offensePlayers
+            : offensePlayers
+        ).map((player) => ({ ...player })),
+        defensePlayers: (
+          coachFocus === "specialTeams"
+            ? standardViewSnapshotRef.current?.defense ?? readStandardViewBackup()?.defense ?? defensePlayers
+            : defensePlayers
+        ).map((player) => ({ ...player })),
+        drawnLines: drawnLinesRef.current.map((line) => ({ ...line })),
+        routes: routesRef.current.map((route) => ({ ...route })),
+        zoneAssignments: zoneAssignmentsRef.current.map((zone) => ({
+          ...zone,
+        })),
+        manAssignments: { ...manAssignmentsRef.current },
+        ballSpot,
+        selectedSide,
+      };
+
+      const serializedSnapshot = JSON.stringify(snapshot);
+
+      window.localStorage.setItem(storageKey, serializedSnapshot);
+
+      if (boardSnapshotHasMarkup(snapshot)) {
+        window.localStorage.setItem(
+          getBoardBackupKey(),
+          serializedSnapshot,
+        );
+      }
+    };
+
+    window.addEventListener("pagehide", saveWorkingBoardBeforeExit);
+    window.addEventListener("beforeunload", saveWorkingBoardBeforeExit);
+
+    return () => {
+      window.removeEventListener("pagehide", saveWorkingBoardBeforeExit);
+      window.removeEventListener(
+        "beforeunload",
+        saveWorkingBoardBeforeExit,
+      );
+    };
+  }, [
+    ROOM_ID,
+    user?.id,
+    offensePlayers,
+    defensePlayers,
+    ballSpot,
+    selectedSide,
+    coachFocus,
+  ]);
+
   function clearAllBoardMarkup(options?: { broadcast?: boolean; pushUndo?: boolean }) {
     const shouldBroadcast = options?.broadcast ?? true;
     const shouldPushUndo = options?.pushUndo ?? false;
@@ -6266,9 +7162,13 @@ function CoachBoardWebApp() {
       pushUndoSnapshot();
     }
 
+    drawnLinesRef.current = [];
     setDrawnLines([]);
+    routesRef.current = [];
     setRoutes([]);
+    zoneAssignmentsRef.current = [];
     setZoneAssignments([]);
+    manAssignmentsRef.current = {};
     setManAssignments({});
     setUndoStack([]);
 
@@ -6278,6 +7178,13 @@ function CoachBoardWebApp() {
     setZoneDrag(null);
     setActiveLineId(null);
     setLineEditDrag(null);
+
+    if (typeof window !== "undefined" && user) {
+      const storageKey = getBoardPersistenceKey();
+      window.localStorage.removeItem(storageKey);
+      window.localStorage.removeItem(getBoardBackupKey());
+      activeBoardHadSavedSnapshotRef.current = false;
+    }
 
     if (shouldBroadcast) {
       realtimeChannelRef.current?.send({
@@ -6294,11 +7201,575 @@ function CoachBoardWebApp() {
     }
   }
 
-  function applyCoachFocus(nextFocus: CoachFocus) {
-    if (nextFocus !== coachFocus) {
-      clearAllBoardMarkup({ broadcast: true });
+  function makeSpecialTeamsPlayer(
+    id: string,
+    position: string,
+    side: Side,
+    x: number,
+    yardsFromGoal: number,
+    onLOS = false,
+  ): Player {
+    return {
+      id,
+      position,
+      side,
+      x,
+      yardsFromGoal,
+      onLOS,
+    };
+  }
+
+  function getSpecialTeamsAlignment(preset: SpecialTeamsPreset) {
+    const fgUnit: Player[] = [
+      makeSpecialTeamsPlayer("st-le", "LE", "offense", 39, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lt", "LT", "offense", 43, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lg", "LG", "offense", 47, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-ls", "LS", "offense", 50, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rg", "RG", "offense", 53, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rt", "RT", "offense", 57, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-re", "RE", "offense", 61, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lw", "LW", "offense", 36, LOS_YARDS + 2.25, false),
+      makeSpecialTeamsPlayer("st-rw", "RW", "offense", 64, LOS_YARDS + 2.25, false),
+      makeSpecialTeamsPlayer("st-h", "H", "offense", 50, LOS_YARDS + 7),
+      makeSpecialTeamsPlayer("st-k", "K", "offense", 42, LOS_YARDS + 10.5),
+    ];
+
+    const fgBlock: Player[] = [
+      makeSpecialTeamsPlayer("std-1", "E", "defense", 34, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-2", "R", "defense", 38, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-3", "T", "defense", 42, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-4", "T", "defense", 46, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-5", "N", "defense", 50, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-6", "T", "defense", 54, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-7", "T", "defense", 58, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-8", "R", "defense", 62, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-9", "E", "defense", 66, LOS_YARDS - 1, true),
+      makeSpecialTeamsPlayer("std-10", "J", "defense", 44, LOS_YARDS - 4),
+      makeSpecialTeamsPlayer("std-11", "R", "defense", 56, LOS_YARDS - 13),
+    ];
+
+    const puntUnit: Player[] = [
+      makeSpecialTeamsPlayer("st-gun-l", "GUN", "offense", 8, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lt", "LT", "offense", 36, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-lg", "LG", "offense", 43, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-ls", "LS", "offense", 50, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rg", "RG", "offense", 57, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-rt", "RT", "offense", 64, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-gun-r", "GUN", "offense", 92, LOS_YARDS, true),
+      makeSpecialTeamsPlayer("st-wl", "W", "offense", 39, LOS_YARDS + 4),
+      makeSpecialTeamsPlayer("st-wr", "W", "offense", 61, LOS_YARDS + 4),
+      makeSpecialTeamsPlayer("st-up", "UP", "offense", 50, LOS_YARDS + 8),
+      makeSpecialTeamsPlayer("st-p", "P", "offense", 50, LOS_YARDS + 16),
+    ];
+
+    const puntReturn: Player[] = [
+      makeSpecialTeamsPlayer("std-1", "C", "defense", 8, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-2", "E", "defense", 34, LOS_YARDS - 2, true),
+      makeSpecialTeamsPlayer("std-3", "T", "defense", 42, LOS_YARDS - 2, true),
+      makeSpecialTeamsPlayer("std-4", "N", "defense", 50, LOS_YARDS - 2, true),
+      makeSpecialTeamsPlayer("std-5", "T", "defense", 58, LOS_YARDS - 2, true),
+      makeSpecialTeamsPlayer("std-6", "E", "defense", 66, LOS_YARDS - 2, true),
+      makeSpecialTeamsPlayer("std-7", "C", "defense", 92, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-8", "H", "defense", 27, LOS_YARDS - 6),
+      makeSpecialTeamsPlayer("std-9", "H", "defense", 73, LOS_YARDS - 6),
+      makeSpecialTeamsPlayer("std-10", "S", "defense", 50, LOS_YARDS - 11),
+      makeSpecialTeamsPlayer("std-11", "PR", "defense", 50, LOS_YARDS - 23),
+    ];
+
+    const puntSafe: Player[] = [
+      makeSpecialTeamsPlayer("std-1", "C", "defense", 8, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-2", "E", "defense", 35, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-3", "T", "defense", 43, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-4", "N", "defense", 50, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-5", "T", "defense", 57, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-6", "E", "defense", 65, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-7", "C", "defense", 92, LOS_YARDS - 2),
+      makeSpecialTeamsPlayer("std-8", "LB", "defense", 35, LOS_YARDS - 7),
+      makeSpecialTeamsPlayer("std-9", "LB", "defense", 65, LOS_YARDS - 7),
+      makeSpecialTeamsPlayer("std-10", "S", "defense", 50, LOS_YARDS - 12),
+      makeSpecialTeamsPlayer("std-11", "PR", "defense", 50, LOS_YARDS - 23),
+    ];
+
+    // Kickoff and Kick Return adapt to the selected football format.
+    // Nebraska 8-man and 6-man use an 80-yard field; 11-man and 9-man
+    // keep the standard 100-yard full-field view.
+    const rule = kickoffRuleForTemplate(fieldTemplate);
+    const isShortField =
+      fieldTemplate === "highschool" &&
+      (footballTeamSize === "8man" ||
+        footballTeamSize === "6man" ||
+        (footballTeamSize === "9man" && nineManFieldLength === "80"));
+    const playableYards = isShortField ? 80 : 100;
+    const playerCount =
+      footballTeamSize === "6man"
+        ? 6
+        : footballTeamSize === "8man"
+          ? 8
+          : footballTeamSize === "9man"
+            ? 9
+            : 11;
+
+    const effectiveKickSpot = isShortField ? 40 : rule.kickSpot;
+    const effectiveCoverageLine = isShortField
+      ? Math.min(playableYards - 2, effectiveKickSpot + 2)
+      : rule.coverageLine;
+    // Traditional free-kick receiving restraining line is 10 yards toward
+    // the receiving goal line from the kick spot. Yard coordinates decrease
+    // in that direction. NFL dynamic kickoff is built separately below.
+    const effectiveReceiveLine = Math.max(0, effectiveKickSpot - 10);
+
+    const balancedXs = (count: number) =>
+      Array.from({ length: count }, (_, index) => {
+        if (count === 1) return 50;
+        return 8 + (84 * index) / (count - 1);
+      });
+
+    const makeTraditionalKickoff = () => {
+      const coverageCount = Math.max(1, playerCount - 1);
+      const xs =
+        playerCount === 11
+          ? [8, 17, 26, 35, 44, 56, 65, 74, 83, 92]
+          : playerCount === 9
+            ? [8, 20, 32, 43, 57, 68, 80, 92]
+            : balancedXs(coverageCount);
+      const coverage = xs.map((x, index) =>
+        makeSpecialTeamsPlayer(
+          `ko-${index + 1}`,
+          String(index + 1),
+          "offense",
+          x,
+          effectiveCoverageLine,
+          true,
+        ),
+      );
+
+      coverage.push(
+        makeSpecialTeamsPlayer(
+          "ko-k",
+          "K",
+          "offense",
+          50,
+          Math.min(playableYards - 2, effectiveKickSpot + 4.5),
+        ),
+      );
+
+      return coverage;
+    };
+
+    const makeTraditionalReturn = () => {
+      if (playerCount === 6) {
+        return [
+          makeSpecialTeamsPlayer("kr-1", "F1", "defense", 16, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-2", "F2", "defense", 50, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-3", "F3", "defense", 84, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-4", "B1", "defense", 32, 22),
+          makeSpecialTeamsPlayer("kr-5", "B2", "defense", 68, 22),
+          makeSpecialTeamsPlayer("kr-6", "KR", "defense", 50, 7),
+        ];
+      }
+
+      if (playerCount === 8) {
+        return [
+          makeSpecialTeamsPlayer("kr-1", "F1", "defense", 12, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-2", "F2", "defense", 37, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-3", "F3", "defense", 63, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-4", "F4", "defense", 88, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-5", "B1", "defense", 23, 22),
+          makeSpecialTeamsPlayer("kr-6", "B2", "defense", 50, 22),
+          makeSpecialTeamsPlayer("kr-7", "B3", "defense", 77, 22),
+          makeSpecialTeamsPlayer("kr-8", "KR", "defense", 50, 7),
+        ];
+      }
+
+      if (playerCount === 9) {
+        const secondLevelY = playableYards === 80 ? 22 : 28;
+        const returnerY = playableYards === 80 ? 7 : 8;
+
+        return [
+          makeSpecialTeamsPlayer("kr-1", "F1", "defense", 10, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-2", "F2", "defense", 30, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-3", "F3", "defense", 50, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-4", "F4", "defense", 70, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-5", "F5", "defense", 90, effectiveReceiveLine),
+          makeSpecialTeamsPlayer("kr-6", "B1", "defense", 24, secondLevelY),
+          makeSpecialTeamsPlayer("kr-7", "B2", "defense", 50, secondLevelY),
+          makeSpecialTeamsPlayer("kr-8", "B3", "defense", 76, secondLevelY),
+          makeSpecialTeamsPlayer("kr-9", "KR", "defense", 50, returnerY),
+        ];
+      }
+
+      const frontY = effectiveReceiveLine;
+      const secondY = playableYards === 80 ? 20 : 28;
+      const deepY = playableYards === 80 ? 7 : 9;
+
+      return [
+        makeSpecialTeamsPlayer("kr-1", "F1", "defense", 10, frontY),
+        makeSpecialTeamsPlayer("kr-2", "F2", "defense", 30, frontY),
+        makeSpecialTeamsPlayer("kr-3", "F3", "defense", 50, frontY),
+        makeSpecialTeamsPlayer("kr-4", "F4", "defense", 70, frontY),
+        makeSpecialTeamsPlayer("kr-5", "F5", "defense", 90, frontY),
+        makeSpecialTeamsPlayer("kr-6", "B1", "defense", 18, secondY),
+        makeSpecialTeamsPlayer("kr-7", "B2", "defense", 39, secondY),
+        makeSpecialTeamsPlayer("kr-8", "B3", "defense", 61, secondY),
+        makeSpecialTeamsPlayer("kr-9", "B4", "defense", 82, secondY),
+        makeSpecialTeamsPlayer("kr-10", "KR", "defense", 38, deepY),
+        makeSpecialTeamsPlayer("kr-11", "KR", "defense", 62, deepY),
+      ];
+    };
+
+    const kickoffUnit: Player[] =
+      rule.dynamic && footballTeamSize === "11man"
+        ? [
+            makeSpecialTeamsPlayer("ko-1", "1", "offense", 7, 40, true),
+            makeSpecialTeamsPlayer("ko-2", "2", "offense", 16, 40, true),
+            makeSpecialTeamsPlayer("ko-3", "3", "offense", 25, 40, true),
+            makeSpecialTeamsPlayer("ko-4", "4", "offense", 34, 40, true),
+            makeSpecialTeamsPlayer("ko-5", "5", "offense", 43, 40, true),
+            makeSpecialTeamsPlayer("ko-6", "6", "offense", 57, 40, true),
+            makeSpecialTeamsPlayer("ko-7", "7", "offense", 66, 40, true),
+            makeSpecialTeamsPlayer("ko-8", "8", "offense", 75, 40, true),
+            makeSpecialTeamsPlayer("ko-9", "9", "offense", 84, 40, true),
+            makeSpecialTeamsPlayer("ko-10", "10", "offense", 93, 40, true),
+            makeSpecialTeamsPlayer("ko-k", "K", "offense", 50, 69),
+          ]
+        : makeTraditionalKickoff();
+
+    const kickoffReturn: Player[] =
+      rule.dynamic && footballTeamSize === "11man"
+        ? [
+            makeSpecialTeamsPlayer("kr-1", "L1", "defense", 8, 35),
+            makeSpecialTeamsPlayer("kr-2", "L2", "defense", 22, 35),
+            makeSpecialTeamsPlayer("kr-3", "L3", "defense", 36, 35),
+            makeSpecialTeamsPlayer("kr-4", "M", "defense", 50, 35),
+            makeSpecialTeamsPlayer("kr-5", "R3", "defense", 64, 35),
+            makeSpecialTeamsPlayer("kr-6", "R2", "defense", 78, 35),
+            makeSpecialTeamsPlayer("kr-7", "R1", "defense", 92, 35),
+            makeSpecialTeamsPlayer("kr-8", "U1", "defense", 36, 32),
+            makeSpecialTeamsPlayer("kr-9", "U2", "defense", 64, 32),
+            makeSpecialTeamsPlayer("kr-10", "KR", "defense", 38, 10),
+            makeSpecialTeamsPlayer("kr-11", "KR", "defense", 62, 10),
+          ]
+        : makeTraditionalReturn();
+
+    const formatPlayerCount =
+      footballTeamSize === "6man"
+        ? 6
+        : footballTeamSize === "8man"
+          ? 8
+          : footballTeamSize === "9man"
+            ? 9
+            : 11;
+
+    const pickById = (players: Player[], ids: string[]) =>
+      ids
+        .map((id) => players.find((player) => player.id === id))
+        .filter((player): player is Player => Boolean(player))
+        .slice(0, formatPlayerCount)
+        .map((player) => ({ ...player }));
+
+    const balancedSubset = (
+      players: Player[],
+      count: number,
+      preserveIds: string[] = [],
+    ) => {
+      if (players.length <= count) {
+        return players.map((player) => ({ ...player }));
+      }
+
+      const preserved = preserveIds
+        .map((id) => players.find((player) => player.id === id))
+        .filter((player): player is Player => Boolean(player));
+
+      const preservedIds = new Set(preserved.map((player) => player.id));
+      const candidates = players
+        .filter((player) => !preservedIds.has(player.id))
+        .slice()
+        .sort((a, b) => a.x - b.x);
+
+      const needed = Math.max(0, count - preserved.length);
+      const selected: Player[] = [];
+
+      if (needed === 1 && candidates.length) {
+        selected.push(candidates[Math.floor(candidates.length / 2)]);
+      } else if (needed > 1) {
+        for (let index = 0; index < needed; index++) {
+          const candidateIndex = Math.round(
+            (index * (candidates.length - 1)) / (needed - 1),
+          );
+          const candidate = candidates[candidateIndex];
+          if (candidate && !selected.some((item) => item.id === candidate.id)) {
+            selected.push(candidate);
+          }
+        }
+      }
+
+      return [...selected, ...preserved]
+        .slice(0, count)
+        .map((player) => ({ ...player }));
+    };
+
+    // FG/PAT keeps a compact protection front with wing players OFF the line.
+    // The reduced-player formats use a smaller legal-player-count shell.
+    const fgSelection =
+      formatPlayerCount === 11
+        ? fgUnit
+        : formatPlayerCount === 9
+          ? pickById(fgUnit, [
+              "st-lt", "st-lg", "st-ls", "st-rg", "st-rt",
+              "st-lw", "st-rw", "st-h", "st-k",
+            ])
+          : formatPlayerCount === 8
+            ? pickById(fgUnit, [
+                "st-lt", "st-lg", "st-ls", "st-rg",
+                "st-lw", "st-rw", "st-h", "st-k",
+              ])
+            : pickById(fgUnit, [
+                "st-lg", "st-ls", "st-rg", "st-rw", "st-h", "st-k",
+              ]);
+
+    // Keep wings tucked just outside the OUTERMOST front player of each
+    // selected format (not at fixed, overly-wide 11-man positions).
+    const frontPlayers = fgSelection.filter((p) => p.onLOS);
+    const leftEdge = Math.min(...frontPlayers.map((p) => p.x));
+    const rightEdge = Math.max(...frontPlayers.map((p) => p.x));
+    const formattedFgUnit = fgSelection.map((player) => {
+      if (player.id === "st-lw") {
+        return { ...player, x: leftEdge - 3, yardsFromGoal: LOS_YARDS + 2.25, onLOS: false };
+      }
+      if (player.id === "st-rw") {
+        return { ...player, x: rightEdge + 3, yardsFromGoal: LOS_YARDS + 2.25, onLOS: false };
+      }
+      return player;
+    });
+
+    const formattedFgBlock = balancedSubset(
+      fgBlock,
+      formatPlayerCount,
+      formatPlayerCount >= 8 ? ["std-11"] : [],
+    );
+
+    const formattedPuntUnit =
+      formatPlayerCount === 11
+        ? puntUnit
+        : formatPlayerCount === 9
+          ? pickById(puntUnit, [
+              "st-gun-l",
+              "st-lt",
+              "st-lg",
+              "st-ls",
+              "st-rg",
+              "st-rt",
+              "st-gun-r",
+              "st-up",
+              "st-p",
+            ])
+          : formatPlayerCount === 8
+            ? pickById(puntUnit, [
+                "st-gun-l",
+                "st-lt",
+                "st-lg",
+                "st-ls",
+                "st-rg",
+                "st-rt",
+                "st-gun-r",
+                "st-p",
+              ])
+            : pickById(puntUnit, [
+                "st-gun-l",
+                "st-lg",
+                "st-ls",
+                "st-rg",
+                "st-gun-r",
+                "st-p",
+              ]);
+
+    const formattedPuntReturn = balancedSubset(
+      puntReturn,
+      formatPlayerCount,
+      ["std-11"],
+    );
+
+    const formattedPuntSafe = balancedSubset(
+      puntSafe,
+      formatPlayerCount,
+      ["std-11"],
+    );
+
+    if (preset === "FG") {
+      return {
+        offense: formattedFgUnit,
+        defense: formattedFgBlock,
+      };
     }
 
+    if (preset === "FG Block") {
+      return {
+        offense: formattedFgUnit,
+        defense: formattedFgBlock,
+      };
+    }
+
+    if (preset === "Punt") {
+      return {
+        offense: formattedPuntUnit,
+        defense: formattedPuntSafe,
+      };
+    }
+
+    if (preset === "Punt Return") {
+      return {
+        offense: formattedPuntUnit,
+        defense: formattedPuntReturn,
+      };
+    }
+
+    return {
+      offense: kickoffUnit.slice(0, formatPlayerCount),
+      defense: kickoffReturn.slice(0, formatPlayerCount),
+    };
+  }
+
+  useEffect(() => {
+    if (
+      !boardPersistenceReady ||
+      !footballTeamSizeHydrated ||
+      !formationsHydrated ||
+      coachFocus === "specialTeams" ||
+      isSpecialTeamsLineup(offensePlayers)
+    ) return;
+
+    const standard = {
+      offense: offensePlayers.map((player) => ({ ...player })),
+      defense: defensePlayers.map((player) => ({ ...player })),
+      middleOffense: middleOffensePlayersRef.current.map((player) => ({ ...player })),
+      middleDefense: middleDefensePlayersRef.current.map((player) => ({ ...player })),
+      ballSpot,
+      selectedPlayId,
+      selectedPlayFormationId,
+      activePlaybookBuildId,
+    };
+    standardViewSnapshotRef.current = standard;
+    try {
+      window.localStorage.setItem(
+        getStandardViewBackupKey(),
+        JSON.stringify(standard),
+      );
+    } catch (error) {
+      console.warn("CoachBoard could not back up the normal lineup:", error);
+    }
+  }, [
+    coachFocus, offensePlayers, defensePlayers, ballSpot,
+    selectedPlayId, selectedPlayFormationId, activePlaybookBuildId,
+    boardPersistenceReady, footballTeamSizeHydrated, formationsHydrated,
+    ROOM_ID, user?.id,
+  ]);
+
+  function loadSpecialTeamsPreset(preset: SpecialTeamsPreset) {
+    const alignment = getSpecialTeamsAlignment(preset);
+    const nextOffense = alignment.offense.map((player) => ({ ...player }));
+    const nextDefense = alignment.defense.map((player) => ({ ...player }));
+    const returnOrBlock =
+      preset === "FG Block" ||
+      preset === "Punt Return" ||
+      preset === "Kickoff Return";
+
+    middleOffensePlayersRef.current = nextOffense.map((player) => ({
+      ...player,
+    }));
+    middleDefensePlayersRef.current = nextDefense.map((player) => ({
+      ...player,
+    }));
+
+    setSpecialTeamsPreset(preset);
+    setBallSpot("middle");
+    setOffensePlayers(nextOffense);
+    setDefensePlayers(nextDefense);
+    setSelectedSide(returnOrBlock ? "defense" : "offense");
+    setSelectedPlayerId(
+      (returnOrBlock ? nextDefense[0]?.id : nextOffense[0]?.id) ?? "",
+    );
+    setActivePanelTab("player");
+    setSelectedPlayId("");
+    setSelectedPlayFormationId("");
+    setActivePlaybookBuildId("");
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_SPECIAL_TEAMS_PRESET",
+        specialTeamsPreset: preset,
+      },
+    });
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_BALL_SPOT",
+        ballSpot: "middle",
+      },
+    });
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_OFFENSE_PLAYERS",
+        offensePlayers: nextOffense,
+      },
+    });
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_DEFENSE_PLAYERS",
+        defensePlayers: nextDefense,
+      },
+    });
+  }
+
+  function applyCoachFocus(nextFocus: CoachFocus) {
+    const previousFocus = coachFocus;
+    // Remember the actual offense/defense formation BEFORE the Special Teams
+    // preset replaces both player arrays. Keep the same snapshot when moving
+    // among FG, Punt and Kickoff presets.
+    if (nextFocus === "specialTeams" && previousFocus !== "specialTeams") {
+      if (isSpecialTeamsLineup(offensePlayers)) {
+        standardViewSnapshotRef.current =
+          standardViewSnapshotRef.current ?? readStandardViewBackup();
+      } else {
+      standardViewSnapshotRef.current = {
+        offense: offensePlayers.map((player) => ({ ...player })),
+        defense: defensePlayers.map((player) => ({ ...player })),
+        middleOffense: middleOffensePlayersRef.current.map((player) => ({
+          ...player,
+        })),
+        middleDefense: middleDefensePlayersRef.current.map((player) => ({
+          ...player,
+        })),
+        ballSpot,
+        selectedPlayId,
+        selectedPlayFormationId,
+        activePlaybookBuildId,
+      };
+      }
+      // Save BEFORE the Special Teams preset has a chance to overwrite the
+      // normal arrays. This backup is intentionally separate from ST players.
+      if (standardViewSnapshotRef.current && boardPersistenceReady) {
+        try {
+          window.localStorage.setItem(
+            getStandardViewBackupKey(),
+            JSON.stringify(standardViewSnapshotRef.current),
+          );
+        } catch (error) {
+          console.warn("Unable to preserve normal formation before Special Teams:", error);
+        }
+      }
+    }
+
+    // A view change does not clear routes, drawings, or zone assignments.
     setCoachFocus(nextFocus);
 
     realtimeChannelRef.current?.send({
@@ -6309,6 +7780,76 @@ function CoachBoardWebApp() {
         coachFocus: nextFocus,
       },
     });
+
+    if (previousFocus === "specialTeams" && nextFocus !== "specialTeams") {
+      // Restore the ordinary formation rather than leaving the special-teams
+      // unit on the offensive/defensive field. The fallback also handles a
+      // page opened directly in Special Teams with no prior normal snapshot.
+      const saved =
+        standardViewSnapshotRef.current ?? readStandardViewBackup();
+      const nextOffense = (
+        saved?.offense ?? getDefaultOffensePlayers(footballTeamSize)
+      ).map((player) => ({ ...player }));
+      const nextDefense = (
+        saved?.defense ?? getDefaultDefensePlayers(footballTeamSize)
+      ).map((player) => ({ ...player }));
+
+      middleOffensePlayersRef.current = (
+        saved?.middleOffense ?? nextOffense
+      ).map((player) => ({ ...player }));
+      middleDefensePlayersRef.current = (
+        saved?.middleDefense ?? nextDefense
+      ).map((player) => ({ ...player }));
+
+      setOffensePlayers(nextOffense);
+      setDefensePlayers(nextDefense);
+      setBallSpot(saved?.ballSpot ?? "middle");
+      setSelectedPlayId(saved?.selectedPlayId ?? "");
+      setSelectedPlayFormationId(saved?.selectedPlayFormationId ?? "");
+      setSelectedPresetDropdownId(saved?.selectedPlayFormationId ?? "");
+      setActivePlaybookBuildId(saved?.activePlaybookBuildId ?? "");
+      setSelectedFieldItem(null);
+      setSelectedZoneId(null);
+      setActiveLineId(null);
+
+      // Broadcast the restored board as well as the focus change so other
+      // coaches in the Gameday Room don't keep seeing special-teams players.
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_OFFENSE_PLAYERS",
+          offensePlayers: nextOffense,
+        },
+      });
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_DEFENSE_PLAYERS",
+          defensePlayers: nextDefense,
+        },
+      });
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_BALL_SPOT",
+          ballSpot: saved?.ballSpot ?? "middle",
+        },
+      });
+
+      if (nextFocus === "defense") {
+        setSelectedSide("defense");
+        setSelectedPlayerId(nextDefense[0]?.id ?? "d1");
+        setActivePanelTab("defense");
+      } else {
+        setSelectedSide("offense");
+        setSelectedPlayerId(nextOffense[0]?.id ?? "x");
+        setActivePanelTab("player");
+      }
+      return;
+    }
 
     if (nextFocus === "defense") {
       const firstDefender =
@@ -6326,6 +7867,8 @@ function CoachBoardWebApp() {
       setSelectedSide("offense");
       setSelectedPlayerId(firstOffender);
       setActivePanelTab("player");
+    } else if (nextFocus === "specialTeams") {
+      loadSpecialTeamsPreset(specialTeamsPreset);
     } else {
       setActivePanelTab("player");
     }
@@ -6334,12 +7877,15 @@ function CoachBoardWebApp() {
   function applyFootballTeamSize(nextSize: FootballTeamSize) {
     const nextOffense = getDefaultOffensePlayers(nextSize);
     const nextDefense = getDefaultDefensePlayers(nextSize);
+    // A saved 11-man lineup must never reappear on a 9-, 8-, or 6-man field.
+    standardViewSnapshotRef.current = null;
     const nextSelectedPlayerId =
       coachFocus === "defense"
         ? (nextDefense[0]?.id ?? "d1")
         : (nextOffense[0]?.id ?? "x");
     const nextSelectedSide = coachFocus === "defense" ? "defense" : "offense";
     const nextActivePanelTab = coachFocus === "defense" ? "defense" : "player";
+
 
     setFootballTeamSize(nextSize);
     setOffensePlayers(nextOffense);
@@ -6371,7 +7917,11 @@ function CoachBoardWebApp() {
     });
   }
 
-  const losTop = `${fieldYFromYards(activeLosYards)}%`;
+  const losTop = `${
+    specialTeamsUsesExpandedField
+      ? specialTeamsFieldYFromYards(activeLosYards)
+      : fieldYFromYards(activeLosYards)
+  }%`;
 
   // Field orientation stays normal. In Defensive Focus, only the players flip
   // around the active LOS: offense is above the LOS, defense is below it.
@@ -6400,11 +7950,15 @@ function CoachBoardWebApp() {
       0,
       Math.min(100, ((clientY - rect.top) / rect.height) * 100),
     );
-    const screenYards = yardsFromPercentY(screenY);
+    const screenYards = specialTeamsUsesExpandedField
+      ? specialTeamsYardsFromPercentY(screenY)
+      : yardsFromPercentY(screenY);
     const canonicalYards = canonicalYardsFromDisplay(screenYards);
     return {
       x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
-      y: fieldYFromYards(canonicalYards),
+      y: specialTeamsUsesExpandedField
+        ? specialTeamsFieldYFromYards(canonicalYards)
+        : fieldYFromYards(canonicalYards),
     };
   }
 
@@ -6420,7 +7974,39 @@ function CoachBoardWebApp() {
     };
   }
 
+  // FG/PAT wings sit a step behind the tight end of the protection front.
+  // On-LOS players render their centers half an icon behind the scrimmage line;
+  // the wings must use that SAME center baseline, otherwise their ~2-yard
+  // backfield offset gets visually cancelled and they appear on the LOS.
+  function isFieldGoalWing(player: Player) {
+    return (
+      coachFocus === "specialTeams" &&
+      (specialTeamsPreset === "FG" || specialTeamsPreset === "FG Block") &&
+      player.side === "offense" &&
+      (player.id === "st-lw" || player.id === "st-rw")
+    );
+  }
+
+  const fgWingIconOffsetPx =
+    playerPx / 2 + (fieldFullscreen ? visualPlayerPx / 4 : 0);
+  const fgWingIconOffsetPct =
+    fieldPixelHeight > 0 ? (fgWingIconOffsetPx / fieldPixelHeight) * 100 : 0;
+
   function visiblePlayerPoint(player: Player): FieldPoint {
+    if (isFieldGoalWing(player)) {
+      return {
+        x: player.x,
+        y: fieldDisplayYFromYards(player.yardsFromGoal) + fgWingIconOffsetPct,
+      };
+    }
+
+    if (specialTeamsUsesExpandedField) {
+      return {
+        x: player.x,
+        y: fieldDisplayYFromYards(player.yardsFromGoal),
+      };
+    }
+
     if (player.onLOS && player.side === "offense") {
       return {
         x: player.x,
@@ -6448,6 +8034,14 @@ function CoachBoardWebApp() {
   }
 
   function playerTop(player: Player) {
+    if (isFieldGoalWing(player)) {
+      return `calc(${fieldDisplayYFromYards(player.yardsFromGoal)}% + ${fgWingIconOffsetPx}px)`;
+    }
+
+    if (specialTeamsUsesExpandedField) {
+      return `${fieldDisplayYFromYards(player.yardsFromGoal)}%`;
+    }
+
     if (player.onLOS && player.side === "offense") return offenseOnLOSTop;
     if (player.onLOS && player.side === "defense") return defenseOnLOSTop;
     return `${fieldDisplayYFromYards(player.yardsFromGoal)}%`;
@@ -6640,6 +8234,57 @@ function CoachBoardWebApp() {
     setActiveLineId(id);
   }
 
+  function applyZoneAssignmentsLocally(
+    nextZones: CustomZoneAssignment[],
+  ) {
+    zoneAssignmentsRef.current = nextZones.map((zone) => ({ ...zone }));
+    setZoneAssignments(zoneAssignmentsRef.current);
+  }
+
+  function broadcastZoneAssignments(
+    nextZones: CustomZoneAssignment[] = zoneAssignmentsRef.current,
+  ) {
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ZONES",
+        zoneAssignments: nextZones.map((zone) => ({ ...zone })),
+      },
+    });
+  }
+
+  function sendCompleteBoardState(targetClientId: string) {
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_BOARD_STATE",
+        targetClientId,
+        sourceClientId: realtimeClientIdRef.current,
+        drawnLines: drawnLinesRef.current.map((line) => ({ ...line })),
+        routes: routesRef.current.map((route) => ({ ...route })),
+        zoneAssignments: zoneAssignmentsRef.current.map((zone) => ({
+          ...zone,
+        })),
+        manAssignments: { ...manAssignmentsRef.current },
+      },
+    });
+  }
+
+  function requestCompleteBoardState() {
+    initialBoardStateReceivedRef.current = false;
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "REQUEST_BOARD_STATE",
+        requestingClientId: realtimeClientIdRef.current,
+      },
+    });
+  }
+
   function startZoneCircle(clientX: number, clientY: number) {
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
@@ -6655,39 +8300,38 @@ function CoachBoardWebApp() {
     pushUndoSnapshot();
 
     const zoneId = crypto.randomUUID();
-    setSelectedFieldItem({ type: "zone", id: zoneId });
     const nextZones = [
-      ...zoneAssignments,
+      ...zoneAssignmentsRef.current.map((zone) => ({ ...zone })),
       {
         id: zoneId,
         defenderId: selectedDefender.id,
         x: point.x,
         y: point.y,
-        radius: 1.2,
+        radius: 2.5,
       },
     ];
 
-    setZoneAssignments(nextZones);
-
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_ZONES",
-        zoneAssignments: nextZones,
-      },
-    });
+    setSelectedFieldItem({ type: "zone", id: zoneId });
     setSelectedZoneId(zoneId);
     setZoneDraftId(zoneId);
+
+    // Update the live ref immediately so the very next pointermove cannot
+    // accidentally use the pre-click zone list.
+    applyZoneAssignmentsLocally(nextZones);
+
+    // Send the creation immediately so collaborators see the circle as soon
+    // as the coach starts drawing it.
+    broadcastZoneAssignments(nextZones);
   }
 
   function updateZoneDraft(clientX: number, clientY: number) {
     if (!zoneDraftId) return;
+
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
 
-    const nextZones = zoneAssignments.map((zone) => {
-      if (zone.id !== zoneDraftId) return zone;
+    const nextZones = zoneAssignmentsRef.current.map((zone) => {
+      if (zone.id !== zoneDraftId) return { ...zone };
 
       const nextRadius = Math.hypot(point.x - zone.x, point.y - zone.y);
 
@@ -6697,21 +8341,22 @@ function CoachBoardWebApp() {
       };
     });
 
-    setZoneAssignments(nextZones);
+    applyZoneAssignmentsLocally(nextZones);
 
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_ZONES",
-        zoneAssignments: nextZones,
-      },
-    });
+    // Broadcast live resize updates. The ref prevents old/stale frames from
+    // replacing a just-created circle.
+    broadcastZoneAssignments(nextZones);
   }
 
   function finalizeZoneDraft() {
     if (!zoneDraftId) return;
+
     setZoneDraftId(null);
+
+    // Always send one final authoritative snapshot on pointer-up. This makes
+    // the finished circle reliable even if an intermediate realtime packet
+    // was dropped or arrived out of order.
+    broadcastZoneAssignments(zoneAssignmentsRef.current);
   }
 
   function startZoneDrag(
@@ -6735,24 +8380,34 @@ function CoachBoardWebApp() {
 
   function updateZoneDrag(clientX: number, clientY: number) {
     if (!zoneDrag) return;
+
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
 
-    setZoneAssignments((current) =>
-      current.map((zone) => {
-        if (zone.id !== zoneDrag.id) return zone;
-        return {
-          ...zone,
-          x: Math.max(0, Math.min(100, point.x + zoneDrag.offsetX)),
-          y: Math.max(0, Math.min(100, point.y + zoneDrag.offsetY)),
-        };
-      }),
-    );
+    const nextZones = zoneAssignmentsRef.current.map((zone) => {
+      if (zone.id !== zoneDrag.id) return { ...zone };
+
+      return {
+        ...zone,
+        x: Math.max(0, Math.min(100, point.x + zoneDrag.offsetX)),
+        y: Math.max(0, Math.min(100, point.y + zoneDrag.offsetY)),
+      };
+    });
+
+    applyZoneAssignmentsLocally(nextZones);
+
+    // Keep the other screen moving with the drag instead of only updating
+    // the local screen.
+    broadcastZoneAssignments(nextZones);
   }
 
   function finalizeZoneDrag() {
     if (!zoneDrag) return;
+
     setZoneDrag(null);
+
+    // Final authoritative position.
+    broadcastZoneAssignments(zoneAssignmentsRef.current);
   }
 
   function updateDrawing(clientX: number, clientY: number) {
@@ -6859,6 +8514,77 @@ function CoachBoardWebApp() {
     return updated;
   }
 
+  function clearPlayerLongPressTimer() {
+    if (playerLongPressTimerRef.current !== null) {
+      window.clearTimeout(playerLongPressTimerRef.current);
+      playerLongPressTimerRef.current = null;
+    }
+  }
+
+  function beginPlayerLongPress(
+    playerId: string,
+    side: Side,
+    pointerId: number,
+    clientX: number,
+    clientY: number,
+  ) {
+    clearPlayerLongPressTimer();
+
+    playerLongPressActivatedRef.current = false;
+    suppressNextPlayerClickRef.current = false;
+    playerLongPressStartRef.current = {
+      playerId,
+      side,
+      pointerId,
+      x: clientX,
+      y: clientY,
+    };
+
+    playerLongPressTimerRef.current = window.setTimeout(() => {
+      const pending = playerLongPressStartRef.current;
+      if (!pending || pending.pointerId !== pointerId) return;
+
+      playerLongPressActivatedRef.current = true;
+      suppressNextPlayerClickRef.current = true;
+
+      setSelectedFieldItem(null);
+      setSelectedPlayerId(playerId);
+      setSelectedSide(side);
+      setTool("Move");
+      setDraggingId(playerId);
+      setDraggingSide(side);
+    }, 350);
+  }
+
+  function updatePlayerLongPress(clientX: number, clientY: number) {
+    const pending = playerLongPressStartRef.current;
+    if (!pending || playerLongPressActivatedRef.current) return;
+
+    const movedDistance = Math.hypot(
+      clientX - pending.x,
+      clientY - pending.y,
+    );
+
+    if (movedDistance > 10) {
+      clearPlayerLongPressTimer();
+      playerLongPressStartRef.current = null;
+
+      // In Draw mode, movement before the hold threshold means the coach
+      // intended to draw from the player. Start at the original press point
+      // so quick move/draw transitions feel natural.
+      if (tool === "Draw") {
+        startDrawing(pending.x, pending.y);
+        updateDrawing(clientX, clientY);
+      }
+    }
+  }
+
+  function finishPlayerLongPress() {
+    clearPlayerLongPressTimer();
+    playerLongPressStartRef.current = null;
+    playerLongPressActivatedRef.current = false;
+  }
+
   function updateDraggedPlayer(clientX: number, clientY: number) {
     if (!fieldRef.current || !draggingId || !draggingSide) return;
 
@@ -6872,7 +8598,9 @@ function CoachBoardWebApp() {
       Math.min(100, ((clientY - rect.top) / rect.height) * 100),
     );
     const rawYards = canonicalYardsFromDisplay(
-      yardsFromPercentY(screenPercentY),
+      specialTeamsUsesExpandedField
+        ? specialTeamsYardsFromPercentY(screenPercentY)
+        : yardsFromPercentY(screenPercentY),
     );
 
     if (draggingSide === "offense") {
@@ -6880,16 +8608,30 @@ function CoachBoardWebApp() {
         const moved = players.map((p) => {
           if (p.id !== draggingId) return p;
 
-          const canAlignOnLOS = offenseCanBeOnLOS(p);
+          const draggingFieldGoalWing = isFieldGoalWing(p);
+          const canAlignOnLOS =
+            !draggingFieldGoalWing && offenseCanBeOnLOS(p);
           const nextOnLOS =
             canAlignOnLOS && Math.abs(rawYards - LOS_YARDS) < 2.6;
 
-          const nextYards = nextOnLOS ? OFFENSE_ON_LOS_YARDS : rawYards;
+          // The FG wing icon has a deliberate half-icon visual anchor offset;
+          // subtract that amount when dragging so its center follows the cursor.
+          const wingAdjustedYards = draggingFieldGoalWing
+            ? rawYards -
+              (fgWingIconOffsetPct / 100) * FIELD_VISIBLE_YARDS
+            : rawYards;
+          const nextYards = nextOnLOS
+            ? OFFENSE_ON_LOS_YARDS
+            : draggingFieldGoalWing
+              ? Math.max(OFFENSE_ON_LOS_YARDS + BACKFIELD_MIN_DEPTH, wingAdjustedYards)
+              : rawYards;
 
           return { ...p, x, yardsFromGoal: nextYards, onLOS: nextOnLOS };
         });
 
-        const nextPlayers = enforceLegalOffenseFormation(moved);
+        const nextPlayers = specialTeamsUsesExpandedField
+          ? moved
+          : enforceLegalOffenseFormation(moved);
 
         realtimeChannelRef.current?.send({
           type: "broadcast",
@@ -7068,11 +8810,31 @@ function CoachBoardWebApp() {
     });
   }
 
+  function applyDefensePresetPlayers(middlePlayers: Player[]) {
+    const activeHash =
+      FIELD_HASH_PRESETS[fieldTemplate] ??
+      FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
+
+    const savedMiddlePlayers = middlePlayers.map((player) => ({
+      ...player,
+    }));
+
+    middleDefensePlayersRef.current = savedMiddlePlayers;
+
+    const shiftedPlayers = positionDefenseForBallSpot(
+      savedMiddlePlayers,
+      ballSpot,
+      activeHash,
+    );
+
+    applyDefensePlayers(shiftedPlayers);
+  }
+
   function loadDefensePreset(preset: DefensePreset) {
     if (footballTeamSize !== "11man") return;
     setSelectedDefenseFront(preset);
     if (preset === "4-3 Over")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -7086,7 +8848,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "4-3 Under")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 30, LOS_YARDS - 8),
@@ -7100,7 +8862,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-4 Base")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -7114,7 +8876,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 61, LOS_YARDS - 1, true),
       ]);
     if (preset === "4-2-5")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 66, LOS_YARDS - 8),
@@ -7128,7 +8890,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-3 Stack")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -7142,7 +8904,7 @@ function CoachBoardWebApp() {
         makeD("d11", "ROV", 30, LOS_YARDS - 6),
       ]);
     if (preset === "Bear")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         // Bear = 5-man front + 3 linebackers + 3 defensive backs.
         // This keeps both edges on the LOS instead of accidentally leaving the front short.
         makeD("d1", "CB", 10, LOS_YARDS - 7),
@@ -7158,7 +8920,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DT", 59, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-5")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         // 3-5 = 3 down linemen + 5 linebackers + 3 defensive backs.
         // The previous version only had two true down linemen; this restores the full 3-man front.
         makeD("d1", "CB", 10, LOS_YARDS - 7),
@@ -7174,7 +8936,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 61, LOS_YARDS - 1, true),
       ]);
     if (preset === "Nickel")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 42, LOS_YARDS - 12),
         makeD("d3", "SS", 62, LOS_YARDS - 12),
@@ -7188,7 +8950,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "Dime")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 42, LOS_YARDS - 12),
         makeD("d3", "SS", 62, LOS_YARDS - 12),
@@ -7202,7 +8964,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "Goal Line")
-      applyDefensePlayers([
+      applyDefensePresetPlayers([
         makeD("d1", "CB", 20, LOS_YARDS - 4),
         makeD("d2", "S", 50, LOS_YARDS - 7),
         makeD("d3", "CB", 80, LOS_YARDS - 4),
@@ -7445,7 +9207,73 @@ function CoachBoardWebApp() {
     setCustomPresetName("");
   }
 
+  function downloadCoachBoardBackup() {
+    if (typeof window === "undefined") return;
+    const storage: Record<string, string> = {};
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (!key?.startsWith("coachboard_")) continue;
+      const value = window.localStorage.getItem(key);
+      if (value !== null) storage[key] = value;
+    }
+    const backup = {
+      format: "coachboard-browser-backup-v1",
+      createdAt: new Date().toISOString(),
+      origin: window.location.origin,
+      storage,
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `CoachBoard_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  async function restoreCoachBoardBackup(file: File) {
+    try {
+      const backup = JSON.parse(await file.text()) as {
+        format?: string;
+        storage?: Record<string, unknown>;
+        origin?: string;
+      };
+      if (
+        backup.format !== "coachboard-browser-backup-v1" ||
+        !backup.storage || typeof backup.storage !== "object"
+      ) {
+        alert("This is not a CoachBoard browser backup file.");
+        return;
+      }
+      const entries = Object.entries(backup.storage).filter(
+        ([key, value]) => key.startsWith("coachboard_") && typeof value === "string",
+      ) as [string, string][];
+      if (!entries.length) {
+        alert("The backup does not contain any CoachBoard data.");
+        return;
+      }
+      if (
+        !window.confirm(
+          `Restore ${entries.length} saved CoachBoard items from this backup? ` +
+            "This will overwrite matching items in this browser. " +
+            "Download a backup of your current data first.",
+        )
+      ) return;
+      entries.forEach(([key, value]) => window.localStorage.setItem(key, value));
+      window.location.reload();
+    } catch (error) {
+      console.error("CoachBoard backup restoration failed:", error);
+      alert("Could not read or restore this backup file.");
+    }
+  }
+
   function resetToSystemPresets() {
+    if (!window.confirm(
+      "Reset all saved formations to system defaults? This removes custom formations " +
+      "from this browser. Download a CoachBoard backup first."
+    )) return;
     const systemPresets = makeDefaultOffensePresets(footballTeamSize);
     setCustomOffensePresets(systemPresets);
     window.localStorage.removeItem("coachboard_custom_offense_presets");
@@ -7942,8 +9770,6 @@ function CoachBoardWebApp() {
     setSelectedPlayId("");
     setSelectedPlayFormationId("");
     setActivePlaybookBuildId("");
-    setRoutes([]);
-    setDrawnLines([]);
   }
 
   function applyBallSpot(nextSpot: BallSpot, broadcast = true) {
@@ -8054,14 +9880,47 @@ function CoachBoardWebApp() {
         ...player,
       }));
 
+      // Formation click is authoritative: it always opens the selected
+      // offensive formation, including from Defense or Special Teams.
+      if (coachFocus !== "offense") {
+        setCoachFocus("offense");
+        realtimeChannelRef.current?.send({
+          type: "broadcast",
+          event: "board-event",
+          payload: { type: "SET_COACH_FOCUS", coachFocus: "offense" },
+        });
+      }
+      const standard = {
+        offense: nextPlayers.map((player) => ({ ...player })),
+        defense: nextDefensePlayers.map((player) => ({ ...player })),
+        middleOffense: middlePlayers.map((player) => ({ ...player })),
+        middleDefense: refreshedMiddleDefense.map((player) => ({ ...player })),
+        ballSpot: nextBallSpot,
+        selectedPlayId: "",
+        selectedPlayFormationId: id,
+        activePlaybookBuildId: "",
+      };
+      standardViewSnapshotRef.current = standard;
+      // Never let a later return-from-ST event restore an outdated lineup.
+      if (boardPersistenceReady) {
+        try {
+          window.localStorage.setItem(
+            getStandardViewBackupKey(), JSON.stringify(standard),
+          );
+        } catch (error) {
+          console.warn("Unable to back up selected formation:", error);
+        }
+      }
+      setSelectedSide("offense");
+      setSelectedPlayerId(nextPlayers[0]?.id ?? "x");
       setOffensePlayers(nextPlayers);
       setDefensePlayers(nextDefensePlayers);
       setSelectedPlayFormationId(id);
       setSelectedPresetDropdownId(id);
       setSelectedPlayId("");
       setActivePlaybookBuildId("");
-      setRoutes([]);
-      setDrawnLines([]);
+      // Preserve existing whiteboard markup when changing formations.
+      // Drawings, routes, zones, and assignments are only erased by Clear All.
       setBallSpot(nextBallSpot);
 
       realtimeChannelRef.current?.send({
@@ -8088,15 +9947,6 @@ function CoachBoardWebApp() {
         payload: {
           type: "SET_DEFENSE_PLAYERS",
           defensePlayers: nextDefensePlayers,
-        },
-      });
-
-      realtimeChannelRef.current?.send({
-        type: "broadcast",
-        event: "board-event",
-        payload: {
-          type: "SET_ROUTES",
-          routes: [],
         },
       });
 
@@ -8456,6 +10306,8 @@ function CoachBoardWebApp() {
     window.localStorage.removeItem("coachboard_field_template");
     window.localStorage.removeItem("coachboard_football_team_size");
     window.localStorage.removeItem("coachboard_coach_focus");
+    window.localStorage.removeItem("coachboard_special_teams_preset");
+    window.localStorage.removeItem("coachboard_9man_field_length");
   }
 
   function createGamePlan() {
@@ -8783,10 +10635,40 @@ function CoachBoardWebApp() {
   const activeFormation = customOffensePresets.find(
     (formation) => formation.id === selectedPlayFormationId,
   );
+  useEffect(() => {
+    if (!showOrganizationPanel || !organization || !user) return;
+    void refreshOrganizationMembers();
+  }, [showOrganizationPanel, organization?.team_id, user?.id]);
+
   const activeFieldHash =
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
 
+
+  const focusedSpecialTeamsPlayableYards =
+    specialTeamsUsesHighSchoolFocusedKickoff
+      ? specialTeamsPlayableYards === 80
+        ? 60
+        : 70
+      : specialTeamsPlayableYards;
+  const focusedSpecialTeamsVisibleYards =
+    focusedSpecialTeamsPlayableYards + 10;
+
+  const artworkEndZonePct = specialTeamsUsesExpandedField
+    ? (10 / focusedSpecialTeamsVisibleYards) * 100
+    : (END_ZONE_YARDS / FIELD_VISIBLE_YARDS) * 100;
+  const artworkPlayablePct = specialTeamsUsesExpandedField
+    ? (focusedSpecialTeamsPlayableYards /
+        focusedSpecialTeamsVisibleYards) *
+      100
+    : (PLAYABLE_YARDS / FIELD_VISIBLE_YARDS) * 100;
+  const artworkPlayableYards = specialTeamsUsesExpandedField
+    ? focusedSpecialTeamsPlayableYards
+    : PLAYABLE_YARDS;
+  const artworkYFromYards = (yards: number) =>
+    specialTeamsUsesExpandedField
+      ? specialTeamsFieldYFromYards(yards)
+      : fieldYFromYards(yards);
 
   const fieldSurfaceColor = fieldBlackWhiteMode
     ? "#f8fafc"
@@ -8807,6 +10689,192 @@ function CoachBoardWebApp() {
   const fieldNumberColor = fieldBlackWhiteMode
     ? "rgba(0,0,0,.88)"
     : "rgba(255,255,255,.88)";
+  function organizationRoleLabel(role: OrganizationRole) {
+    if (role === "owner") return "Owner";
+    if (role === "admin") return "Co-Owner";
+    if (role === "coach") return "Coach";
+    return "Viewer";
+  }
+
+  function organizationMemberDisplayName(
+    member: CoachBoardOrganizationMember,
+  ) {
+    const fullName =
+      member.full_name?.trim() ||
+      `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim();
+
+    return fullName || member.email || "CoachBoard Member";
+  }
+
+  function canManageOrganizationMembers() {
+    return organization?.role === "owner" || organization?.role === "admin";
+  }
+
+  async function refreshOrganizationMembers() {
+    if (!user || !organization) return;
+
+    setOrganizationMembersLoading(true);
+    setOrganizationMembersError("");
+
+    const { data, error } = await supabase.rpc(
+      "get_coachboard_organization_members",
+    );
+
+    if (error) {
+      setOrganizationMembers([]);
+      setOrganizationMembersError(
+        `Member list could not be loaded: ${error.message}`,
+      );
+      setOrganizationMembersLoading(false);
+      return;
+    }
+
+    const rows: Array<{
+      user_id?: unknown;
+      email?: unknown;
+      first_name?: unknown;
+      last_name?: unknown;
+      full_name?: unknown;
+      role?: unknown;
+      joined_at?: unknown;
+    }> = Array.isArray(data)
+      ? data
+      : data
+        ? [data]
+        : [];
+
+    setOrganizationMembers(
+      rows.map((row) => ({
+        user_id: String(row.user_id ?? ""),
+        email: String(row.email ?? ""),
+        first_name: String(row.first_name ?? ""),
+        last_name: String(row.last_name ?? ""),
+        full_name: String(row.full_name ?? ""),
+        role:
+          row.role === "owner" ||
+          row.role === "admin" ||
+          row.role === "viewer"
+            ? row.role
+            : "coach",
+        joined_at: row.joined_at ? String(row.joined_at) : null,
+      })),
+    );
+
+    setOrganizationMembersLoading(false);
+  }
+
+  async function changeOrganizationMemberRole(
+    member: CoachBoardOrganizationMember,
+    nextRole: OrganizationRole,
+  ) {
+    if (!organization || !canManageOrganizationMembers()) return;
+    if (member.role === nextRole) return;
+
+    const makingOwner = nextRole === "owner";
+    const currentUserIsOwner = organization.role === "owner";
+
+    if (makingOwner && !currentUserIsOwner) {
+      setOrganizationMembersError(
+        "Only the current owner can transfer organization ownership.",
+      );
+      return;
+    }
+
+    if (makingOwner) {
+      const confirmed = window.confirm(
+        `Transfer ownership to ${organizationMemberDisplayName(
+          member,
+        )}? You will become a Co-Owner after the transfer.`,
+      );
+
+      if (!confirmed) return;
+    }
+
+    setOrganizationMemberActionId(member.user_id);
+    setOrganizationMembersError("");
+    setOrganizationMembersMessage("");
+
+    const { error } = await supabase.rpc(
+      "set_coachboard_organization_member_role",
+      {
+        target_user_id: member.user_id,
+        new_role: nextRole,
+      },
+    );
+
+    if (error) {
+      setOrganizationMembersError(error.message);
+      setOrganizationMemberActionId(null);
+      return;
+    }
+
+    await refreshOrganization();
+    await refreshOrganizationMembers();
+
+    setOrganizationMembersMessage(
+      makingOwner
+        ? "Organization ownership transferred."
+        : `${organizationMemberDisplayName(member)} is now ${organizationRoleLabel(
+            nextRole,
+          )}.`,
+    );
+    setOrganizationMemberActionId(null);
+  }
+
+  async function removeOrganizationMember(
+    member: CoachBoardOrganizationMember,
+  ) {
+    if (!organization || !canManageOrganizationMembers()) return;
+
+    if (member.user_id === user?.id) {
+      setOrganizationMembersError(
+        "You cannot remove yourself from the organization here.",
+      );
+      return;
+    }
+
+    if (
+      member.role === "owner" &&
+      organization.role !== "owner"
+    ) {
+      setOrganizationMembersError(
+        "A Co-Owner cannot remove the organization Owner.",
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove ${organizationMemberDisplayName(
+        member,
+      )} from ${organization.team_name}? They will lose access to organization-shared CoachBoard content.`,
+    );
+
+    if (!confirmed) return;
+
+    setOrganizationMemberActionId(member.user_id);
+    setOrganizationMembersError("");
+    setOrganizationMembersMessage("");
+
+    const { error } = await supabase.rpc(
+      "remove_coachboard_organization_member",
+      {
+        target_user_id: member.user_id,
+      },
+    );
+
+    if (error) {
+      setOrganizationMembersError(error.message);
+      setOrganizationMemberActionId(null);
+      return;
+    }
+
+    await refreshOrganizationMembers();
+    setOrganizationMembersMessage(
+      `${organizationMemberDisplayName(member)} was removed.`,
+    );
+    setOrganizationMemberActionId(null);
+  }
+
   async function copyOrganizationInviteCode() {
     const code = organization?.invite_code;
     if (!code) return;
@@ -8887,8 +10955,6 @@ function CoachBoardWebApp() {
       setSelectedSide("offense");
       setSelectedPlayId("");
       setSelectedPlayFormationId("");
-      setRoutes([]);
-      setDrawnLines([]);
 
       // Changing football type causes the formation hydration effect to run again,
       // and that effect will then load the coach's saved #1 formation for the
@@ -9003,6 +11069,131 @@ function CoachBoardWebApp() {
     }
 
     setOrganizationSaving(false);
+  }
+
+  function openCoachProfile() {
+    setProfileFirstName(
+      user?.user_metadata?.first_name?.trim?.() ?? "",
+    );
+    setProfileLastName(
+      user?.user_metadata?.last_name?.trim?.() ?? "",
+    );
+    setProfileEmail(user?.email ?? "");
+    setProfileNewPassword("");
+    setProfileConfirmPassword("");
+    setProfileMessage("");
+    setProfileError("");
+    setShowCoachProfile(true);
+  }
+
+  function closeCoachProfile() {
+    if (profileSaving) return;
+    setShowCoachProfile(false);
+    setProfileNewPassword("");
+    setProfileConfirmPassword("");
+    setProfileMessage("");
+    setProfileError("");
+  }
+
+  async function saveCoachProfile() {
+    if (!user) return;
+
+    const nextFirstName = profileFirstName.trim();
+    const nextLastName = profileLastName.trim();
+    const nextEmail = profileEmail.trim().toLowerCase();
+    const nextPassword = profileNewPassword.trim();
+
+    if (!nextFirstName) {
+      setProfileError("Enter your first name.");
+      return;
+    }
+
+    if (!nextEmail || !nextEmail.includes("@")) {
+      setProfileError("Enter a valid email address.");
+      return;
+    }
+
+    if (nextPassword && nextPassword.length < 6) {
+      setProfileError("New password must be at least 6 characters.");
+      return;
+    }
+
+    if (nextPassword !== profileConfirmPassword.trim()) {
+      setProfileError("The new passwords do not match.");
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileError("");
+    setProfileMessage("");
+
+    try {
+      const fullName = `${nextFirstName} ${nextLastName}`.trim();
+
+      const profileUpdate = await supabase.auth.updateUser({
+        data: {
+          ...user.user_metadata,
+          first_name: nextFirstName,
+          last_name: nextLastName,
+          full_name: fullName,
+          name: fullName,
+        },
+      });
+
+      if (profileUpdate.error) {
+        throw profileUpdate.error;
+      }
+
+      let emailChanged = false;
+
+      if (nextEmail !== (user.email ?? "").toLowerCase()) {
+        const emailUpdate = await supabase.auth.updateUser({
+          email: nextEmail,
+        });
+
+        if (emailUpdate.error) {
+          throw emailUpdate.error;
+        }
+
+        emailChanged = true;
+      }
+
+      if (nextPassword) {
+        const passwordUpdate = await supabase.auth.updateUser({
+          password: nextPassword,
+        });
+
+        if (passwordUpdate.error) {
+          throw passwordUpdate.error;
+        }
+      }
+
+      const refreshed = await supabase.auth.getUser();
+      if (refreshed.data.user) {
+        setUser(refreshed.data.user);
+      } else if (profileUpdate.data.user) {
+        setUser(profileUpdate.data.user);
+      }
+
+      setProfileNewPassword("");
+      setProfileConfirmPassword("");
+
+      setProfileMessage(
+        emailChanged
+          ? "Profile saved. Check your email to confirm the new email address if confirmation is required."
+          : nextPassword
+            ? "Profile and password updated."
+            : "Profile updated.",
+      );
+    } catch (error) {
+      setProfileError(
+        error instanceof Error
+          ? error.message
+          : "Unable to update your profile.",
+      );
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   async function handleLogout() {
@@ -9445,6 +11636,155 @@ function CoachBoardWebApp() {
           backgroundColor: "#050505",
         }}
       >
+        <style>{`
+          .coachboard-login-page,
+          .coachboard-login-page * {
+            box-sizing: border-box;
+          }
+
+          @media (max-width: 1180px) {
+            .coachboard-login-page {
+              min-height: 100dvh !important;
+              overflow-x: hidden !important;
+            }
+
+            .coachboard-login-bg {
+              height: 100dvh !important;
+              min-height: 100dvh !important;
+              background-position: center center !important;
+            }
+
+            .coachboard-login-shell {
+              width: 100% !important;
+              min-height: 100dvh !important;
+              display: grid !important;
+              grid-template-columns: minmax(0, 1fr) !important;
+              align-content: center !important;
+              justify-items: center !important;
+              gap: 14px !important;
+              padding:
+                max(18px, env(safe-area-inset-top))
+                max(18px, env(safe-area-inset-right))
+                max(18px, env(safe-area-inset-bottom))
+                max(18px, env(safe-area-inset-left)) !important;
+            }
+
+            .coachboard-brand-side {
+              width: min(560px, 100%) !important;
+              min-width: 0 !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              text-align: center !important;
+            }
+
+            .coachboard-logo {
+              width: min(210px, 46vw) !important;
+              max-height: 150px !important;
+              object-fit: contain !important;
+              margin: 0 auto 4px !important;
+            }
+
+            .coachboard-brand-side h1,
+            .coachboard-features {
+              display: none !important;
+            }
+
+            .coachboard-login-card {
+              width: min(560px, 100%) !important;
+              max-width: 560px !important;
+              min-width: 0 !important;
+              margin: 0 auto !important;
+              padding: 22px !important;
+              border-radius: 20px !important;
+            }
+
+            .coachboard-login-card h2 {
+              font-size: clamp(28px, 4vw, 38px) !important;
+              margin-top: 0 !important;
+              margin-bottom: 7px !important;
+              text-align: center !important;
+            }
+
+            .coachboard-login-card .coachboard-subtitle {
+              text-align: center !important;
+              margin-bottom: 14px !important;
+            }
+
+            .coachboard-login-card input {
+              width: 100% !important;
+              min-width: 0 !important;
+              min-height: 48px !important;
+              font-size: 16px !important;
+            }
+
+            .coachboard-login-button,
+            .coachboard-create-button {
+              width: 100% !important;
+              min-height: 48px !important;
+            }
+          }
+
+          @media (max-width: 700px) {
+            .coachboard-login-shell {
+              align-content: start !important;
+              padding-top: 18px !important;
+            }
+
+            .coachboard-logo {
+              width: min(170px, 52vw) !important;
+              max-height: 112px !important;
+            }
+
+            .coachboard-login-card {
+              padding: 18px !important;
+              border-radius: 16px !important;
+            }
+          }
+
+          @media (max-height: 760px) and (max-width: 1180px) {
+            .coachboard-login-shell {
+              align-content: start !important;
+              padding-top: 12px !important;
+              padding-bottom: 12px !important;
+            }
+
+            .coachboard-logo {
+              width: 130px !important;
+              max-height: 82px !important;
+              margin-bottom: 0 !important;
+            }
+
+            .coachboard-login-card {
+              padding: 15px 18px !important;
+            }
+
+            .coachboard-login-card h2 {
+              font-size: 28px !important;
+              margin-bottom: 3px !important;
+            }
+
+            .coachboard-login-card .coachboard-divider {
+              margin-top: 8px !important;
+              margin-bottom: 8px !important;
+            }
+
+            .coachboard-login-card label {
+              margin-top: 7px !important;
+            }
+
+            .coachboard-login-card input {
+              min-height: 43px !important;
+            }
+
+            .coachboard-login-card .coachboard-footer {
+              margin-bottom: 0 !important;
+            }
+          }
+        `}</style>
+
         <div
           className="coachboard-login-bg"
           style={{
@@ -9694,6 +12034,7 @@ function CoachBoardWebApp() {
         fontFamily: "Arial",
       }}
       onPointerMove={(e) => {
+        updatePlayerLongPress(e.clientX, e.clientY);
         updateDraggedPlayer(e.clientX, e.clientY);
         updateDrawing(e.clientX, e.clientY);
         updateLineEdit(e.clientX, e.clientY);
@@ -9701,6 +12042,7 @@ function CoachBoardWebApp() {
         updateZoneDrag(e.clientX, e.clientY);
       }}
       onPointerUp={() => {
+        finishPlayerLongPress();
         finalizeDrawing();
         finalizeLineEdit();
         finalizeZoneDraft();
@@ -9710,6 +12052,7 @@ function CoachBoardWebApp() {
         setActiveLineId(null);
       }}
       onPointerCancel={() => {
+        finishPlayerLongPress();
         finalizeDrawing();
         finalizeLineEdit();
         finalizeZoneDraft();
@@ -9719,6 +12062,703 @@ function CoachBoardWebApp() {
         setActiveLineId(null);
       }}
     >
+      <style>{`
+        .coachboard-main-grid,
+        .coachboard-center-column,
+        .coachboard-player-column,
+        .coachboard-tool-rail {
+          min-width: 0;
+        }
+
+        @media (max-width: 1180px) {
+          body.coachboard-field-fullscreen-active .coachboard-tool-rail,
+          body.coachboard-field-fullscreen-active .coachboard-player-column {
+            display: none !important;
+          }
+
+          body.coachboard-field-fullscreen-active .coachboard-main-grid {
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+          }
+
+          body.coachboard-field-fullscreen-active .coachboard-center-column {
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
+          }
+
+          .coachboard-field-fullscreen-shell {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100dvw !important;
+            height: 100dvh !important;
+            min-height: 100dvh !important;
+            max-width: none !important;
+            max-height: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            overflow: hidden !important;
+            background: #000 !important;
+            z-index: 2147483000 !important;
+          }
+
+          .coachboard-fullscreen-field-surface {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            max-height: none !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+          }
+
+          /* iPad/Safari can place its own fullscreen close control at top-left.
+             Keep CoachBoard's menu away from that control. */
+          .fullscreen-menu-toggle {
+            left: auto !important;
+            right: max(18px, env(safe-area-inset-right)) !important;
+            top: max(18px, env(safe-area-inset-top)) !important;
+            min-width: 52px !important;
+            min-height: 48px !important;
+          }
+
+          .fullscreen-quick-toolbar {
+            /* Leave a protected zone for iPad/Safari's native fullscreen X
+               so the first CoachBoard tool is always fully visible. */
+            left: max(96px, calc(env(safe-area-inset-left) + 82px)) !important;
+            right: max(86px, calc(env(safe-area-inset-right) + 68px)) !important;
+            top: max(18px, env(safe-area-inset-top)) !important;
+            padding-left: 10px !important;
+            scroll-padding-left: 10px !important;
+          }
+
+          .coachboard-app-background {
+            padding: 8px !important;
+            overflow-x: hidden !important;
+          }
+
+          /* Tablet Coach Tools becomes a compact command dock instead of a
+             stretched desktop sidebar. */
+          .coachboard-tool-rail {
+            display: grid !important;
+            grid-template-columns:
+              minmax(118px, 0.8fr)
+              minmax(220px, 1.45fr)
+              repeat(4, minmax(100px, 1fr)) !important;
+            align-items: stretch !important;
+            gap: 7px !important;
+            width: 100% !important;
+            padding: 8px !important;
+            border-radius: 16px !important;
+            background:
+              linear-gradient(
+                135deg,
+                rgba(15, 23, 42, .96),
+                rgba(2, 6, 23, .93)
+              ) !important;
+            border: 1px solid rgba(148, 163, 184, .18) !important;
+            box-shadow:
+              0 16px 36px rgba(0,0,0,.28),
+              inset 0 1px 0 rgba(255,255,255,.035) !important;
+            overflow: visible !important;
+          }
+
+          .coach-tools-title {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-width: 0 !important;
+            padding: 0 9px !important;
+            margin: 0 !important;
+            border-radius: 11px !important;
+            color: #f87171 !important;
+            background: rgba(239,68,68,.07) !important;
+            border: 1px solid rgba(248,113,113,.13) !important;
+            text-align: center !important;
+            font-size: 11px !important;
+            letter-spacing: .12em !important;
+            line-height: 1.15 !important;
+          }
+
+          .coach-tools-view-group {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 6px !important;
+            padding: 5px !important;
+            border-radius: 12px !important;
+            background: rgba(255,255,255,.035) !important;
+            border: 1px solid rgba(255,255,255,.07) !important;
+            min-width: 0 !important;
+          }
+
+          .coach-tools-view-label {
+            display: none !important;
+          }
+
+          .coach-tool-view-button,
+          .coach-tool-nav-button,
+          .coach-tool-gameday-button {
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 48px !important;
+            margin: 0 !important;
+            padding: 8px 10px !important;
+            border-radius: 11px !important;
+            font-size: 12px !important;
+            font-weight: 900 !important;
+            line-height: 1.08 !important;
+            text-align: center !important;
+            white-space: normal !important;
+            box-shadow: none !important;
+          }
+
+          .coach-tool-nav-button {
+            background:
+              linear-gradient(
+                180deg,
+                rgba(30,41,59,.94),
+                rgba(10,15,25,.97)
+              ) !important;
+            border: 1px solid rgba(148,163,184,.14) !important;
+          }
+
+          .coach-tool-nav-button:hover {
+            border-color: rgba(248,113,113,.35) !important;
+          }
+
+          .coach-profile-button {
+            position: relative !important;
+          }
+
+          .coach-profile-button::before {
+            content: "●";
+            margin-right: 6px;
+            color: #f87171;
+            font-size: 9px;
+            vertical-align: middle;
+          }
+
+          .coach-tools-gameday-wrap {
+            margin: 0 !important;
+            min-width: 0 !important;
+          }
+
+          .coach-tool-gameday-button {
+            height: 100% !important;
+            min-height: 48px !important;
+          }
+
+          .coach-tools-gameday-wrap > div {
+            display: none !important;
+          }
+
+          .coach-tools-organization-card {
+            grid-column: span 2 !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 48px !important;
+            margin: 0 !important;
+            padding: 8px 11px !important;
+            border-radius: 11px !important;
+          }
+
+          .coach-tools-organization-card > div:nth-child(3),
+          .coach-tools-organization-card > button {
+            display: none !important;
+          }
+
+          .coachboard-main-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 9px !important;
+            width: 100% !important;
+            max-width: none !important;
+          }
+
+          .coachboard-tool-rail {
+            grid-column: 1 !important;
+            grid-row: auto !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 4500 !important;
+            min-width: 0 !important;
+          }
+
+          .coachboard-center-column {
+            grid-column: 1 !important;
+            grid-row: auto !important;
+            width: 100% !important;
+            max-width: none !important;
+            gap: 9px !important;
+          }
+
+          .coachboard-center-column > * {
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+
+          .coachboard-player-column {
+            grid-column: 1 !important;
+            grid-row: auto !important;
+            width: 100% !important;
+            max-width: none !important;
+            padding: 11px !important;
+            gap: 9px !important;
+          }
+
+          .coachboard-player-column input,
+          .coachboard-player-column select,
+          .coachboard-player-column button {
+            min-height: 44px;
+          }
+        }
+
+        @media (max-width: 820px) {
+          .coachboard-app-background {
+            padding: 6px !important;
+          }
+
+          .coachboard-tool-rail {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+          }
+
+          .coach-tools-title {
+            grid-column: span 1 !important;
+          }
+
+          .coach-tools-view-group {
+            grid-column: span 2 !important;
+          }
+
+          .coach-tool-view-button,
+          .coach-tool-nav-button,
+          .coach-tool-gameday-button {
+            min-height: 46px !important;
+            font-size: 11px !important;
+          }
+
+          .coach-tools-organization-card {
+            grid-column: span 2 !important;
+          }
+
+          .coachboard-main-grid {
+            gap: 7px !important;
+          }
+
+
+
+          .coachboard-player-column {
+            padding: 9px !important;
+          }
+
+          .coach-profile-modal {
+            padding: 16px !important;
+            max-height: calc(100dvh - 20px) !important;
+          }
+
+          .coachboard-organization-members-row {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .coach-profile-modal > div:nth-of-type(2),
+          .coach-profile-modal > div:nth-of-type(4) {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+
+          .coachboard-center-column input,
+          .coachboard-center-column select,
+          .coachboard-center-column button,
+          .coachboard-player-column input,
+          .coachboard-player-column select,
+          .coachboard-player-column button {
+            min-height: 44px;
+          }
+        }
+      `}</style>
+
+      {showCoachProfile && user && (
+        <div
+          onClick={closeCoachProfile}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 12000,
+            display: "grid",
+            placeItems: "center",
+            padding: 18,
+            background: "rgba(0,0,0,.78)",
+            backdropFilter: "blur(9px)",
+          }}
+        >
+          <section
+            className="coach-profile-modal"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              ...cardStyle,
+              width: "min(620px, 100%)",
+              maxHeight: "min(760px, calc(100dvh - 36px))",
+              overflowY: "auto",
+              padding: 22,
+              display: "grid",
+              gap: 16,
+              border: "1px solid rgba(248,113,113,.28)",
+              boxShadow: "0 28px 80px rgba(0,0,0,.58)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 14,
+                alignItems: "flex-start",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  style={{
+                    width: 54,
+                    height: 54,
+                    borderRadius: "50%",
+                    display: "grid",
+                    placeItems: "center",
+                    background:
+                      "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)",
+                    color: "white",
+                    fontWeight: 950,
+                    fontSize: 20,
+                    border: "2px solid rgba(248,113,113,.55)",
+                    flex: "0 0 auto",
+                  }}
+                >
+                  {(
+                    `${profileFirstName?.[0] ?? ""}${
+                      profileLastName?.[0] ?? ""
+                    }`.trim() || "C"
+                  ).toUpperCase()}
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <div style={panelHeaderStyle}>COACH PROFILE</div>
+                  <h2
+                    style={{
+                      margin: "4px 0 2px",
+                      color: "white",
+                      fontSize: 25,
+                      lineHeight: 1.05,
+                    }}
+                  >
+                    {getProfileFullName(user)}
+                  </h2>
+                  <div
+                    style={{
+                      color: "#94a3b8",
+                      fontSize: 13,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {organization
+                      ? `${organization.team_name} • ${organization.role}`
+                      : "CoachBoard Account"}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeCoachProfile}
+                disabled={profileSaving}
+                style={{
+                  ...buttonBase,
+                  width: 42,
+                  minWidth: 42,
+                  height: 42,
+                  padding: 0,
+                  borderRadius: 12,
+                  background: "#111827",
+                  color: "white",
+                  fontSize: 20,
+                }}
+                aria-label="Close profile"
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: 10,
+              }}
+            >
+              <label style={{ display: "grid", gap: 6 }}>
+                <span
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  FIRST NAME
+                </span>
+                <input
+                  value={profileFirstName}
+                  onChange={(event) =>
+                    setProfileFirstName(event.target.value)
+                  }
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                    minWidth: 0,
+                  }}
+                  placeholder="First name"
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  LAST NAME
+                </span>
+                <input
+                  value={profileLastName}
+                  onChange={(event) =>
+                    setProfileLastName(event.target.value)
+                  }
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                    minWidth: 0,
+                  }}
+                  placeholder="Last name"
+                />
+              </label>
+            </div>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span
+                style={{
+                  color: "#cbd5e1",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: ".08em",
+                }}
+              >
+                EMAIL
+              </span>
+              <input
+                type="email"
+                value={profileEmail}
+                onChange={(event) => setProfileEmail(event.target.value)}
+                style={{
+                  ...inputStyle,
+                  width: "100%",
+                  minWidth: 0,
+                }}
+                placeholder="coach@example.com"
+              />
+              <span style={{ color: "#64748b", fontSize: 11 }}>
+                Changing your email may require confirmation from the new
+                address before the change becomes active.
+              </span>
+            </label>
+
+            <div
+              style={{
+                paddingTop: 4,
+                borderTop: "1px solid rgba(255,255,255,.08)",
+              }}
+            >
+              <div style={panelHeaderStyle}>PASSWORD</div>
+              <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
+                Leave these blank if you do not want to change your password.
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: 10,
+              }}
+            >
+              <label style={{ display: "grid", gap: 6 }}>
+                <span
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  NEW PASSWORD
+                </span>
+                <input
+                  type="password"
+                  value={profileNewPassword}
+                  onChange={(event) =>
+                    setProfileNewPassword(event.target.value)
+                  }
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                    minWidth: 0,
+                  }}
+                  placeholder="New password"
+                  autoComplete="new-password"
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span
+                  style={{
+                    color: "#cbd5e1",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  CONFIRM PASSWORD
+                </span>
+                <input
+                  type="password"
+                  value={profileConfirmPassword}
+                  onChange={(event) =>
+                    setProfileConfirmPassword(event.target.value)
+                  }
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                    minWidth: 0,
+                  }}
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                />
+              </label>
+            </div>
+
+            {organization && (
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,.04)",
+                  border: "1px solid rgba(255,255,255,.08)",
+                  display: "grid",
+                  gap: 5,
+                }}
+              >
+                <div style={panelHeaderStyle}>ORGANIZATION</div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <strong style={{ color: "white" }}>
+                    {organization.team_name}
+                  </strong>
+                  <span style={{ color: "#94a3b8", textTransform: "capitalize" }}>
+                    {organization.role}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {profileError && (
+              <div
+                style={{
+                  padding: 11,
+                  borderRadius: 11,
+                  background: "rgba(127,29,29,.35)",
+                  border: "1px solid rgba(248,113,113,.35)",
+                  color: "#fecaca",
+                  fontWeight: 800,
+                  fontSize: 13,
+                }}
+              >
+                {profileError}
+              </div>
+            )}
+
+            {profileMessage && (
+              <div
+                style={{
+                  padding: 11,
+                  borderRadius: 11,
+                  background: "rgba(22,101,52,.32)",
+                  border: "1px solid rgba(74,222,128,.28)",
+                  color: "#bbf7d0",
+                  fontWeight: 800,
+                  fontSize: 13,
+                }}
+              >
+                {profileMessage}
+              </div>
+            )}
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                gap: 9,
+                alignItems: "center",
+              }}
+            >
+              <button
+                type="button"
+                onClick={saveCoachProfile}
+                disabled={profileSaving}
+                style={{
+                  ...buttonBase,
+                  minHeight: 48,
+                  background: "#dc2626",
+                  color: "white",
+                  fontWeight: 950,
+                  opacity: profileSaving ? 0.65 : 1,
+                }}
+              >
+                {profileSaving ? "Saving..." : "Save Profile"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={profileSaving}
+                style={{
+                  ...buttonBase,
+                  minHeight: 48,
+                  background: "#111827",
+                  color: "#fca5a5",
+                  border: "1px solid rgba(248,113,113,.24)",
+                }}
+              >
+                Log Out
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {showOrganizationPanel && organization && (
         <div
           onClick={() => setShowOrganizationPanel(false)}
@@ -9737,7 +12777,9 @@ function CoachBoardWebApp() {
             onClick={(event) => event.stopPropagation()}
             style={{
               ...cardStyle,
-              width: "min(560px, 100%)",
+              width: "min(860px, 100%)",
+              maxHeight: "min(860px, calc(100dvh - 36px))",
+              overflowY: "auto",
               padding: 28,
               color: "white",
             }}
@@ -9850,6 +12892,279 @@ function CoachBoardWebApp() {
               </div>
             )}
 
+            <div
+              style={{
+                marginTop: 18,
+                paddingTop: 18,
+                borderTop: "1px solid rgba(255,255,255,.09)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <div style={panelHeaderStyle}>ORGANIZATION MEMBERS</div>
+                  <h3
+                    style={{
+                      margin: "5px 0 0",
+                      color: "white",
+                      fontSize: 21,
+                    }}
+                  >
+                    {organizationMembers.length} Member
+                    {organizationMembers.length === 1 ? "" : "s"}
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void refreshOrganizationMembers()}
+                  disabled={organizationMembersLoading}
+                  style={{
+                    ...buttonBase,
+                    padding: "9px 12px",
+                    minHeight: 40,
+                    background: "#111827",
+                    color: "white",
+                  }}
+                >
+                  {organizationMembersLoading ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 8,
+                  color: "#94a3b8",
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                }}
+              >
+                Owner has full organization control. Co-Owners can manage
+                coaches and viewers. Only the Owner can transfer ownership.
+              </div>
+
+              {organizationMembersError && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 10,
+                    borderRadius: 10,
+                    background: "rgba(127,29,29,.38)",
+                    border: "1px solid rgba(248,113,113,.34)",
+                    color: "#fecaca",
+                    fontWeight: 800,
+                    fontSize: 12,
+                  }}
+                >
+                  {organizationMembersError}
+                </div>
+              )}
+
+              {organizationMembersMessage && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 10,
+                    borderRadius: 10,
+                    background: "rgba(22,101,52,.30)",
+                    border: "1px solid rgba(74,222,128,.28)",
+                    color: "#bbf7d0",
+                    fontWeight: 800,
+                    fontSize: 12,
+                  }}
+                >
+                  {organizationMembersMessage}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  marginTop: 12,
+                }}
+              >
+                {organizationMembersLoading &&
+                  organizationMembers.length === 0 && (
+                    <div
+                      style={{
+                        padding: 16,
+                        borderRadius: 12,
+                        background: "rgba(255,255,255,.035)",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      Loading organization members...
+                    </div>
+                  )}
+
+                {!organizationMembersLoading &&
+                  organizationMembers.length === 0 &&
+                  !organizationMembersError && (
+                    <div
+                      style={{
+                        padding: 16,
+                        borderRadius: 12,
+                        background: "rgba(255,255,255,.035)",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      No organization members were returned.
+                    </div>
+                  )}
+
+                {organizationMembers.map((member) => {
+                  const isCurrentUser = member.user_id === user?.id;
+                  const busy =
+                    organizationMemberActionId === member.user_id;
+                  const canManage = canManageOrganizationMembers();
+                  const currentUserIsOwner = organization.role === "owner";
+
+                  const canChangeThisMember =
+                    canManage &&
+                    !isCurrentUser &&
+                    (currentUserIsOwner || member.role !== "owner");
+
+                  const canRemoveThisMember =
+                    canManage &&
+                    !isCurrentUser &&
+                    member.role !== "owner" &&
+                    !(
+                      organization.role === "admin" &&
+                      member.role === "admin"
+                    );
+
+                  return (
+                    <div
+                      key={member.user_id}
+                      className="coachboard-organization-members-row"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "minmax(0, 1.5fr) minmax(135px, .7fr) auto",
+                        gap: 10,
+                        alignItems: "center",
+                        padding: 12,
+                        borderRadius: 13,
+                        background:
+                          member.role === "owner"
+                            ? "rgba(220,38,38,.10)"
+                            : "rgba(255,255,255,.035)",
+                        border:
+                          member.role === "owner"
+                            ? "1px solid rgba(248,113,113,.28)"
+                            : "1px solid rgba(255,255,255,.07)",
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            color: "white",
+                            fontWeight: 900,
+                            fontSize: 14,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {organizationMemberDisplayName(member)}
+                          {isCurrentUser ? " (You)" : ""}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 3,
+                            color: "#94a3b8",
+                            fontSize: 11,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {member.email}
+                        </div>
+                      </div>
+
+                      {canChangeThisMember ? (
+                        <select
+                          value={member.role}
+                          disabled={busy}
+                          onChange={(event) =>
+                            void changeOrganizationMemberRole(
+                              member,
+                              event.target.value as OrganizationRole,
+                            )
+                          }
+                          style={{
+                            ...inputStyle,
+                            width: "100%",
+                            minWidth: 0,
+                            padding: "8px 9px",
+                            minHeight: 40,
+                          }}
+                        >
+                          <option value="owner" disabled={!currentUserIsOwner}>
+                            Owner
+                          </option>
+                          <option value="admin">Co-Owner</option>
+                          <option value="coach">Coach</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                      ) : (
+                        <div
+                          style={{
+                            padding: "9px 10px",
+                            borderRadius: 9,
+                            background:
+                              member.role === "owner"
+                                ? "rgba(220,38,38,.18)"
+                                : "rgba(255,255,255,.06)",
+                            color:
+                              member.role === "owner"
+                                ? "#fecaca"
+                                : "#e2e8f0",
+                            fontWeight: 900,
+                            fontSize: 12,
+                            textAlign: "center",
+                          }}
+                        >
+                          {organizationRoleLabel(member.role)}
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={!canRemoveThisMember || busy}
+                        onClick={() =>
+                          void removeOrganizationMember(member)
+                        }
+                        style={{
+                          ...buttonBase,
+                          minHeight: 40,
+                          padding: "8px 11px",
+                          background: canRemoveThisMember
+                            ? "#7f1d1d"
+                            : "#111827",
+                          color: canRemoveThisMember
+                            ? "#fecaca"
+                            : "#64748b",
+                          opacity: busy ? 0.65 : 1,
+                        }}
+                      >
+                        {busy ? "..." : "Remove"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={() => setShowOrganizationPanel(false)}
@@ -9922,7 +13237,6 @@ function CoachBoardWebApp() {
 
                 const newCode = generateTeamCode();
 
-                clearWhiteboardForGamedayRoom();
                 localStorage.setItem("coachboard_team_code", newCode);
 
                 setTeamCode(newCode);
@@ -9951,7 +13265,6 @@ function CoachBoardWebApp() {
                   return;
                 }
 
-                clearWhiteboardForGamedayRoom();
                 localStorage.setItem("coachboard_team_code", cleanedCode);
 
                 setTeamCode(cleanedCode);
@@ -10031,6 +13344,7 @@ function CoachBoardWebApp() {
       )}
 
       <div
+        className="coachboard-main-grid"
         style={{
           maxWidth: 1600,
           margin: "0 auto",
@@ -10040,6 +13354,7 @@ function CoachBoardWebApp() {
         }}
       >
         <div
+          className="coachboard-tool-rail"
           style={{
             ...cardStyle,
             padding: 14,
@@ -10048,8 +13363,9 @@ function CoachBoardWebApp() {
             gap: 9,
           }}
         >
-          <div style={panelHeaderStyle}>Coach Tools</div>
+          <div className="coach-tools-title" style={panelHeaderStyle}>Coach Tools</div>
           <div
+            className="coach-tools-view-group"
             style={{
               display: "grid",
               gap: 6,
@@ -10060,11 +13376,13 @@ function CoachBoardWebApp() {
             }}
           >
             <div
+              className="coach-tools-view-label"
               style={{ ...panelHeaderStyle, color: "#d1d5db", fontSize: 10 }}
             >
               View
             </div>
             <button
+              className="coach-tool-view-button"
               style={{
                 ...buttonBase,
                 width: "100%",
@@ -10077,6 +13395,7 @@ function CoachBoardWebApp() {
               Offense View
             </button>
             <button
+              className="coach-tool-view-button"
               style={{
                 ...buttonBase,
                 width: "100%",
@@ -10088,8 +13407,67 @@ function CoachBoardWebApp() {
             >
               Defense View
             </button>
+            <button
+              className="coach-tool-view-button"
+              style={{
+                ...buttonBase,
+                width: "100%",
+                background:
+                  coachFocus === "specialTeams" ? "#dc2626" : "#090b10",
+                color: "white",
+                padding: "8px",
+              }}
+              onClick={() => applyCoachFocus("specialTeams")}
+            >
+              Special Teams
+            </button>
+            {coachFocus === "specialTeams" && (
+              <select
+                value={specialTeamsPreset}
+                onChange={(event) =>
+                  loadSpecialTeamsPreset(
+                    event.target.value as SpecialTeamsPreset,
+                  )
+                }
+                style={{
+                  ...inputStyle,
+                  width: "100%",
+                  minHeight: 38,
+                  gridColumn: "1 / -1",
+                  fontWeight: 800,
+                }}
+              >
+                {SPECIAL_TEAMS_PRESETS.map((preset) => (
+                  <option key={preset} value={preset}>
+                    {preset}
+                  </option>
+                ))}
+              </select>
+            )}
+            {coachFocus === "specialTeams" &&
+              footballTeamSize === "9man" &&
+              specialTeamsUsesExpandedField && (
+                <select
+                  value={nineManFieldLength}
+                  onChange={(event) => {
+                    const next =
+                      event.target.value as NineManFieldLength;
+                    setNineManFieldLength(next);
+                  }}
+                  style={{
+                    ...inputStyle,
+                    width: "100%",
+                    minHeight: 38,
+                    gridColumn: "1 / -1",
+                    fontWeight: 800,
+                  }}
+                >
+                  <option value="80">9-Man Field: 80 Yards</option>
+                  <option value="100">9-Man Field: 100 Yards</option>
+                </select>
+              )}
           </div>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10115,7 +13493,7 @@ function CoachBoardWebApp() {
           >
             Formations
           </button>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10139,7 +13517,7 @@ function CoachBoardWebApp() {
           >
             Plays
           </button>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10162,7 +13540,7 @@ function CoachBoardWebApp() {
           >
             Concepts
           </button>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10185,7 +13563,7 @@ function CoachBoardWebApp() {
           >
             Playbooks
           </button>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10209,7 +13587,7 @@ function CoachBoardWebApp() {
           >
             Game Plan
           </button>
-          <button
+          <button className="coach-tool-nav-button"
   style={{
     ...buttonBase,
     width: "100%",
@@ -10223,8 +13601,9 @@ function CoachBoardWebApp() {
 >
   Analytics
 </button>
-          <div style={{ marginTop: 14 }}>
+          <div className="coach-tools-gameday-wrap" style={{ marginTop: 14 }}>
             <button
+              className="coach-tool-gameday-button"
               onClick={() => setShowGamedayRoom(true)}
               style={{
                 width: "100%",
@@ -10246,7 +13625,7 @@ function CoachBoardWebApp() {
               </div>
             )}
           </div>
-          <button
+          <button className="coach-tool-nav-button"
             style={{
               ...buttonBase,
               width: "100%",
@@ -10270,8 +13649,25 @@ function CoachBoardWebApp() {
           >
             Team Setup
           </button>
+
+          <button
+            className="coach-tool-nav-button coach-profile-button"
+            type="button"
+            onClick={openCoachProfile}
+            style={{
+              ...buttonBase,
+              width: "100%",
+              background: showCoachProfile ? "#dc2626" : "#090b10",
+              color: "white",
+              padding: "8px",
+            }}
+          >
+            Profile
+          </button>
+
           {organization && (
             <button
+              className="coach-tools-organization-card"
               type="button"
               onClick={() => setShowOrganizationPanel(true)}
               title="View organization details"
@@ -10442,11 +13838,15 @@ function CoachBoardWebApp() {
           </div>
 
           <div
+            className={fieldFullscreen ? "coachboard-field-fullscreen-shell" : undefined}
             style={{
               ...cardStyle,
               padding: fieldFullscreen ? 0 : 12,
               position: fieldFullscreen ? "fixed" : "relative",
               inset: fieldFullscreen ? 0 : undefined,
+              width: fieldFullscreen ? "100dvw" : undefined,
+              height: fieldFullscreen ? "100dvh" : undefined,
+              minHeight: fieldFullscreen ? "100dvh" : undefined,
               zIndex: fieldFullscreen ? 5000 : undefined,
               background: fieldFullscreen ? "#000" : cardStyle.background,
               overflow: fieldFullscreen ? "hidden" : undefined,
@@ -10474,6 +13874,7 @@ function CoachBoardWebApp() {
             {fieldFullscreen && (
               <>
                 <button
+                  className="fullscreen-menu-toggle"
                   style={{
                     ...buttonBase,
                     position: "fixed",
@@ -10512,11 +13913,12 @@ function CoachBoardWebApp() {
 
                 {showFullscreenQuickToolbar && (
                   <div
+                    className="fullscreen-quick-toolbar"
                     style={{
                       position: "fixed",
                       top: 28,
-                      left: 92,
-                      right: 28,
+                      left: 96,
+                      right: 86,
                       zIndex: 2147483646,
                       display: "flex",
                       flexWrap: "nowrap",
@@ -10865,6 +14267,62 @@ function CoachBoardWebApp() {
                   >
                     Defense View
                   </button>
+                  <button
+                    style={{
+                      ...buttonBase,
+                      width: "100%",
+                      background:
+                        coachFocus === "specialTeams" ? "#dc2626" : "#090b10",
+                      color: "white",
+                      padding: "8px",
+                    }}
+                    onClick={() => applyCoachFocus("specialTeams")}
+                  >
+                    Special Teams
+                  </button>
+                  {coachFocus === "specialTeams" && (
+                    <select
+                      value={specialTeamsPreset}
+                      onChange={(event) =>
+                        loadSpecialTeamsPreset(
+                          event.target.value as SpecialTeamsPreset,
+                        )
+                      }
+                      style={{
+                        ...inputStyle,
+                        width: "100%",
+                        minHeight: 38,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {SPECIAL_TEAMS_PRESETS.map((preset) => (
+                        <option key={preset} value={preset}>
+                          {preset}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {coachFocus === "specialTeams" &&
+                    footballTeamSize === "9man" &&
+                    specialTeamsUsesExpandedField && (
+                      <select
+                        value={nineManFieldLength}
+                        onChange={(event) => {
+                          const next =
+                            event.target.value as NineManFieldLength;
+                          setNineManFieldLength(next);
+                        }}
+                        style={{
+                          ...inputStyle,
+                          width: "100%",
+                          minHeight: 38,
+                          fontWeight: 800,
+                        }}
+                      >
+                        <option value="80">9-Man: 80-Yard Field</option>
+                        <option value="100">9-Man: 100-Yard Field</option>
+                      </select>
+                    )}
                 </div>
                 <button
                   style={{
@@ -11032,12 +14490,26 @@ function CoachBoardWebApp() {
                   (selectedZone?.radius ?? 5.8) + (e.deltaY > 0 ? -0.75 : 0.75),
                 );
               }}
+              className={fieldFullscreen ? "coachboard-fullscreen-field-surface" : undefined}
               style={{
                 position: "relative",
-                width: fieldFullscreen ? "100vw" : "100%",
-                height: fieldFullscreen ? "100vh" : undefined,
-                aspectRatio: fieldFullscreen ? undefined : "10 / 11",
-                maxHeight: fieldFullscreen ? undefined : "78vh",
+                width: fieldFullscreen ? "100%" : "100%",
+                height: fieldFullscreen ? "100%" : undefined,
+                minHeight: fieldFullscreen ? "100%" : undefined,
+                aspectRatio: fieldFullscreen
+                  ? undefined
+                  : specialTeamsUsesExpandedField
+                    ? specialTeamsUsesHighSchoolFocusedKickoff
+                      ? "8 / 12"
+                      : specialTeamsPlayableYards === 80
+                        ? "8 / 16"
+                        : "8 / 18"
+                    : "10 / 11",
+                maxHeight: fieldFullscreen
+                  ? undefined
+                  : specialTeamsUsesExpandedField
+                    ? "92vh"
+                    : "78vh",
                 margin: fieldFullscreen ? 0 : undefined,
                 borderRadius: fieldFullscreen ? 0 : 28,
                 overflow: "hidden",
@@ -11222,7 +14694,7 @@ function CoachBoardWebApp() {
                   position: "absolute",
                   insetInline: 0,
                   top: 0,
-                  height: "16.666%",
+                  height: `${artworkEndZonePct}%`,
                   background: fieldEndZoneColor,
                   display: "flex",
                   alignItems: "center",
@@ -11249,13 +14721,15 @@ function CoachBoardWebApp() {
                   right: "0%",
                   height: 2,
                   background: fieldHashLineColor,
-                  top: "16.666%",
+                  top: `${artworkEndZonePct}%`,
                   zIndex: 998,
                   pointerEvents: "none",
                 }}
               />
               {/* Major yard lines every 5 yards */}
-              {Array.from({ length: 11 }).map((_, i) => (
+              {Array.from({
+                length: specialTeamsUsesExpandedField ? focusedSpecialTeamsPlayableYards / 5 + 1 : 11,
+              }).map((_, i) => (
                 <div
                   key={i}
                   style={{
@@ -11264,14 +14738,23 @@ function CoachBoardWebApp() {
                     right: "0%",
                     height: 2,
                     background: fieldMajorLineColor,
-                    top: `${16.666 + i * (83.333 / 10)}%`,
+                    top: `${
+                      artworkEndZonePct +
+                      i *
+                        (artworkPlayablePct /
+                          (specialTeamsUsesExpandedField ? focusedSpecialTeamsPlayableYards / 5 : 10))
+                    }%`,
                     zIndex: 3,
                   }}
                 />
               ))}
               {/* Real field-style hash marks: sideline ticks + inside hashes every yard */}
-              {Array.from({ length: 51 }).map((_, i) => {
-                const y = 16.666 + i * (83.333 / 50);
+              {Array.from({
+                length: specialTeamsUsesExpandedField ? focusedSpecialTeamsPlayableYards + 1 : 51,
+              }).map((_, i) => {
+                const y =
+                  artworkEndZonePct +
+                  i * (artworkPlayablePct / artworkPlayableYards);
                 const isFive = i % 5 === 0;
                 return (
                   <React.Fragment key={i}>
@@ -11325,68 +14808,143 @@ function CoachBoardWebApp() {
                 );
               })}
               {/* Yard numbers */}
-              {[10, 20, 30, 40, 50].map((yard) => (
-                <React.Fragment key={yard}>
+              {(specialTeamsUsesExpandedField
+                ? specialTeamsUsesHighSchoolFocusedKickoff
+                  ? Array.from(
+                      {
+                        length:
+                          Math.floor(
+                            focusedSpecialTeamsPlayableYards / 10,
+                          ),
+                      },
+                      (_, index) => (index + 1) * 10,
+                    )
+                  : Array.from(
+                      {
+                        length:
+                          Math.floor(specialTeamsPlayableYards / 10) - 1,
+                      },
+                      (_, index) => (index + 1) * 10,
+                    )
+                : [10, 20, 30, 40, 50]
+              ).map((yard) => {
+                const midfield = specialTeamsPlayableYards / 2;
+                const displayYard =
+                  specialTeamsUsesExpandedField && yard > midfield
+                    ? specialTeamsPlayableYards - yard
+                    : yard;
+
+                return (
+                  <React.Fragment key={yard}>
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: "14%",
+                        top: `${artworkYFromYards(yard)}%`,
+                        transform: "translate(-50%,-50%) rotate(90deg)",
+                        fontWeight: 900,
+                        fontSize: fieldFullscreen ? 34 : 24,
+                        color: fieldNumberColor,
+                        zIndex: 5,
+                      }}
+                    >
+                      {displayYard}
+                    </div>
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: "14%",
+                        top: `${artworkYFromYards(yard)}%`,
+                        transform: "translate(50%,-50%) rotate(-90deg)",
+                        fontWeight: 900,
+                        fontSize: fieldFullscreen ? 34 : 24,
+                        color: fieldNumberColor,
+                        zIndex: 5,
+                      }}
+                    >
+                      {displayYard}
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+              {specialTeamsUsesExpandedField && kickoffRule.dynamic && (
+                <>
                   <div
                     style={{
                       position: "absolute",
-                      left: "14%",
-                      top: `${fieldYFromYards(yard)}%`,
-                      transform: "translate(-50%,-50%) rotate(90deg)",
-                      fontWeight: 900,
-                      fontSize: fieldFullscreen ? 34 : 24,
-                      color: fieldNumberColor,
-                      zIndex: 5,
+                      left: 0,
+                      right: 0,
+                      top: `${specialTeamsFieldYFromYards(kickoffRule.setupStart)}%`,
+                      height: `${
+                        specialTeamsFieldYFromYards(kickoffRule.setupEnd) -
+                        specialTeamsFieldYFromYards(kickoffRule.setupStart)
+                      }%`,
+                      background: "rgba(250,204,21,.10)",
+                      borderTop: "1px dashed rgba(250,204,21,.65)",
+                      borderBottom: "1px dashed rgba(250,204,21,.65)",
+                      zIndex: 2,
+                      pointerEvents: "none",
                     }}
-                  >
-                    {yard}
-                  </div>
+                  />
                   <div
                     style={{
                       position: "absolute",
-                      right: "14%",
-                      top: `${fieldYFromYards(yard)}%`,
-                      transform: "translate(50%,-50%) rotate(-90deg)",
-                      fontWeight: 900,
-                      fontSize: fieldFullscreen ? 34 : 24,
-                      color: fieldNumberColor,
-                      zIndex: 5,
+                      left: 0,
+                      right: 0,
+                      top: `${specialTeamsFieldYFromYards(0)}%`,
+                      height: `${
+                        specialTeamsFieldYFromYards(kickoffRule.landingEnd) -
+                        specialTeamsFieldYFromYards(0)
+                      }%`,
+                      background: "rgba(56,189,248,.07)",
+                      borderBottom: "1px dashed rgba(56,189,248,.55)",
+                      zIndex: 2,
+                      pointerEvents: "none",
                     }}
-                  >
-                    {yard}
-                  </div>
-                </React.Fragment>
-              ))}
+                  />
+                </>
+              )}
+
+              {specialTeamsUsesExpandedField &&
+                !specialTeamsUsesHighSchoolFocusedKickoff && (
+                <>
+                  <div
+                    style={{
+                      position: "absolute",
+                      insetInline: 0,
+                      bottom: 0,
+                      height: `${artworkEndZonePct}%`,
+                      background: fieldEndZoneColor,
+                      zIndex: 1,
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "0%",
+                      right: "0%",
+                      height: 2,
+                      background: fieldHashLineColor,
+                      top: `${100 - artworkEndZonePct}%`,
+                      zIndex: 998,
+                      pointerEvents: "none",
+                    }}
+                  />
+                </>
+              )}
+
               <div
                 style={{
                   position: "absolute",
                   left: "1%",
                   right: "1%",
-                  height: 3,
+                  height: specialTeamsUsesExpandedField ? 2 : 3,
                   background: "#38bdf8",
                   top: losTop,
                   zIndex: 1000,
                   pointerEvents: "none",
                 }}
               />
-              <div
-                style={{
-                  position: "absolute",
-                  left: 4,
-                  top: losTop,
-                  transform: "translateY(-50%)",
-                  background: "#ef4444",
-                  color: "white",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  borderRadius: 6,
-                  padding: "4px 8px",
-                  zIndex: 1001,
-                  pointerEvents: "none",
-                }}
-              >
-                LOS
-              </div>
 
               <svg
                 width="100%"
@@ -11851,13 +15409,28 @@ function CoachBoardWebApp() {
                       e.preventDefault();
                       e.stopPropagation();
                       e.currentTarget.setPointerCapture(e.pointerId);
+
                       if (tool === "Move") {
                         setDraggingId(player.id);
                         setDraggingSide("defense");
+                        return;
                       }
-                      if (tool === "Draw") startDrawing(e.clientX, e.clientY);
+
+                      // Long-press is available in every mode, including Draw.
+                      beginPlayerLongPress(
+                        player.id,
+                        "defense",
+                        e.pointerId,
+                        e.clientX,
+                        e.clientY,
+                      );
                     }}
                     onClick={() => {
+                      if (suppressNextPlayerClickRef.current) {
+                        suppressNextPlayerClickRef.current = false;
+                        return;
+                      }
+
                       setSelectedFieldItem(null);
                       setSelectedPlayerId(player.id);
                       setSelectedSide("defense");
@@ -11876,10 +15449,20 @@ function CoachBoardWebApp() {
                       background: playerFillColor,
                       color: playerTextColor,
                       fontWeight: 950,
-                      fontSize: isReadPlayer
-                        ? Math.max(6, playerFontPx * 0.68)
-                        : playerFontPx,
+                      fontSize: getPlayerLabelFontSize(
+                        player.position,
+                        playerFontPx,
+                        isReadPlayer,
+                      ),
                       lineHeight: 1,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "clip",
+                      padding: 0,
+                      letterSpacing:
+                        player.position.trim().length >= 4
+                          ? "-0.04em"
+                          : "normal",
                       left: `${player.x}%`,
                       top: playerTop(player),
                       transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
@@ -11918,13 +15501,28 @@ function CoachBoardWebApp() {
                     e.preventDefault();
                     e.stopPropagation();
                     e.currentTarget.setPointerCapture(e.pointerId);
+
                     if (tool === "Move") {
                       setDraggingId(player.id);
                       setDraggingSide("offense");
+                      return;
                     }
-                    if (tool === "Draw") startDrawing(e.clientX, e.clientY);
+
+                    // Long-press is available in every mode, including Draw.
+                    beginPlayerLongPress(
+                      player.id,
+                      "offense",
+                      e.pointerId,
+                      e.clientX,
+                      e.clientY,
+                    );
                   }}
                   onClick={() => {
+                    if (suppressNextPlayerClickRef.current) {
+                      suppressNextPlayerClickRef.current = false;
+                      return;
+                    }
+
                     if (tool === "Man") {
                       setManAssignOffenseId(player.id);
                       const nextAssignments = {
@@ -11991,7 +15589,19 @@ function CoachBoardWebApp() {
                       )
                     ),
                     fontWeight: 900,
-                    fontSize: playerFontPx,
+                    fontSize: getPlayerLabelFontSize(
+                      player.position,
+                      playerFontPx,
+                    ),
+                    lineHeight: 1,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "clip",
+                    padding: 0,
+                    letterSpacing:
+                      player.position.trim().length >= 4
+                        ? "-0.04em"
+                        : "normal",
                     left: `${player.x}%`,
                     top:
                       fieldFullscreen &&
@@ -12123,6 +15733,29 @@ function CoachBoardWebApp() {
               <div style={{ color: "#9ca3af", fontSize: 13 }}>
                 System presets always reload for new users. Your custom presets
                 save only in your browser. Drag Top 5 cards to reorder them.
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  style={{ ...buttonBase, background: "#166534", color: "white", padding: "8px 10px" }}
+                  onClick={downloadCoachBoardBackup}
+                >
+                  Download Data Backup
+                </button>
+                <label
+                  style={{ ...buttonBase, background: "#334155", color: "white", padding: "8px 10px", cursor: "pointer" }}
+                >
+                  Restore Data Backup
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    style={{ display: "none" }}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void restoreCoachBoardBackup(file);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
               </div>
               <div
                 style={{
@@ -14109,6 +17742,7 @@ function CoachBoardWebApp() {
 
         {!fieldFullscreen && (
           <div
+            className="coachboard-player-column"
             style={{
               ...cardStyle,
               padding: 18,
