@@ -1943,26 +1943,6 @@ function getDefaultPlayerColor(
   }
 }
 
-function getPlayerLabelFontSize(
-  label: string,
-  baseFontPx: number,
-  isReadPlayer = false,
-) {
-  const length = label.trim().length;
-
-  let scale = 1;
-
-  if (length === 3) scale = 0.78;
-  else if (length === 4) scale = 0.62;
-  else if (length >= 5) scale = 0.52;
-
-  if (isReadPlayer) {
-    scale *= 0.72;
-  }
-
-  return Math.max(5.5, baseFontPx * scale);
-}
-
 function getPlayerTextColor(player: Player, fillColor: string) {
   if (player.side === "defense") return "#000000";
   return fillColor.toUpperCase() === "#FFFFFF" ||
@@ -7698,31 +7678,11 @@ function CoachBoardWebApp() {
     });
   }
 
-  function applyDefensePresetPlayers(middlePlayers: Player[]) {
-    const activeHash =
-      FIELD_HASH_PRESETS[fieldTemplate] ??
-      FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
-
-    const savedMiddlePlayers = middlePlayers.map((player) => ({
-      ...player,
-    }));
-
-    middleDefensePlayersRef.current = savedMiddlePlayers;
-
-    const shiftedPlayers = positionDefenseForBallSpot(
-      savedMiddlePlayers,
-      ballSpot,
-      activeHash,
-    );
-
-    applyDefensePlayers(shiftedPlayers);
-  }
-
   function loadDefensePreset(preset: DefensePreset) {
     if (footballTeamSize !== "11man") return;
     setSelectedDefenseFront(preset);
     if (preset === "4-3 Over")
-      applyDefensePresetPlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -7736,7 +7696,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "4-3 Under")
-      applyDefensePresetPlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 30, LOS_YARDS - 8),
@@ -7750,7 +7710,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-4 Base")
-      applyDefensePresetPlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -7764,7 +7724,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 61, LOS_YARDS - 1, true),
       ]);
     if (preset === "4-2-5")
-      applyDefensePresetPlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 66, LOS_YARDS - 8),
@@ -7778,7 +7738,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-3 Stack")
-      applyDefensePresetPlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 50, LOS_YARDS - 12),
         makeD("d3", "SS", 74, LOS_YARDS - 8),
@@ -7792,7 +7752,7 @@ function CoachBoardWebApp() {
         makeD("d11", "ROV", 30, LOS_YARDS - 6),
       ]);
     if (preset === "Bear")
-      applyDefensePresetPlayers([
+      applyDefensePlayers([
         // Bear = 5-man front + 3 linebackers + 3 defensive backs.
         // This keeps both edges on the LOS instead of accidentally leaving the front short.
         makeD("d1", "CB", 10, LOS_YARDS - 7),
@@ -7808,7 +7768,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DT", 59, LOS_YARDS - 1, true),
       ]);
     if (preset === "3-5")
-      applyDefensePresetPlayers([
+      applyDefensePlayers([
         // 3-5 = 3 down linemen + 5 linebackers + 3 defensive backs.
         // The previous version only had two true down linemen; this restores the full 3-man front.
         makeD("d1", "CB", 10, LOS_YARDS - 7),
@@ -7824,7 +7784,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 61, LOS_YARDS - 1, true),
       ]);
     if (preset === "Nickel")
-      applyDefensePresetPlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 42, LOS_YARDS - 12),
         makeD("d3", "SS", 62, LOS_YARDS - 12),
@@ -7838,7 +7798,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "Dime")
-      applyDefensePresetPlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 10, LOS_YARDS - 7),
         makeD("d2", "FS", 42, LOS_YARDS - 12),
         makeD("d3", "SS", 62, LOS_YARDS - 12),
@@ -7852,7 +7812,7 @@ function CoachBoardWebApp() {
         makeD("d11", "DE", 63, LOS_YARDS - 1, true),
       ]);
     if (preset === "Goal Line")
-      applyDefensePresetPlayers([
+      applyDefensePlayers([
         makeD("d1", "CB", 20, LOS_YARDS - 4),
         makeD("d2", "S", 50, LOS_YARDS - 7),
         makeD("d3", "CB", 80, LOS_YARDS - 4),
@@ -13998,20 +13958,10 @@ function CoachBoardWebApp() {
                       background: playerFillColor,
                       color: playerTextColor,
                       fontWeight: 950,
-                      fontSize: getPlayerLabelFontSize(
-                        player.position,
-                        playerFontPx,
-                        isReadPlayer,
-                      ),
+                      fontSize: isReadPlayer
+                        ? Math.max(6, playerFontPx * 0.68)
+                        : playerFontPx,
                       lineHeight: 1,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "clip",
-                      padding: 0,
-                      letterSpacing:
-                        player.position.trim().length >= 4
-                          ? "-0.04em"
-                          : "normal",
                       left: `${player.x}%`,
                       top: playerTop(player),
                       transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
@@ -14138,19 +14088,7 @@ function CoachBoardWebApp() {
                       )
                     ),
                     fontWeight: 900,
-                    fontSize: getPlayerLabelFontSize(
-                      player.position,
-                      playerFontPx,
-                    ),
-                    lineHeight: 1,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "clip",
-                    padding: 0,
-                    letterSpacing:
-                      player.position.trim().length >= 4
-                        ? "-0.04em"
-                        : "normal",
+                    fontSize: playerFontPx,
                     left: `${player.x}%`,
                     top:
                       fieldFullscreen &&
