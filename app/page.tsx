@@ -228,17 +228,6 @@ type UndoSnapshot = {
   manAssignments: Record<string, string>;
 };
 
-type PersistedBoardState = {
-  offensePlayers: Player[];
-  defensePlayers: Player[];
-  drawnLines: DrawLine[];
-  routes: RouteModel[];
-  zoneAssignments: CustomZoneAssignment[];
-  manAssignments: Record<string, string>;
-  ballSpot: BallSpot;
-  selectedSide: Side;
-};
-
 type TeamBranding = {
   schoolName: string;
   mascot: string;
@@ -1870,18 +1859,6 @@ const panelHeaderStyle: React.CSSProperties = {
   textTransform: "uppercase",
 };
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  minWidth: 0,
-  background: "#090b10",
-  color: "white",
-  border: "1px solid rgba(255,255,255,.12)",
-  borderRadius: 10,
-  padding: "10px 12px",
-  outline: "none",
-  fontSize: 14,
-};
-
 const COACHBOARD_COLOR_OPTIONS = [
   { name: "White", value: "#f3f4f6" },
   { name: "Gold", value: "#facc15" },
@@ -2046,26 +2023,14 @@ type RoomCoach = {
   joinedAt: string;
 };
 
-type OrganizationRole = "owner" | "admin" | "coach" | "viewer";
-
 type CoachBoardOrganization = {
   team_id: string;
   team_name: string;
   season: number;
   invite_code: string | null;
-  role: OrganizationRole;
+  role: "owner" | "admin" | "coach" | "viewer";
   football_type: FootballTeamSize;
   field_template: FieldTemplate;
-};
-
-type CoachBoardOrganizationMember = {
-  user_id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  full_name: string;
-  role: OrganizationRole;
-  joined_at: string | null;
 };
 
 function generateTeamCode(length = 6) {
@@ -2126,29 +2091,8 @@ function CoachBoardWebApp() {
   const [lastName, setLastName] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
-  const [showCoachProfile, setShowCoachProfile] = useState(false);
-  const [profileFirstName, setProfileFirstName] = useState("");
-  const [profileLastName, setProfileLastName] = useState("");
-  const [profileEmail, setProfileEmail] = useState("");
-  const [profileNewPassword, setProfileNewPassword] = useState("");
-  const [profileConfirmPassword, setProfileConfirmPassword] = useState("");
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [profileMessage, setProfileMessage] = useState("");
-  const [profileError, setProfileError] = useState("");
-
   const [organization, setOrganization] =
     useState<CoachBoardOrganization | null>(null);
-
-  const [organizationMembers, setOrganizationMembers] = useState<
-    CoachBoardOrganizationMember[]
-  >([]);
-  const [organizationMembersLoading, setOrganizationMembersLoading] =
-    useState(false);
-  const [organizationMemberActionId, setOrganizationMemberActionId] =
-    useState<string | null>(null);
-  const [organizationMembersError, setOrganizationMembersError] = useState("");
-  const [organizationMembersMessage, setOrganizationMembersMessage] =
-    useState("");
   const [organizationChecked, setOrganizationChecked] = useState(false);
   const [organizationMode, setOrganizationMode] =
     useState<"choose" | "create" | "join">("choose");
@@ -2194,10 +2138,7 @@ function CoachBoardWebApp() {
   const [zoneAssignments, setZoneAssignments] = useState<
     CustomZoneAssignment[]
   >([]);
-  const zoneAssignmentsRef = useRef<CustomZoneAssignment[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
-
-
   const [zoneDraftId, setZoneDraftId] = useState<string | null>(null);
   const [zoneDrag, setZoneDrag] = useState<{
     id: string;
@@ -2227,44 +2168,12 @@ function CoachBoardWebApp() {
   const [drawingStyle, setDrawingStyle] = useState<DrawLineStyle>("solid");
   const [drawingMode, setDrawingMode] = useState<DrawLineMode>("curve");
   const [drawnLines, setDrawnLines] = useState<DrawLine[]>([]);
-
-  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
-  const realtimeClientIdRef = useRef<string>(crypto.randomUUID());
-  const initialBoardStateReceivedRef = useRef(false);
-  const drawnLinesRef = useRef<DrawLine[]>([]);
-  const routesRef = useRef<RouteModel[]>([]);
-  const manAssignmentsRef = useRef<Record<string, string>>({});
-  const activeBoardStorageKeyRef = useRef<string | null>(null);
-  const activeBoardHadSavedSnapshotRef = useRef(false);
-  const [boardPersistenceReady, setBoardPersistenceReady] = useState(false);
-
-  useEffect(() => {
-    drawnLinesRef.current = drawnLines.map((line) => ({ ...line }));
-  }, [drawnLines]);
-
-  useEffect(() => {
-    routesRef.current = routes.map((route) => ({ ...route }));
-  }, [routes]);
-
-  useEffect(() => {
-    manAssignmentsRef.current = { ...manAssignments };
-  }, [manAssignments]);
-
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
   const [lineEditDrag, setLineEditDrag] =
     useState<LineEditDrag | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingSide, setDraggingSide] = useState<Side | null>(null);
-  const playerLongPressTimerRef = useRef<number | null>(null);
-  const playerLongPressStartRef = useRef<{
-    playerId: string;
-    side: Side;
-    pointerId: number;
-    x: number;
-    y: number;
-  } | null>(null);
-  const playerLongPressActivatedRef = useRef(false);
-  const suppressNextPlayerClickRef = useRef(false);
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const [customPresetName, setCustomPresetName] = useState("");
   const [customOffensePresets, setCustomOffensePresets] = useState<
     CustomOffensePreset[]
@@ -2489,13 +2398,9 @@ function CoachBoardWebApp() {
   function clearWhiteboardForGamedayRoom() {
     // Clear every drawing/assignment that could carry over from the coach's
     // previous local board before entering a Gameday Room.
-    drawnLinesRef.current = [];
     setDrawnLines([]);
-    routesRef.current = [];
     setRoutes([]);
-    zoneAssignmentsRef.current = [];
     setZoneAssignments([]);
-    manAssignmentsRef.current = {};
     setManAssignments({});
     setDefensiveReadPlayerIds([]);
     setUndoStack([]);
@@ -2517,9 +2422,11 @@ function CoachBoardWebApp() {
   useEffect(() => {
     if (!ROOM_ID || !user) return;
 
-    // Do not clear the board on refresh/reconnect. Room-specific persistence
-    // below decides whether to restore an existing board or start this room
-    // blank. Whiteboard work should only be destroyed by an explicit clear.
+    // ROOM_ID changes whenever a coach enters a different room. Clearing here
+    // guarantees the old local board is removed before the new realtime
+    // channel subscribes—even when the room was entered from saved localStorage.
+    clearWhiteboardForGamedayRoom();
+
     const channel = supabase.channel(ROOM_ID, {
       config: {
         presence: {
@@ -2546,20 +2453,11 @@ function CoachBoardWebApp() {
 
     channel.on("broadcast", { event: "board-event" }, ({ payload }) => {
       if (payload.type === "SET_DRAWN_LINES") {
-        const nextLines = Array.isArray(payload.drawnLines)
-          ? payload.drawnLines
-          : [];
-        drawnLinesRef.current = nextLines.map((line: DrawLine) => ({ ...line }));
-        setDrawnLines(drawnLinesRef.current);
+        setDrawnLines(payload.drawnLines);
       }
 
       if (payload.type === "SET_MAN_ASSIGNMENTS") {
-        const nextAssignments =
-          payload.manAssignments && typeof payload.manAssignments === "object"
-            ? payload.manAssignments
-            : {};
-        manAssignmentsRef.current = { ...nextAssignments };
-        setManAssignments(manAssignmentsRef.current);
+        setManAssignments(payload.manAssignments);
       }
 
       if (payload.type === "SET_COACH_FOCUS") {
@@ -2571,9 +2469,12 @@ function CoachBoardWebApp() {
       }
 
       if (payload.type === "SET_SELECTED_SIDE") {
-        // Changing offense/defense view should not destroy whiteboard work.
-        // Markup remains until the coach explicitly uses Clear All.
         setSelectedSide(payload.selectedSide);
+        setDrawnLines([]);
+        setRoutes([]);
+        setZoneAssignments([]);
+        setManAssignments({});
+        setUndoStack([]);
         setSelectedFieldItem(null);
         setSelectedZoneId(null);
         setZoneDraftId(null);
@@ -2582,79 +2483,15 @@ function CoachBoardWebApp() {
         setLineEditDrag(null);
       }
 
-      if (payload.type === "REQUEST_BOARD_STATE") {
-        if (
-          payload.requestingClientId &&
-          payload.requestingClientId !== realtimeClientIdRef.current
-        ) {
-          sendCompleteBoardState(payload.requestingClientId);
-        }
-        return;
-      }
-
       if (payload.type === "SET_BOARD_STATE") {
-        if (
-          payload.targetClientId &&
-          payload.targetClientId !== realtimeClientIdRef.current
-        ) {
-          return;
-        }
-
-        // When joining, multiple existing coaches may answer the request.
-        // Accept the first targeted snapshot only so later responses cannot
-        // overwrite it with a slightly older local render.
-        if (
-          payload.targetClientId === realtimeClientIdRef.current &&
-          initialBoardStateReceivedRef.current
-        ) {
-          return;
-        }
-
-        if (payload.targetClientId === realtimeClientIdRef.current) {
-          initialBoardStateReceivedRef.current = true;
-        }
-
-        const nextLines = Array.isArray(payload.drawnLines)
-          ? payload.drawnLines
-          : [];
-        drawnLinesRef.current = nextLines.map((line: DrawLine) => ({ ...line }));
-        setDrawnLines(drawnLinesRef.current);
-
-        const nextRoutes: RouteModel[] = Array.isArray(payload.routes)
-          ? (payload.routes as RouteModel[])
-          : [];
-
-        routesRef.current = nextRoutes.map((route: RouteModel) => ({
-          ...route,
-        }));
-        setRoutes(routesRef.current);
-
-        const nextZones = Array.isArray(payload.zoneAssignments)
-          ? payload.zoneAssignments
-          : [];
-        zoneAssignmentsRef.current = nextZones.map(
-          (zone: CustomZoneAssignment) => ({ ...zone }),
-        );
-        setZoneAssignments(zoneAssignmentsRef.current);
-
-        const nextAssignments =
-          payload.manAssignments && typeof payload.manAssignments === "object"
-            ? payload.manAssignments
-            : {};
-        manAssignmentsRef.current = { ...nextAssignments };
-        setManAssignments(manAssignmentsRef.current);
-        return;
+        setDrawnLines(payload.drawnLines);
+        setRoutes(payload.routes);
+        setZoneAssignments(payload.zoneAssignments);
+        setManAssignments(payload.manAssignments);
       }
 
       if (payload.type === "SET_ROUTES") {
-        const nextRoutes: RouteModel[] = Array.isArray(payload.routes)
-          ? (payload.routes as RouteModel[])
-          : [];
-
-        routesRef.current = nextRoutes.map((route: RouteModel) => ({
-          ...route,
-        }));
-        setRoutes(routesRef.current);
+        setRoutes(payload.routes);
       }
 
       if (payload.type === "SET_OFFENSE_PLAYERS") {
@@ -2670,23 +2507,7 @@ function CoachBoardWebApp() {
       }
 
       if (payload.type === "SET_ZONES") {
-        const nextZones = Array.isArray(payload.zoneAssignments)
-          ? payload.zoneAssignments
-          : [];
-        zoneAssignmentsRef.current = nextZones.map(
-          (zone: CustomZoneAssignment) => ({ ...zone }),
-        );
-        setZoneAssignments(zoneAssignmentsRef.current);
-
-        if (
-          selectedZoneId &&
-          !zoneAssignmentsRef.current.some((zone) => zone.id === selectedZoneId)
-        ) {
-          setSelectedZoneId(null);
-          setSelectedFieldItem(null);
-          setZoneDraftId(null);
-          setZoneDrag(null);
-        }
+        setZoneAssignments(payload.zoneAssignments);
       }
 
       if (payload.type === "SET_TEAM_SETUP") {
@@ -2711,15 +2532,6 @@ function CoachBoardWebApp() {
           name: getCoachDisplayName(user),
           joinedAt: new Date().toISOString(),
         });
-
-        // Existing Supabase broadcasts are not replayed to late joiners.
-        // Request a fresh authoritative board snapshot as soon as this coach
-        // joins so anything already drawn appears immediately.
-        window.setTimeout(() => {
-          if (!activeBoardHadSavedSnapshotRef.current) {
-            requestCompleteBoardState();
-          }
-        }, 100);
       }
     });
 
@@ -2860,14 +2672,20 @@ function CoachBoardWebApp() {
 
     const clampedRadius = Math.max(2.5, Math.min(18, nextRadius));
 
-    const nextZones = zoneAssignmentsRef.current.map((zone) =>
-      zone.id === selectedZoneId
-        ? { ...zone, radius: clampedRadius }
-        : { ...zone },
+    const nextZones = zoneAssignments.map((zone) =>
+      zone.id === selectedZoneId ? { ...zone, radius: clampedRadius } : zone,
     );
 
-    applyZoneAssignmentsLocally(nextZones);
-    broadcastZoneAssignments(nextZones);
+    setZoneAssignments(nextZones);
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ZONES",
+        zoneAssignments: nextZones,
+      },
+    });
   }
 
   const activeToolLabel = (() => {
@@ -2918,17 +2736,10 @@ function CoachBoardWebApp() {
       const nextRoutes = cloneRoutesForHistory(snapshot.routes);
       const nextZones = cloneZonesForHistory(snapshot.zoneAssignments);
 
-      drawnLinesRef.current = nextLines.map((line) => ({ ...line }));
-      setDrawnLines(drawnLinesRef.current);
-
-      routesRef.current = nextRoutes.map((route) => ({ ...route }));
-      setRoutes(routesRef.current);
-
-      zoneAssignmentsRef.current = nextZones.map((zone) => ({ ...zone }));
-      setZoneAssignments(zoneAssignmentsRef.current);
-
-      manAssignmentsRef.current = { ...snapshot.manAssignments };
-      setManAssignments(manAssignmentsRef.current);
+      setDrawnLines(nextLines);
+      setRoutes(nextRoutes);
+      setZoneAssignments(nextZones);
+      setManAssignments({ ...snapshot.manAssignments });
 
       realtimeChannelRef.current?.send({
         type: "broadcast",
@@ -2986,17 +2797,10 @@ function CoachBoardWebApp() {
     }
 
     if (selectedFieldItem.type === "zone") {
-      const nextZones = zoneAssignmentsRef.current.filter(
-        (zone) => zone.id !== selectedFieldItem.id,
+      setZoneAssignments((current) =>
+        current.filter((zone) => zone.id !== selectedFieldItem.id),
       );
-
-      applyZoneAssignmentsLocally(nextZones);
-      broadcastZoneAssignments(nextZones);
-
       setSelectedZoneId(null);
-      setSelectedFieldItem(null);
-      setZoneDraftId(null);
-      setZoneDrag(null);
     }
     if (selectedFieldItem.type === "man") {
       const nextAssignments = { ...manAssignments };
@@ -4236,15 +4040,11 @@ function CoachBoardWebApp() {
     if (fieldFullscreen) {
       document.body.style.overflow = "hidden";
       document.documentElement.style.overflow = "hidden";
-      document.body.classList.add("coachboard-field-fullscreen-active");
-    } else {
-      document.body.classList.remove("coachboard-field-fullscreen-active");
     }
 
     return () => {
       document.body.style.overflow = previousBodyOverflow;
       document.documentElement.style.overflow = previousHtmlOverflow;
-      document.body.classList.remove("coachboard-field-fullscreen-active");
     };
   }, [fieldFullscreen]);
 
@@ -5166,9 +4966,7 @@ function CoachBoardWebApp() {
                     padding: "8px 10px",
                   }}
                   onClick={() => {
-                    manAssignmentsRef.current = {};
                     setManAssignments({});
-                    zoneAssignmentsRef.current = [];
                     setZoneAssignments([]);
                   }}
                 >
@@ -5883,9 +5681,7 @@ function CoachBoardWebApp() {
               whiteSpace: "nowrap",
             }}
             onClick={() => {
-              manAssignmentsRef.current = {};
               setManAssignments({});
-              zoneAssignmentsRef.current = [];
               setZoneAssignments([]);
             }}
           >
@@ -6212,15 +6008,6 @@ function CoachBoardWebApp() {
     if (didOpenRankOneFormationRef.current) return;
     if (!startupRankOneFormationId) return;
 
-    // If this browser/account already restored a persisted board for the
-    // current room, that board wins over the normal #1-formation startup.
-    // Otherwise the automatic formation loader would clear routes/lines
-    // immediately after persistence restored them.
-    if (activeBoardHadSavedSnapshotRef.current) {
-      didOpenRankOneFormationRef.current = true;
-      return;
-    }
-
     const rankedFormation = customOffensePresets.find(
       (preset) => preset.id === startupRankOneFormationId,
     );
@@ -6454,6 +6241,8 @@ function CoachBoardWebApp() {
     setSelectedSide("offense");
     setSelectedPlayId("");
     setSelectedPlayFormationId("");
+    setRoutes([]);
+    setDrawnLines([]);
 
     // Only after the saved football type is established do we allow
     // formation hydration to load the coach's true #1 ranked formation.
@@ -6469,264 +6258,6 @@ function CoachBoardWebApp() {
     );
   }, [footballTeamSize, footballTeamSizeHydrated]);
 
-  function getBoardPersistenceKey() {
-    const accountId = user?.id ?? "anonymous";
-    const boardId = ROOM_ID || "local-board";
-    return `coachboard_live_board_state:${accountId}:${boardId}`;
-  }
-
-  function getBoardBackupKey() {
-    return `${getBoardPersistenceKey()}:last-working-copy`;
-  }
-
-  function boardSnapshotHasMarkup(
-    snapshot: Partial<PersistedBoardState> | null | undefined,
-  ) {
-    if (!snapshot) return false;
-
-    return (
-      (Array.isArray(snapshot.drawnLines) && snapshot.drawnLines.length > 0) ||
-      (Array.isArray(snapshot.routes) && snapshot.routes.length > 0) ||
-      (Array.isArray(snapshot.zoneAssignments) &&
-        snapshot.zoneAssignments.length > 0) ||
-      Boolean(
-        snapshot.manAssignments &&
-          Object.keys(snapshot.manAssignments).length > 0,
-      )
-    );
-  }
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !user) return;
-
-    const storageKey = getBoardPersistenceKey();
-
-    // Prevent the outgoing board from being written into a newly selected
-    // room while React is switching room state.
-    activeBoardStorageKeyRef.current = null;
-    setBoardPersistenceReady(false);
-
-    const saved = window.localStorage.getItem(storageKey);
-    const backupSaved = window.localStorage.getItem(getBoardBackupKey());
-
-    let savedStateText = saved;
-
-    try {
-      const primaryParsed = saved
-        ? (JSON.parse(saved) as Partial<PersistedBoardState>)
-        : null;
-      const backupParsed = backupSaved
-        ? (JSON.parse(backupSaved) as Partial<PersistedBoardState>)
-        : null;
-
-      // If a transient startup render ever wrote an empty board to the
-      // primary key, keep the last real working copy instead. Clear All
-      // removes both keys, so an intentional board clear still stays clear.
-      if (
-        !boardSnapshotHasMarkup(primaryParsed) &&
-        boardSnapshotHasMarkup(backupParsed)
-      ) {
-        savedStateText = backupSaved;
-      }
-    } catch {
-      // The normal parse block below will handle any malformed saved state.
-    }
-
-    activeBoardHadSavedSnapshotRef.current = Boolean(savedStateText);
-
-    if (savedStateText) {
-      try {
-        const parsed = JSON.parse(
-          savedStateText,
-        ) as Partial<PersistedBoardState>;
-
-        if (Array.isArray(parsed.offensePlayers)) {
-          setOffensePlayers(parsed.offensePlayers);
-          middleOffensePlayersRef.current = parsed.offensePlayers.map(
-            (player) => ({ ...player }),
-          );
-        }
-
-        if (Array.isArray(parsed.defensePlayers)) {
-          setDefensePlayers(parsed.defensePlayers);
-          middleDefensePlayersRef.current = parsed.defensePlayers.map(
-            (player) => ({ ...player }),
-          );
-        }
-
-        const nextLines = Array.isArray(parsed.drawnLines)
-          ? parsed.drawnLines
-          : [];
-        drawnLinesRef.current = nextLines.map((line) => ({ ...line }));
-        setDrawnLines(drawnLinesRef.current);
-
-        const nextRoutes = Array.isArray(parsed.routes) ? parsed.routes : [];
-        routesRef.current = nextRoutes.map((route) => ({ ...route }));
-        setRoutes(routesRef.current);
-
-        const nextZones = Array.isArray(parsed.zoneAssignments)
-          ? parsed.zoneAssignments
-          : [];
-        zoneAssignmentsRef.current = nextZones.map((zone) => ({ ...zone }));
-        setZoneAssignments(zoneAssignmentsRef.current);
-
-        const nextManAssignments =
-          parsed.manAssignments &&
-          typeof parsed.manAssignments === "object"
-            ? parsed.manAssignments
-            : {};
-        manAssignmentsRef.current = { ...nextManAssignments };
-        setManAssignments(manAssignmentsRef.current);
-
-        if (
-          parsed.ballSpot === "leftHash" ||
-          parsed.ballSpot === "middle" ||
-          parsed.ballSpot === "rightHash"
-        ) {
-          setBallSpot(parsed.ballSpot);
-        }
-
-        if (
-          parsed.selectedSide === "offense" ||
-          parsed.selectedSide === "defense"
-        ) {
-          setSelectedSide(parsed.selectedSide);
-        }
-      } catch (error) {
-        console.warn("Unable to restore saved CoachBoard whiteboard:", error);
-        activeBoardHadSavedSnapshotRef.current = false;
-      }
-    } else {
-      drawnLinesRef.current = [];
-      setDrawnLines([]);
-
-      routesRef.current = [];
-      setRoutes([]);
-
-      zoneAssignmentsRef.current = [];
-      setZoneAssignments([]);
-
-      manAssignmentsRef.current = {};
-      setManAssignments({});
-
-      setUndoStack([]);
-      setSelectedFieldItem(null);
-      setSelectedZoneId(null);
-      setZoneDraftId(null);
-      setZoneDrag(null);
-      setActiveLineId(null);
-      setLineEditDrag(null);
-    }
-
-    // Wait until the restored state has rendered before allowing autosave.
-    window.setTimeout(() => {
-      activeBoardStorageKeyRef.current = storageKey;
-      setBoardPersistenceReady(true);
-    }, 0);
-  }, [ROOM_ID, user?.id]);
-
-  useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      !user ||
-      !boardPersistenceReady
-    ) {
-      return;
-    }
-
-    const storageKey = getBoardPersistenceKey();
-
-    if (activeBoardStorageKeyRef.current !== storageKey) {
-      return;
-    }
-
-    const snapshot: PersistedBoardState = {
-      offensePlayers: offensePlayers.map((player) => ({ ...player })),
-      defensePlayers: defensePlayers.map((player) => ({ ...player })),
-      drawnLines: drawnLines.map((line) => ({ ...line })),
-      routes: routes.map((route) => ({ ...route })),
-      zoneAssignments: zoneAssignments.map((zone) => ({ ...zone })),
-      manAssignments: { ...manAssignments },
-      ballSpot,
-      selectedSide,
-    };
-
-    const serializedSnapshot = JSON.stringify(snapshot);
-
-    window.localStorage.setItem(storageKey, serializedSnapshot);
-
-    if (boardSnapshotHasMarkup(snapshot)) {
-      window.localStorage.setItem(
-        getBoardBackupKey(),
-        serializedSnapshot,
-      );
-    }
-
-    activeBoardHadSavedSnapshotRef.current = true;
-  }, [
-    ROOM_ID,
-    user?.id,
-    boardPersistenceReady,
-    offensePlayers,
-    defensePlayers,
-    drawnLines,
-    routes,
-    zoneAssignments,
-    manAssignments,
-    ballSpot,
-    selectedSide,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !user) return;
-
-    const saveWorkingBoardBeforeExit = () => {
-      const storageKey = getBoardPersistenceKey();
-
-      const snapshot: PersistedBoardState = {
-        offensePlayers: offensePlayers.map((player) => ({ ...player })),
-        defensePlayers: defensePlayers.map((player) => ({ ...player })),
-        drawnLines: drawnLinesRef.current.map((line) => ({ ...line })),
-        routes: routesRef.current.map((route) => ({ ...route })),
-        zoneAssignments: zoneAssignmentsRef.current.map((zone) => ({
-          ...zone,
-        })),
-        manAssignments: { ...manAssignmentsRef.current },
-        ballSpot,
-        selectedSide,
-      };
-
-      const serializedSnapshot = JSON.stringify(snapshot);
-
-      window.localStorage.setItem(storageKey, serializedSnapshot);
-
-      if (boardSnapshotHasMarkup(snapshot)) {
-        window.localStorage.setItem(
-          getBoardBackupKey(),
-          serializedSnapshot,
-        );
-      }
-    };
-
-    window.addEventListener("pagehide", saveWorkingBoardBeforeExit);
-    window.addEventListener("beforeunload", saveWorkingBoardBeforeExit);
-
-    return () => {
-      window.removeEventListener("pagehide", saveWorkingBoardBeforeExit);
-      window.removeEventListener(
-        "beforeunload",
-        saveWorkingBoardBeforeExit,
-      );
-    };
-  }, [
-    ROOM_ID,
-    user?.id,
-    offensePlayers,
-    defensePlayers,
-    ballSpot,
-    selectedSide,
-  ]);
-
   function clearAllBoardMarkup(options?: { broadcast?: boolean; pushUndo?: boolean }) {
     const shouldBroadcast = options?.broadcast ?? true;
     const shouldPushUndo = options?.pushUndo ?? false;
@@ -6735,13 +6266,9 @@ function CoachBoardWebApp() {
       pushUndoSnapshot();
     }
 
-    drawnLinesRef.current = [];
     setDrawnLines([]);
-    routesRef.current = [];
     setRoutes([]);
-    zoneAssignmentsRef.current = [];
     setZoneAssignments([]);
-    manAssignmentsRef.current = {};
     setManAssignments({});
     setUndoStack([]);
 
@@ -6751,13 +6278,6 @@ function CoachBoardWebApp() {
     setZoneDrag(null);
     setActiveLineId(null);
     setLineEditDrag(null);
-
-    if (typeof window !== "undefined" && user) {
-      const storageKey = getBoardPersistenceKey();
-      window.localStorage.removeItem(storageKey);
-      window.localStorage.removeItem(getBoardBackupKey());
-      activeBoardHadSavedSnapshotRef.current = false;
-    }
 
     if (shouldBroadcast) {
       realtimeChannelRef.current?.send({
@@ -6775,8 +6295,10 @@ function CoachBoardWebApp() {
   }
 
   function applyCoachFocus(nextFocus: CoachFocus) {
-    // Preserve drawings/routes/coverage when changing the working view.
-    // The board is only erased by the explicit Clear All action.
+    if (nextFocus !== coachFocus) {
+      clearAllBoardMarkup({ broadcast: true });
+    }
+
     setCoachFocus(nextFocus);
 
     realtimeChannelRef.current?.send({
@@ -7118,57 +6640,6 @@ function CoachBoardWebApp() {
     setActiveLineId(id);
   }
 
-  function applyZoneAssignmentsLocally(
-    nextZones: CustomZoneAssignment[],
-  ) {
-    zoneAssignmentsRef.current = nextZones.map((zone) => ({ ...zone }));
-    setZoneAssignments(zoneAssignmentsRef.current);
-  }
-
-  function broadcastZoneAssignments(
-    nextZones: CustomZoneAssignment[] = zoneAssignmentsRef.current,
-  ) {
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_ZONES",
-        zoneAssignments: nextZones.map((zone) => ({ ...zone })),
-      },
-    });
-  }
-
-  function sendCompleteBoardState(targetClientId: string) {
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "SET_BOARD_STATE",
-        targetClientId,
-        sourceClientId: realtimeClientIdRef.current,
-        drawnLines: drawnLinesRef.current.map((line) => ({ ...line })),
-        routes: routesRef.current.map((route) => ({ ...route })),
-        zoneAssignments: zoneAssignmentsRef.current.map((zone) => ({
-          ...zone,
-        })),
-        manAssignments: { ...manAssignmentsRef.current },
-      },
-    });
-  }
-
-  function requestCompleteBoardState() {
-    initialBoardStateReceivedRef.current = false;
-
-    realtimeChannelRef.current?.send({
-      type: "broadcast",
-      event: "board-event",
-      payload: {
-        type: "REQUEST_BOARD_STATE",
-        requestingClientId: realtimeClientIdRef.current,
-      },
-    });
-  }
-
   function startZoneCircle(clientX: number, clientY: number) {
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
@@ -7184,38 +6655,39 @@ function CoachBoardWebApp() {
     pushUndoSnapshot();
 
     const zoneId = crypto.randomUUID();
+    setSelectedFieldItem({ type: "zone", id: zoneId });
     const nextZones = [
-      ...zoneAssignmentsRef.current.map((zone) => ({ ...zone })),
+      ...zoneAssignments,
       {
         id: zoneId,
         defenderId: selectedDefender.id,
         x: point.x,
         y: point.y,
-        radius: 2.5,
+        radius: 1.2,
       },
     ];
 
-    setSelectedFieldItem({ type: "zone", id: zoneId });
+    setZoneAssignments(nextZones);
+
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ZONES",
+        zoneAssignments: nextZones,
+      },
+    });
     setSelectedZoneId(zoneId);
     setZoneDraftId(zoneId);
-
-    // Update the live ref immediately so the very next pointermove cannot
-    // accidentally use the pre-click zone list.
-    applyZoneAssignmentsLocally(nextZones);
-
-    // Send the creation immediately so collaborators see the circle as soon
-    // as the coach starts drawing it.
-    broadcastZoneAssignments(nextZones);
   }
 
   function updateZoneDraft(clientX: number, clientY: number) {
     if (!zoneDraftId) return;
-
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
 
-    const nextZones = zoneAssignmentsRef.current.map((zone) => {
-      if (zone.id !== zoneDraftId) return { ...zone };
+    const nextZones = zoneAssignments.map((zone) => {
+      if (zone.id !== zoneDraftId) return zone;
 
       const nextRadius = Math.hypot(point.x - zone.x, point.y - zone.y);
 
@@ -7225,22 +6697,21 @@ function CoachBoardWebApp() {
       };
     });
 
-    applyZoneAssignmentsLocally(nextZones);
+    setZoneAssignments(nextZones);
 
-    // Broadcast live resize updates. The ref prevents old/stale frames from
-    // replacing a just-created circle.
-    broadcastZoneAssignments(nextZones);
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "board-event",
+      payload: {
+        type: "SET_ZONES",
+        zoneAssignments: nextZones,
+      },
+    });
   }
 
   function finalizeZoneDraft() {
     if (!zoneDraftId) return;
-
     setZoneDraftId(null);
-
-    // Always send one final authoritative snapshot on pointer-up. This makes
-    // the finished circle reliable even if an intermediate realtime packet
-    // was dropped or arrived out of order.
-    broadcastZoneAssignments(zoneAssignmentsRef.current);
   }
 
   function startZoneDrag(
@@ -7264,34 +6735,24 @@ function CoachBoardWebApp() {
 
   function updateZoneDrag(clientX: number, clientY: number) {
     if (!zoneDrag) return;
-
     const point = screenPointFromClient(clientX, clientY);
     if (!point) return;
 
-    const nextZones = zoneAssignmentsRef.current.map((zone) => {
-      if (zone.id !== zoneDrag.id) return { ...zone };
-
-      return {
-        ...zone,
-        x: Math.max(0, Math.min(100, point.x + zoneDrag.offsetX)),
-        y: Math.max(0, Math.min(100, point.y + zoneDrag.offsetY)),
-      };
-    });
-
-    applyZoneAssignmentsLocally(nextZones);
-
-    // Keep the other screen moving with the drag instead of only updating
-    // the local screen.
-    broadcastZoneAssignments(nextZones);
+    setZoneAssignments((current) =>
+      current.map((zone) => {
+        if (zone.id !== zoneDrag.id) return zone;
+        return {
+          ...zone,
+          x: Math.max(0, Math.min(100, point.x + zoneDrag.offsetX)),
+          y: Math.max(0, Math.min(100, point.y + zoneDrag.offsetY)),
+        };
+      }),
+    );
   }
 
   function finalizeZoneDrag() {
     if (!zoneDrag) return;
-
     setZoneDrag(null);
-
-    // Final authoritative position.
-    broadcastZoneAssignments(zoneAssignmentsRef.current);
   }
 
   function updateDrawing(clientX: number, clientY: number) {
@@ -7396,77 +6857,6 @@ function CoachBoardWebApp() {
     }
 
     return updated;
-  }
-
-  function clearPlayerLongPressTimer() {
-    if (playerLongPressTimerRef.current !== null) {
-      window.clearTimeout(playerLongPressTimerRef.current);
-      playerLongPressTimerRef.current = null;
-    }
-  }
-
-  function beginPlayerLongPress(
-    playerId: string,
-    side: Side,
-    pointerId: number,
-    clientX: number,
-    clientY: number,
-  ) {
-    clearPlayerLongPressTimer();
-
-    playerLongPressActivatedRef.current = false;
-    suppressNextPlayerClickRef.current = false;
-    playerLongPressStartRef.current = {
-      playerId,
-      side,
-      pointerId,
-      x: clientX,
-      y: clientY,
-    };
-
-    playerLongPressTimerRef.current = window.setTimeout(() => {
-      const pending = playerLongPressStartRef.current;
-      if (!pending || pending.pointerId !== pointerId) return;
-
-      playerLongPressActivatedRef.current = true;
-      suppressNextPlayerClickRef.current = true;
-
-      setSelectedFieldItem(null);
-      setSelectedPlayerId(playerId);
-      setSelectedSide(side);
-      setTool("Move");
-      setDraggingId(playerId);
-      setDraggingSide(side);
-    }, 350);
-  }
-
-  function updatePlayerLongPress(clientX: number, clientY: number) {
-    const pending = playerLongPressStartRef.current;
-    if (!pending || playerLongPressActivatedRef.current) return;
-
-    const movedDistance = Math.hypot(
-      clientX - pending.x,
-      clientY - pending.y,
-    );
-
-    if (movedDistance > 10) {
-      clearPlayerLongPressTimer();
-      playerLongPressStartRef.current = null;
-
-      // In Draw mode, movement before the hold threshold means the coach
-      // intended to draw from the player. Start at the original press point
-      // so quick move/draw transitions feel natural.
-      if (tool === "Draw") {
-        startDrawing(pending.x, pending.y);
-        updateDrawing(clientX, clientY);
-      }
-    }
-  }
-
-  function finishPlayerLongPress() {
-    clearPlayerLongPressTimer();
-    playerLongPressStartRef.current = null;
-    playerLongPressActivatedRef.current = false;
   }
 
   function updateDraggedPlayer(clientX: number, clientY: number) {
@@ -8552,6 +7942,8 @@ function CoachBoardWebApp() {
     setSelectedPlayId("");
     setSelectedPlayFormationId("");
     setActivePlaybookBuildId("");
+    setRoutes([]);
+    setDrawnLines([]);
   }
 
   function applyBallSpot(nextSpot: BallSpot, broadcast = true) {
@@ -8668,8 +8060,8 @@ function CoachBoardWebApp() {
       setSelectedPresetDropdownId(id);
       setSelectedPlayId("");
       setActivePlaybookBuildId("");
-      // Preserve existing whiteboard markup when changing formations.
-      // Drawings, routes, zones, and assignments are only erased by Clear All.
+      setRoutes([]);
+      setDrawnLines([]);
       setBallSpot(nextBallSpot);
 
       realtimeChannelRef.current?.send({
@@ -8696,6 +8088,15 @@ function CoachBoardWebApp() {
         payload: {
           type: "SET_DEFENSE_PLAYERS",
           defensePlayers: nextDefensePlayers,
+        },
+      });
+
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event: "board-event",
+        payload: {
+          type: "SET_ROUTES",
+          routes: [],
         },
       });
 
@@ -9382,11 +8783,6 @@ function CoachBoardWebApp() {
   const activeFormation = customOffensePresets.find(
     (formation) => formation.id === selectedPlayFormationId,
   );
-  useEffect(() => {
-    if (!showOrganizationPanel || !organization || !user) return;
-    void refreshOrganizationMembers();
-  }, [showOrganizationPanel, organization?.team_id, user?.id]);
-
   const activeFieldHash =
     FIELD_HASH_PRESETS[fieldTemplate] ??
     FIELD_HASH_PRESETS[DEFAULT_FIELD_TEMPLATE];
@@ -9411,192 +8807,6 @@ function CoachBoardWebApp() {
   const fieldNumberColor = fieldBlackWhiteMode
     ? "rgba(0,0,0,.88)"
     : "rgba(255,255,255,.88)";
-  function organizationRoleLabel(role: OrganizationRole) {
-    if (role === "owner") return "Owner";
-    if (role === "admin") return "Co-Owner";
-    if (role === "coach") return "Coach";
-    return "Viewer";
-  }
-
-  function organizationMemberDisplayName(
-    member: CoachBoardOrganizationMember,
-  ) {
-    const fullName =
-      member.full_name?.trim() ||
-      `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim();
-
-    return fullName || member.email || "CoachBoard Member";
-  }
-
-  function canManageOrganizationMembers() {
-    return organization?.role === "owner" || organization?.role === "admin";
-  }
-
-  async function refreshOrganizationMembers() {
-    if (!user || !organization) return;
-
-    setOrganizationMembersLoading(true);
-    setOrganizationMembersError("");
-
-    const { data, error } = await supabase.rpc(
-      "get_coachboard_organization_members",
-    );
-
-    if (error) {
-      setOrganizationMembers([]);
-      setOrganizationMembersError(
-        `Member list could not be loaded: ${error.message}`,
-      );
-      setOrganizationMembersLoading(false);
-      return;
-    }
-
-    const rows: Array<{
-      user_id?: unknown;
-      email?: unknown;
-      first_name?: unknown;
-      last_name?: unknown;
-      full_name?: unknown;
-      role?: unknown;
-      joined_at?: unknown;
-    }> = Array.isArray(data)
-      ? data
-      : data
-        ? [data]
-        : [];
-
-    setOrganizationMembers(
-      rows.map((row) => ({
-        user_id: String(row.user_id ?? ""),
-        email: String(row.email ?? ""),
-        first_name: String(row.first_name ?? ""),
-        last_name: String(row.last_name ?? ""),
-        full_name: String(row.full_name ?? ""),
-        role:
-          row.role === "owner" ||
-          row.role === "admin" ||
-          row.role === "viewer"
-            ? row.role
-            : "coach",
-        joined_at: row.joined_at ? String(row.joined_at) : null,
-      })),
-    );
-
-    setOrganizationMembersLoading(false);
-  }
-
-  async function changeOrganizationMemberRole(
-    member: CoachBoardOrganizationMember,
-    nextRole: OrganizationRole,
-  ) {
-    if (!organization || !canManageOrganizationMembers()) return;
-    if (member.role === nextRole) return;
-
-    const makingOwner = nextRole === "owner";
-    const currentUserIsOwner = organization.role === "owner";
-
-    if (makingOwner && !currentUserIsOwner) {
-      setOrganizationMembersError(
-        "Only the current owner can transfer organization ownership.",
-      );
-      return;
-    }
-
-    if (makingOwner) {
-      const confirmed = window.confirm(
-        `Transfer ownership to ${organizationMemberDisplayName(
-          member,
-        )}? You will become a Co-Owner after the transfer.`,
-      );
-
-      if (!confirmed) return;
-    }
-
-    setOrganizationMemberActionId(member.user_id);
-    setOrganizationMembersError("");
-    setOrganizationMembersMessage("");
-
-    const { error } = await supabase.rpc(
-      "set_coachboard_organization_member_role",
-      {
-        target_user_id: member.user_id,
-        new_role: nextRole,
-      },
-    );
-
-    if (error) {
-      setOrganizationMembersError(error.message);
-      setOrganizationMemberActionId(null);
-      return;
-    }
-
-    await refreshOrganization();
-    await refreshOrganizationMembers();
-
-    setOrganizationMembersMessage(
-      makingOwner
-        ? "Organization ownership transferred."
-        : `${organizationMemberDisplayName(member)} is now ${organizationRoleLabel(
-            nextRole,
-          )}.`,
-    );
-    setOrganizationMemberActionId(null);
-  }
-
-  async function removeOrganizationMember(
-    member: CoachBoardOrganizationMember,
-  ) {
-    if (!organization || !canManageOrganizationMembers()) return;
-
-    if (member.user_id === user?.id) {
-      setOrganizationMembersError(
-        "You cannot remove yourself from the organization here.",
-      );
-      return;
-    }
-
-    if (
-      member.role === "owner" &&
-      organization.role !== "owner"
-    ) {
-      setOrganizationMembersError(
-        "A Co-Owner cannot remove the organization Owner.",
-      );
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Remove ${organizationMemberDisplayName(
-        member,
-      )} from ${organization.team_name}? They will lose access to organization-shared CoachBoard content.`,
-    );
-
-    if (!confirmed) return;
-
-    setOrganizationMemberActionId(member.user_id);
-    setOrganizationMembersError("");
-    setOrganizationMembersMessage("");
-
-    const { error } = await supabase.rpc(
-      "remove_coachboard_organization_member",
-      {
-        target_user_id: member.user_id,
-      },
-    );
-
-    if (error) {
-      setOrganizationMembersError(error.message);
-      setOrganizationMemberActionId(null);
-      return;
-    }
-
-    await refreshOrganizationMembers();
-    setOrganizationMembersMessage(
-      `${organizationMemberDisplayName(member)} was removed.`,
-    );
-    setOrganizationMemberActionId(null);
-  }
-
   async function copyOrganizationInviteCode() {
     const code = organization?.invite_code;
     if (!code) return;
@@ -9677,6 +8887,8 @@ function CoachBoardWebApp() {
       setSelectedSide("offense");
       setSelectedPlayId("");
       setSelectedPlayFormationId("");
+      setRoutes([]);
+      setDrawnLines([]);
 
       // Changing football type causes the formation hydration effect to run again,
       // and that effect will then load the coach's saved #1 formation for the
@@ -9791,131 +9003,6 @@ function CoachBoardWebApp() {
     }
 
     setOrganizationSaving(false);
-  }
-
-  function openCoachProfile() {
-    setProfileFirstName(
-      user?.user_metadata?.first_name?.trim?.() ?? "",
-    );
-    setProfileLastName(
-      user?.user_metadata?.last_name?.trim?.() ?? "",
-    );
-    setProfileEmail(user?.email ?? "");
-    setProfileNewPassword("");
-    setProfileConfirmPassword("");
-    setProfileMessage("");
-    setProfileError("");
-    setShowCoachProfile(true);
-  }
-
-  function closeCoachProfile() {
-    if (profileSaving) return;
-    setShowCoachProfile(false);
-    setProfileNewPassword("");
-    setProfileConfirmPassword("");
-    setProfileMessage("");
-    setProfileError("");
-  }
-
-  async function saveCoachProfile() {
-    if (!user) return;
-
-    const nextFirstName = profileFirstName.trim();
-    const nextLastName = profileLastName.trim();
-    const nextEmail = profileEmail.trim().toLowerCase();
-    const nextPassword = profileNewPassword.trim();
-
-    if (!nextFirstName) {
-      setProfileError("Enter your first name.");
-      return;
-    }
-
-    if (!nextEmail || !nextEmail.includes("@")) {
-      setProfileError("Enter a valid email address.");
-      return;
-    }
-
-    if (nextPassword && nextPassword.length < 6) {
-      setProfileError("New password must be at least 6 characters.");
-      return;
-    }
-
-    if (nextPassword !== profileConfirmPassword.trim()) {
-      setProfileError("The new passwords do not match.");
-      return;
-    }
-
-    setProfileSaving(true);
-    setProfileError("");
-    setProfileMessage("");
-
-    try {
-      const fullName = `${nextFirstName} ${nextLastName}`.trim();
-
-      const profileUpdate = await supabase.auth.updateUser({
-        data: {
-          ...user.user_metadata,
-          first_name: nextFirstName,
-          last_name: nextLastName,
-          full_name: fullName,
-          name: fullName,
-        },
-      });
-
-      if (profileUpdate.error) {
-        throw profileUpdate.error;
-      }
-
-      let emailChanged = false;
-
-      if (nextEmail !== (user.email ?? "").toLowerCase()) {
-        const emailUpdate = await supabase.auth.updateUser({
-          email: nextEmail,
-        });
-
-        if (emailUpdate.error) {
-          throw emailUpdate.error;
-        }
-
-        emailChanged = true;
-      }
-
-      if (nextPassword) {
-        const passwordUpdate = await supabase.auth.updateUser({
-          password: nextPassword,
-        });
-
-        if (passwordUpdate.error) {
-          throw passwordUpdate.error;
-        }
-      }
-
-      const refreshed = await supabase.auth.getUser();
-      if (refreshed.data.user) {
-        setUser(refreshed.data.user);
-      } else if (profileUpdate.data.user) {
-        setUser(profileUpdate.data.user);
-      }
-
-      setProfileNewPassword("");
-      setProfileConfirmPassword("");
-
-      setProfileMessage(
-        emailChanged
-          ? "Profile saved. Check your email to confirm the new email address if confirmation is required."
-          : nextPassword
-            ? "Profile and password updated."
-            : "Profile updated.",
-      );
-    } catch (error) {
-      setProfileError(
-        error instanceof Error
-          ? error.message
-          : "Unable to update your profile.",
-      );
-    } finally {
-      setProfileSaving(false);
-    }
   }
 
   async function handleLogout() {
@@ -10358,155 +9445,6 @@ function CoachBoardWebApp() {
           backgroundColor: "#050505",
         }}
       >
-        <style>{`
-          .coachboard-login-page,
-          .coachboard-login-page * {
-            box-sizing: border-box;
-          }
-
-          @media (max-width: 1180px) {
-            .coachboard-login-page {
-              min-height: 100dvh !important;
-              overflow-x: hidden !important;
-            }
-
-            .coachboard-login-bg {
-              height: 100dvh !important;
-              min-height: 100dvh !important;
-              background-position: center center !important;
-            }
-
-            .coachboard-login-shell {
-              width: 100% !important;
-              min-height: 100dvh !important;
-              display: grid !important;
-              grid-template-columns: minmax(0, 1fr) !important;
-              align-content: center !important;
-              justify-items: center !important;
-              gap: 14px !important;
-              padding:
-                max(18px, env(safe-area-inset-top))
-                max(18px, env(safe-area-inset-right))
-                max(18px, env(safe-area-inset-bottom))
-                max(18px, env(safe-area-inset-left)) !important;
-            }
-
-            .coachboard-brand-side {
-              width: min(560px, 100%) !important;
-              min-width: 0 !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              display: flex !important;
-              flex-direction: column !important;
-              align-items: center !important;
-              text-align: center !important;
-            }
-
-            .coachboard-logo {
-              width: min(210px, 46vw) !important;
-              max-height: 150px !important;
-              object-fit: contain !important;
-              margin: 0 auto 4px !important;
-            }
-
-            .coachboard-brand-side h1,
-            .coachboard-features {
-              display: none !important;
-            }
-
-            .coachboard-login-card {
-              width: min(560px, 100%) !important;
-              max-width: 560px !important;
-              min-width: 0 !important;
-              margin: 0 auto !important;
-              padding: 22px !important;
-              border-radius: 20px !important;
-            }
-
-            .coachboard-login-card h2 {
-              font-size: clamp(28px, 4vw, 38px) !important;
-              margin-top: 0 !important;
-              margin-bottom: 7px !important;
-              text-align: center !important;
-            }
-
-            .coachboard-login-card .coachboard-subtitle {
-              text-align: center !important;
-              margin-bottom: 14px !important;
-            }
-
-            .coachboard-login-card input {
-              width: 100% !important;
-              min-width: 0 !important;
-              min-height: 48px !important;
-              font-size: 16px !important;
-            }
-
-            .coachboard-login-button,
-            .coachboard-create-button {
-              width: 100% !important;
-              min-height: 48px !important;
-            }
-          }
-
-          @media (max-width: 700px) {
-            .coachboard-login-shell {
-              align-content: start !important;
-              padding-top: 18px !important;
-            }
-
-            .coachboard-logo {
-              width: min(170px, 52vw) !important;
-              max-height: 112px !important;
-            }
-
-            .coachboard-login-card {
-              padding: 18px !important;
-              border-radius: 16px !important;
-            }
-          }
-
-          @media (max-height: 760px) and (max-width: 1180px) {
-            .coachboard-login-shell {
-              align-content: start !important;
-              padding-top: 12px !important;
-              padding-bottom: 12px !important;
-            }
-
-            .coachboard-logo {
-              width: 130px !important;
-              max-height: 82px !important;
-              margin-bottom: 0 !important;
-            }
-
-            .coachboard-login-card {
-              padding: 15px 18px !important;
-            }
-
-            .coachboard-login-card h2 {
-              font-size: 28px !important;
-              margin-bottom: 3px !important;
-            }
-
-            .coachboard-login-card .coachboard-divider {
-              margin-top: 8px !important;
-              margin-bottom: 8px !important;
-            }
-
-            .coachboard-login-card label {
-              margin-top: 7px !important;
-            }
-
-            .coachboard-login-card input {
-              min-height: 43px !important;
-            }
-
-            .coachboard-login-card .coachboard-footer {
-              margin-bottom: 0 !important;
-            }
-          }
-        `}</style>
-
         <div
           className="coachboard-login-bg"
           style={{
@@ -10756,7 +9694,6 @@ function CoachBoardWebApp() {
         fontFamily: "Arial",
       }}
       onPointerMove={(e) => {
-        updatePlayerLongPress(e.clientX, e.clientY);
         updateDraggedPlayer(e.clientX, e.clientY);
         updateDrawing(e.clientX, e.clientY);
         updateLineEdit(e.clientX, e.clientY);
@@ -10764,7 +9701,6 @@ function CoachBoardWebApp() {
         updateZoneDrag(e.clientX, e.clientY);
       }}
       onPointerUp={() => {
-        finishPlayerLongPress();
         finalizeDrawing();
         finalizeLineEdit();
         finalizeZoneDraft();
@@ -10774,7 +9710,6 @@ function CoachBoardWebApp() {
         setActiveLineId(null);
       }}
       onPointerCancel={() => {
-        finishPlayerLongPress();
         finalizeDrawing();
         finalizeLineEdit();
         finalizeZoneDraft();
@@ -10784,703 +9719,6 @@ function CoachBoardWebApp() {
         setActiveLineId(null);
       }}
     >
-      <style>{`
-        .coachboard-main-grid,
-        .coachboard-center-column,
-        .coachboard-player-column,
-        .coachboard-tool-rail {
-          min-width: 0;
-        }
-
-        @media (max-width: 1180px) {
-          body.coachboard-field-fullscreen-active .coachboard-tool-rail,
-          body.coachboard-field-fullscreen-active .coachboard-player-column {
-            display: none !important;
-          }
-
-          body.coachboard-field-fullscreen-active .coachboard-main-grid {
-            display: block !important;
-            width: 100% !important;
-            max-width: none !important;
-            margin: 0 !important;
-          }
-
-          body.coachboard-field-fullscreen-active .coachboard-center-column {
-            display: block !important;
-            width: 100% !important;
-            max-width: none !important;
-          }
-
-          .coachboard-field-fullscreen-shell {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100dvw !important;
-            height: 100dvh !important;
-            min-height: 100dvh !important;
-            max-width: none !important;
-            max-height: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border: 0 !important;
-            border-radius: 0 !important;
-            overflow: hidden !important;
-            background: #000 !important;
-            z-index: 2147483000 !important;
-          }
-
-          .coachboard-fullscreen-field-surface {
-            width: 100% !important;
-            height: 100% !important;
-            min-height: 100% !important;
-            max-height: none !important;
-            margin: 0 !important;
-            border-radius: 0 !important;
-          }
-
-          /* iPad/Safari can place its own fullscreen close control at top-left.
-             Keep CoachBoard's menu away from that control. */
-          .fullscreen-menu-toggle {
-            left: auto !important;
-            right: max(18px, env(safe-area-inset-right)) !important;
-            top: max(18px, env(safe-area-inset-top)) !important;
-            min-width: 52px !important;
-            min-height: 48px !important;
-          }
-
-          .fullscreen-quick-toolbar {
-            /* Leave a protected zone for iPad/Safari's native fullscreen X
-               so the first CoachBoard tool is always fully visible. */
-            left: max(96px, calc(env(safe-area-inset-left) + 82px)) !important;
-            right: max(86px, calc(env(safe-area-inset-right) + 68px)) !important;
-            top: max(18px, env(safe-area-inset-top)) !important;
-            padding-left: 10px !important;
-            scroll-padding-left: 10px !important;
-          }
-
-          .coachboard-app-background {
-            padding: 8px !important;
-            overflow-x: hidden !important;
-          }
-
-          /* Tablet Coach Tools becomes a compact command dock instead of a
-             stretched desktop sidebar. */
-          .coachboard-tool-rail {
-            display: grid !important;
-            grid-template-columns:
-              minmax(118px, 0.8fr)
-              minmax(220px, 1.45fr)
-              repeat(4, minmax(100px, 1fr)) !important;
-            align-items: stretch !important;
-            gap: 7px !important;
-            width: 100% !important;
-            padding: 8px !important;
-            border-radius: 16px !important;
-            background:
-              linear-gradient(
-                135deg,
-                rgba(15, 23, 42, .96),
-                rgba(2, 6, 23, .93)
-              ) !important;
-            border: 1px solid rgba(148, 163, 184, .18) !important;
-            box-shadow:
-              0 16px 36px rgba(0,0,0,.28),
-              inset 0 1px 0 rgba(255,255,255,.035) !important;
-            overflow: visible !important;
-          }
-
-          .coach-tools-title {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            min-width: 0 !important;
-            padding: 0 9px !important;
-            margin: 0 !important;
-            border-radius: 11px !important;
-            color: #f87171 !important;
-            background: rgba(239,68,68,.07) !important;
-            border: 1px solid rgba(248,113,113,.13) !important;
-            text-align: center !important;
-            font-size: 11px !important;
-            letter-spacing: .12em !important;
-            line-height: 1.15 !important;
-          }
-
-          .coach-tools-view-group {
-            display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            gap: 6px !important;
-            padding: 5px !important;
-            border-radius: 12px !important;
-            background: rgba(255,255,255,.035) !important;
-            border: 1px solid rgba(255,255,255,.07) !important;
-            min-width: 0 !important;
-          }
-
-          .coach-tools-view-label {
-            display: none !important;
-          }
-
-          .coach-tool-view-button,
-          .coach-tool-nav-button,
-          .coach-tool-gameday-button {
-            width: 100% !important;
-            min-width: 0 !important;
-            min-height: 48px !important;
-            margin: 0 !important;
-            padding: 8px 10px !important;
-            border-radius: 11px !important;
-            font-size: 12px !important;
-            font-weight: 900 !important;
-            line-height: 1.08 !important;
-            text-align: center !important;
-            white-space: normal !important;
-            box-shadow: none !important;
-          }
-
-          .coach-tool-nav-button {
-            background:
-              linear-gradient(
-                180deg,
-                rgba(30,41,59,.94),
-                rgba(10,15,25,.97)
-              ) !important;
-            border: 1px solid rgba(148,163,184,.14) !important;
-          }
-
-          .coach-tool-nav-button:hover {
-            border-color: rgba(248,113,113,.35) !important;
-          }
-
-          .coach-profile-button {
-            position: relative !important;
-          }
-
-          .coach-profile-button::before {
-            content: "●";
-            margin-right: 6px;
-            color: #f87171;
-            font-size: 9px;
-            vertical-align: middle;
-          }
-
-          .coach-tools-gameday-wrap {
-            margin: 0 !important;
-            min-width: 0 !important;
-          }
-
-          .coach-tool-gameday-button {
-            height: 100% !important;
-            min-height: 48px !important;
-          }
-
-          .coach-tools-gameday-wrap > div {
-            display: none !important;
-          }
-
-          .coach-tools-organization-card {
-            grid-column: span 2 !important;
-            width: 100% !important;
-            min-width: 0 !important;
-            min-height: 48px !important;
-            margin: 0 !important;
-            padding: 8px 11px !important;
-            border-radius: 11px !important;
-          }
-
-          .coach-tools-organization-card > div:nth-child(3),
-          .coach-tools-organization-card > button {
-            display: none !important;
-          }
-
-          .coachboard-main-grid {
-            grid-template-columns: minmax(0, 1fr) !important;
-            gap: 9px !important;
-            width: 100% !important;
-            max-width: none !important;
-          }
-
-          .coachboard-tool-rail {
-            grid-column: 1 !important;
-            grid-row: auto !important;
-            position: sticky !important;
-            top: 0 !important;
-            z-index: 4500 !important;
-            min-width: 0 !important;
-          }
-
-          .coachboard-center-column {
-            grid-column: 1 !important;
-            grid-row: auto !important;
-            width: 100% !important;
-            max-width: none !important;
-            gap: 9px !important;
-          }
-
-          .coachboard-center-column > * {
-            min-width: 0 !important;
-            max-width: 100% !important;
-          }
-
-          .coachboard-player-column {
-            grid-column: 1 !important;
-            grid-row: auto !important;
-            width: 100% !important;
-            max-width: none !important;
-            padding: 11px !important;
-            gap: 9px !important;
-          }
-
-          .coachboard-player-column input,
-          .coachboard-player-column select,
-          .coachboard-player-column button {
-            min-height: 44px;
-          }
-        }
-
-        @media (max-width: 820px) {
-          .coachboard-app-background {
-            padding: 6px !important;
-          }
-
-          .coachboard-tool-rail {
-            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-          }
-
-          .coach-tools-title {
-            grid-column: span 1 !important;
-          }
-
-          .coach-tools-view-group {
-            grid-column: span 2 !important;
-          }
-
-          .coach-tool-view-button,
-          .coach-tool-nav-button,
-          .coach-tool-gameday-button {
-            min-height: 46px !important;
-            font-size: 11px !important;
-          }
-
-          .coach-tools-organization-card {
-            grid-column: span 2 !important;
-          }
-
-          .coachboard-main-grid {
-            gap: 7px !important;
-          }
-
-
-
-          .coachboard-player-column {
-            padding: 9px !important;
-          }
-
-          .coach-profile-modal {
-            padding: 16px !important;
-            max-height: calc(100dvh - 20px) !important;
-          }
-
-          .coachboard-organization-members-row {
-            grid-template-columns: minmax(0, 1fr) !important;
-          }
-
-          .coach-profile-modal > div:nth-of-type(2),
-          .coach-profile-modal > div:nth-of-type(4) {
-            grid-template-columns: minmax(0, 1fr) !important;
-          }
-
-          .coachboard-center-column input,
-          .coachboard-center-column select,
-          .coachboard-center-column button,
-          .coachboard-player-column input,
-          .coachboard-player-column select,
-          .coachboard-player-column button {
-            min-height: 44px;
-          }
-        }
-      `}</style>
-
-      {showCoachProfile && user && (
-        <div
-          onClick={closeCoachProfile}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 12000,
-            display: "grid",
-            placeItems: "center",
-            padding: 18,
-            background: "rgba(0,0,0,.78)",
-            backdropFilter: "blur(9px)",
-          }}
-        >
-          <section
-            className="coach-profile-modal"
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              ...cardStyle,
-              width: "min(620px, 100%)",
-              maxHeight: "min(760px, calc(100dvh - 36px))",
-              overflowY: "auto",
-              padding: 22,
-              display: "grid",
-              gap: 16,
-              border: "1px solid rgba(248,113,113,.28)",
-              boxShadow: "0 28px 80px rgba(0,0,0,.58)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 14,
-                alignItems: "flex-start",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  minWidth: 0,
-                }}
-              >
-                <div
-                  style={{
-                    width: 54,
-                    height: 54,
-                    borderRadius: "50%",
-                    display: "grid",
-                    placeItems: "center",
-                    background:
-                      "linear-gradient(180deg, #ef4444 0%, #991b1b 100%)",
-                    color: "white",
-                    fontWeight: 950,
-                    fontSize: 20,
-                    border: "2px solid rgba(248,113,113,.55)",
-                    flex: "0 0 auto",
-                  }}
-                >
-                  {(
-                    `${profileFirstName?.[0] ?? ""}${
-                      profileLastName?.[0] ?? ""
-                    }`.trim() || "C"
-                  ).toUpperCase()}
-                </div>
-
-                <div style={{ minWidth: 0 }}>
-                  <div style={panelHeaderStyle}>COACH PROFILE</div>
-                  <h2
-                    style={{
-                      margin: "4px 0 2px",
-                      color: "white",
-                      fontSize: 25,
-                      lineHeight: 1.05,
-                    }}
-                  >
-                    {getProfileFullName(user)}
-                  </h2>
-                  <div
-                    style={{
-                      color: "#94a3b8",
-                      fontSize: 13,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {organization
-                      ? `${organization.team_name} • ${organization.role}`
-                      : "CoachBoard Account"}
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={closeCoachProfile}
-                disabled={profileSaving}
-                style={{
-                  ...buttonBase,
-                  width: 42,
-                  minWidth: 42,
-                  height: 42,
-                  padding: 0,
-                  borderRadius: 12,
-                  background: "#111827",
-                  color: "white",
-                  fontSize: 20,
-                }}
-                aria-label="Close profile"
-              >
-                ×
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: 10,
-              }}
-            >
-              <label style={{ display: "grid", gap: 6 }}>
-                <span
-                  style={{
-                    color: "#cbd5e1",
-                    fontSize: 11,
-                    fontWeight: 900,
-                    letterSpacing: ".08em",
-                  }}
-                >
-                  FIRST NAME
-                </span>
-                <input
-                  value={profileFirstName}
-                  onChange={(event) =>
-                    setProfileFirstName(event.target.value)
-                  }
-                  style={{
-                    ...inputStyle,
-                    width: "100%",
-                    minWidth: 0,
-                  }}
-                  placeholder="First name"
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 6 }}>
-                <span
-                  style={{
-                    color: "#cbd5e1",
-                    fontSize: 11,
-                    fontWeight: 900,
-                    letterSpacing: ".08em",
-                  }}
-                >
-                  LAST NAME
-                </span>
-                <input
-                  value={profileLastName}
-                  onChange={(event) =>
-                    setProfileLastName(event.target.value)
-                  }
-                  style={{
-                    ...inputStyle,
-                    width: "100%",
-                    minWidth: 0,
-                  }}
-                  placeholder="Last name"
-                />
-              </label>
-            </div>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span
-                style={{
-                  color: "#cbd5e1",
-                  fontSize: 11,
-                  fontWeight: 900,
-                  letterSpacing: ".08em",
-                }}
-              >
-                EMAIL
-              </span>
-              <input
-                type="email"
-                value={profileEmail}
-                onChange={(event) => setProfileEmail(event.target.value)}
-                style={{
-                  ...inputStyle,
-                  width: "100%",
-                  minWidth: 0,
-                }}
-                placeholder="coach@example.com"
-              />
-              <span style={{ color: "#64748b", fontSize: 11 }}>
-                Changing your email may require confirmation from the new
-                address before the change becomes active.
-              </span>
-            </label>
-
-            <div
-              style={{
-                paddingTop: 4,
-                borderTop: "1px solid rgba(255,255,255,.08)",
-              }}
-            >
-              <div style={panelHeaderStyle}>PASSWORD</div>
-              <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
-                Leave these blank if you do not want to change your password.
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: 10,
-              }}
-            >
-              <label style={{ display: "grid", gap: 6 }}>
-                <span
-                  style={{
-                    color: "#cbd5e1",
-                    fontSize: 11,
-                    fontWeight: 900,
-                    letterSpacing: ".08em",
-                  }}
-                >
-                  NEW PASSWORD
-                </span>
-                <input
-                  type="password"
-                  value={profileNewPassword}
-                  onChange={(event) =>
-                    setProfileNewPassword(event.target.value)
-                  }
-                  style={{
-                    ...inputStyle,
-                    width: "100%",
-                    minWidth: 0,
-                  }}
-                  placeholder="New password"
-                  autoComplete="new-password"
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 6 }}>
-                <span
-                  style={{
-                    color: "#cbd5e1",
-                    fontSize: 11,
-                    fontWeight: 900,
-                    letterSpacing: ".08em",
-                  }}
-                >
-                  CONFIRM PASSWORD
-                </span>
-                <input
-                  type="password"
-                  value={profileConfirmPassword}
-                  onChange={(event) =>
-                    setProfileConfirmPassword(event.target.value)
-                  }
-                  style={{
-                    ...inputStyle,
-                    width: "100%",
-                    minWidth: 0,
-                  }}
-                  placeholder="Confirm password"
-                  autoComplete="new-password"
-                />
-              </label>
-            </div>
-
-            {organization && (
-              <div
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  background: "rgba(255,255,255,.04)",
-                  border: "1px solid rgba(255,255,255,.08)",
-                  display: "grid",
-                  gap: 5,
-                }}
-              >
-                <div style={panelHeaderStyle}>ORGANIZATION</div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <strong style={{ color: "white" }}>
-                    {organization.team_name}
-                  </strong>
-                  <span style={{ color: "#94a3b8", textTransform: "capitalize" }}>
-                    {organization.role}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {profileError && (
-              <div
-                style={{
-                  padding: 11,
-                  borderRadius: 11,
-                  background: "rgba(127,29,29,.35)",
-                  border: "1px solid rgba(248,113,113,.35)",
-                  color: "#fecaca",
-                  fontWeight: 800,
-                  fontSize: 13,
-                }}
-              >
-                {profileError}
-              </div>
-            )}
-
-            {profileMessage && (
-              <div
-                style={{
-                  padding: 11,
-                  borderRadius: 11,
-                  background: "rgba(22,101,52,.32)",
-                  border: "1px solid rgba(74,222,128,.28)",
-                  color: "#bbf7d0",
-                  fontWeight: 800,
-                  fontSize: 13,
-                }}
-              >
-                {profileMessage}
-              </div>
-            )}
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto",
-                gap: 9,
-                alignItems: "center",
-              }}
-            >
-              <button
-                type="button"
-                onClick={saveCoachProfile}
-                disabled={profileSaving}
-                style={{
-                  ...buttonBase,
-                  minHeight: 48,
-                  background: "#dc2626",
-                  color: "white",
-                  fontWeight: 950,
-                  opacity: profileSaving ? 0.65 : 1,
-                }}
-              >
-                {profileSaving ? "Saving..." : "Save Profile"}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={profileSaving}
-                style={{
-                  ...buttonBase,
-                  minHeight: 48,
-                  background: "#111827",
-                  color: "#fca5a5",
-                  border: "1px solid rgba(248,113,113,.24)",
-                }}
-              >
-                Log Out
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
       {showOrganizationPanel && organization && (
         <div
           onClick={() => setShowOrganizationPanel(false)}
@@ -11499,9 +9737,7 @@ function CoachBoardWebApp() {
             onClick={(event) => event.stopPropagation()}
             style={{
               ...cardStyle,
-              width: "min(860px, 100%)",
-              maxHeight: "min(860px, calc(100dvh - 36px))",
-              overflowY: "auto",
+              width: "min(560px, 100%)",
               padding: 28,
               color: "white",
             }}
@@ -11614,279 +9850,6 @@ function CoachBoardWebApp() {
               </div>
             )}
 
-            <div
-              style={{
-                marginTop: 18,
-                paddingTop: 18,
-                borderTop: "1px solid rgba(255,255,255,.09)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 12,
-                  flexWrap: "wrap",
-                }}
-              >
-                <div>
-                  <div style={panelHeaderStyle}>ORGANIZATION MEMBERS</div>
-                  <h3
-                    style={{
-                      margin: "5px 0 0",
-                      color: "white",
-                      fontSize: 21,
-                    }}
-                  >
-                    {organizationMembers.length} Member
-                    {organizationMembers.length === 1 ? "" : "s"}
-                  </h3>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => void refreshOrganizationMembers()}
-                  disabled={organizationMembersLoading}
-                  style={{
-                    ...buttonBase,
-                    padding: "9px 12px",
-                    minHeight: 40,
-                    background: "#111827",
-                    color: "white",
-                  }}
-                >
-                  {organizationMembersLoading ? "Loading..." : "Refresh"}
-                </button>
-              </div>
-
-              <div
-                style={{
-                  marginTop: 8,
-                  color: "#94a3b8",
-                  fontSize: 12,
-                  lineHeight: 1.45,
-                }}
-              >
-                Owner has full organization control. Co-Owners can manage
-                coaches and viewers. Only the Owner can transfer ownership.
-              </div>
-
-              {organizationMembersError && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: 10,
-                    borderRadius: 10,
-                    background: "rgba(127,29,29,.38)",
-                    border: "1px solid rgba(248,113,113,.34)",
-                    color: "#fecaca",
-                    fontWeight: 800,
-                    fontSize: 12,
-                  }}
-                >
-                  {organizationMembersError}
-                </div>
-              )}
-
-              {organizationMembersMessage && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: 10,
-                    borderRadius: 10,
-                    background: "rgba(22,101,52,.30)",
-                    border: "1px solid rgba(74,222,128,.28)",
-                    color: "#bbf7d0",
-                    fontWeight: 800,
-                    fontSize: 12,
-                  }}
-                >
-                  {organizationMembersMessage}
-                </div>
-              )}
-
-              <div
-                style={{
-                  display: "grid",
-                  gap: 8,
-                  marginTop: 12,
-                }}
-              >
-                {organizationMembersLoading &&
-                  organizationMembers.length === 0 && (
-                    <div
-                      style={{
-                        padding: 16,
-                        borderRadius: 12,
-                        background: "rgba(255,255,255,.035)",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      Loading organization members...
-                    </div>
-                  )}
-
-                {!organizationMembersLoading &&
-                  organizationMembers.length === 0 &&
-                  !organizationMembersError && (
-                    <div
-                      style={{
-                        padding: 16,
-                        borderRadius: 12,
-                        background: "rgba(255,255,255,.035)",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      No organization members were returned.
-                    </div>
-                  )}
-
-                {organizationMembers.map((member) => {
-                  const isCurrentUser = member.user_id === user?.id;
-                  const busy =
-                    organizationMemberActionId === member.user_id;
-                  const canManage = canManageOrganizationMembers();
-                  const currentUserIsOwner = organization.role === "owner";
-
-                  const canChangeThisMember =
-                    canManage &&
-                    !isCurrentUser &&
-                    (currentUserIsOwner || member.role !== "owner");
-
-                  const canRemoveThisMember =
-                    canManage &&
-                    !isCurrentUser &&
-                    member.role !== "owner" &&
-                    !(
-                      organization.role === "admin" &&
-                      member.role === "admin"
-                    );
-
-                  return (
-                    <div
-                      key={member.user_id}
-                      className="coachboard-organization-members-row"
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "minmax(0, 1.5fr) minmax(135px, .7fr) auto",
-                        gap: 10,
-                        alignItems: "center",
-                        padding: 12,
-                        borderRadius: 13,
-                        background:
-                          member.role === "owner"
-                            ? "rgba(220,38,38,.10)"
-                            : "rgba(255,255,255,.035)",
-                        border:
-                          member.role === "owner"
-                            ? "1px solid rgba(248,113,113,.28)"
-                            : "1px solid rgba(255,255,255,.07)",
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div
-                          style={{
-                            color: "white",
-                            fontWeight: 900,
-                            fontSize: 14,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {organizationMemberDisplayName(member)}
-                          {isCurrentUser ? " (You)" : ""}
-                        </div>
-                        <div
-                          style={{
-                            marginTop: 3,
-                            color: "#94a3b8",
-                            fontSize: 11,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {member.email}
-                        </div>
-                      </div>
-
-                      {canChangeThisMember ? (
-                        <select
-                          value={member.role}
-                          disabled={busy}
-                          onChange={(event) =>
-                            void changeOrganizationMemberRole(
-                              member,
-                              event.target.value as OrganizationRole,
-                            )
-                          }
-                          style={{
-                            ...inputStyle,
-                            width: "100%",
-                            minWidth: 0,
-                            padding: "8px 9px",
-                            minHeight: 40,
-                          }}
-                        >
-                          <option value="owner" disabled={!currentUserIsOwner}>
-                            Owner
-                          </option>
-                          <option value="admin">Co-Owner</option>
-                          <option value="coach">Coach</option>
-                          <option value="viewer">Viewer</option>
-                        </select>
-                      ) : (
-                        <div
-                          style={{
-                            padding: "9px 10px",
-                            borderRadius: 9,
-                            background:
-                              member.role === "owner"
-                                ? "rgba(220,38,38,.18)"
-                                : "rgba(255,255,255,.06)",
-                            color:
-                              member.role === "owner"
-                                ? "#fecaca"
-                                : "#e2e8f0",
-                            fontWeight: 900,
-                            fontSize: 12,
-                            textAlign: "center",
-                          }}
-                        >
-                          {organizationRoleLabel(member.role)}
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        disabled={!canRemoveThisMember || busy}
-                        onClick={() =>
-                          void removeOrganizationMember(member)
-                        }
-                        style={{
-                          ...buttonBase,
-                          minHeight: 40,
-                          padding: "8px 11px",
-                          background: canRemoveThisMember
-                            ? "#7f1d1d"
-                            : "#111827",
-                          color: canRemoveThisMember
-                            ? "#fecaca"
-                            : "#64748b",
-                          opacity: busy ? 0.65 : 1,
-                        }}
-                      >
-                        {busy ? "..." : "Remove"}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
             <button
               type="button"
               onClick={() => setShowOrganizationPanel(false)}
@@ -11959,6 +9922,7 @@ function CoachBoardWebApp() {
 
                 const newCode = generateTeamCode();
 
+                clearWhiteboardForGamedayRoom();
                 localStorage.setItem("coachboard_team_code", newCode);
 
                 setTeamCode(newCode);
@@ -11987,6 +9951,7 @@ function CoachBoardWebApp() {
                   return;
                 }
 
+                clearWhiteboardForGamedayRoom();
                 localStorage.setItem("coachboard_team_code", cleanedCode);
 
                 setTeamCode(cleanedCode);
@@ -12066,7 +10031,6 @@ function CoachBoardWebApp() {
       )}
 
       <div
-        className="coachboard-main-grid"
         style={{
           maxWidth: 1600,
           margin: "0 auto",
@@ -12076,7 +10040,6 @@ function CoachBoardWebApp() {
         }}
       >
         <div
-          className="coachboard-tool-rail"
           style={{
             ...cardStyle,
             padding: 14,
@@ -12085,9 +10048,8 @@ function CoachBoardWebApp() {
             gap: 9,
           }}
         >
-          <div className="coach-tools-title" style={panelHeaderStyle}>Coach Tools</div>
+          <div style={panelHeaderStyle}>Coach Tools</div>
           <div
-            className="coach-tools-view-group"
             style={{
               display: "grid",
               gap: 6,
@@ -12098,13 +10060,11 @@ function CoachBoardWebApp() {
             }}
           >
             <div
-              className="coach-tools-view-label"
               style={{ ...panelHeaderStyle, color: "#d1d5db", fontSize: 10 }}
             >
               View
             </div>
             <button
-              className="coach-tool-view-button"
               style={{
                 ...buttonBase,
                 width: "100%",
@@ -12117,7 +10077,6 @@ function CoachBoardWebApp() {
               Offense View
             </button>
             <button
-              className="coach-tool-view-button"
               style={{
                 ...buttonBase,
                 width: "100%",
@@ -12130,7 +10089,7 @@ function CoachBoardWebApp() {
               Defense View
             </button>
           </div>
-          <button className="coach-tool-nav-button"
+          <button
             style={{
               ...buttonBase,
               width: "100%",
@@ -12156,7 +10115,7 @@ function CoachBoardWebApp() {
           >
             Formations
           </button>
-          <button className="coach-tool-nav-button"
+          <button
             style={{
               ...buttonBase,
               width: "100%",
@@ -12180,7 +10139,7 @@ function CoachBoardWebApp() {
           >
             Plays
           </button>
-          <button className="coach-tool-nav-button"
+          <button
             style={{
               ...buttonBase,
               width: "100%",
@@ -12203,7 +10162,7 @@ function CoachBoardWebApp() {
           >
             Concepts
           </button>
-          <button className="coach-tool-nav-button"
+          <button
             style={{
               ...buttonBase,
               width: "100%",
@@ -12226,7 +10185,7 @@ function CoachBoardWebApp() {
           >
             Playbooks
           </button>
-          <button className="coach-tool-nav-button"
+          <button
             style={{
               ...buttonBase,
               width: "100%",
@@ -12250,7 +10209,7 @@ function CoachBoardWebApp() {
           >
             Game Plan
           </button>
-          <button className="coach-tool-nav-button"
+          <button
   style={{
     ...buttonBase,
     width: "100%",
@@ -12264,9 +10223,8 @@ function CoachBoardWebApp() {
 >
   Analytics
 </button>
-          <div className="coach-tools-gameday-wrap" style={{ marginTop: 14 }}>
+          <div style={{ marginTop: 14 }}>
             <button
-              className="coach-tool-gameday-button"
               onClick={() => setShowGamedayRoom(true)}
               style={{
                 width: "100%",
@@ -12288,7 +10246,7 @@ function CoachBoardWebApp() {
               </div>
             )}
           </div>
-          <button className="coach-tool-nav-button"
+          <button
             style={{
               ...buttonBase,
               width: "100%",
@@ -12312,25 +10270,8 @@ function CoachBoardWebApp() {
           >
             Team Setup
           </button>
-
-          <button
-            className="coach-tool-nav-button coach-profile-button"
-            type="button"
-            onClick={openCoachProfile}
-            style={{
-              ...buttonBase,
-              width: "100%",
-              background: showCoachProfile ? "#dc2626" : "#090b10",
-              color: "white",
-              padding: "8px",
-            }}
-          >
-            Profile
-          </button>
-
           {organization && (
             <button
-              className="coach-tools-organization-card"
               type="button"
               onClick={() => setShowOrganizationPanel(true)}
               title="View organization details"
@@ -12501,15 +10442,11 @@ function CoachBoardWebApp() {
           </div>
 
           <div
-            className={fieldFullscreen ? "coachboard-field-fullscreen-shell" : undefined}
             style={{
               ...cardStyle,
               padding: fieldFullscreen ? 0 : 12,
               position: fieldFullscreen ? "fixed" : "relative",
               inset: fieldFullscreen ? 0 : undefined,
-              width: fieldFullscreen ? "100dvw" : undefined,
-              height: fieldFullscreen ? "100dvh" : undefined,
-              minHeight: fieldFullscreen ? "100dvh" : undefined,
               zIndex: fieldFullscreen ? 5000 : undefined,
               background: fieldFullscreen ? "#000" : cardStyle.background,
               overflow: fieldFullscreen ? "hidden" : undefined,
@@ -12537,7 +10474,6 @@ function CoachBoardWebApp() {
             {fieldFullscreen && (
               <>
                 <button
-                  className="fullscreen-menu-toggle"
                   style={{
                     ...buttonBase,
                     position: "fixed",
@@ -12576,12 +10512,11 @@ function CoachBoardWebApp() {
 
                 {showFullscreenQuickToolbar && (
                   <div
-                    className="fullscreen-quick-toolbar"
                     style={{
                       position: "fixed",
                       top: 28,
-                      left: 96,
-                      right: 86,
+                      left: 92,
+                      right: 28,
                       zIndex: 2147483646,
                       display: "flex",
                       flexWrap: "nowrap",
@@ -13097,12 +11032,10 @@ function CoachBoardWebApp() {
                   (selectedZone?.radius ?? 5.8) + (e.deltaY > 0 ? -0.75 : 0.75),
                 );
               }}
-              className={fieldFullscreen ? "coachboard-fullscreen-field-surface" : undefined}
               style={{
                 position: "relative",
-                width: fieldFullscreen ? "100%" : "100%",
-                height: fieldFullscreen ? "100%" : undefined,
-                minHeight: fieldFullscreen ? "100%" : undefined,
+                width: fieldFullscreen ? "100vw" : "100%",
+                height: fieldFullscreen ? "100vh" : undefined,
                 aspectRatio: fieldFullscreen ? undefined : "10 / 11",
                 maxHeight: fieldFullscreen ? undefined : "78vh",
                 margin: fieldFullscreen ? 0 : undefined,
@@ -13918,28 +11851,13 @@ function CoachBoardWebApp() {
                       e.preventDefault();
                       e.stopPropagation();
                       e.currentTarget.setPointerCapture(e.pointerId);
-
                       if (tool === "Move") {
                         setDraggingId(player.id);
                         setDraggingSide("defense");
-                        return;
                       }
-
-                      // Long-press is available in every mode, including Draw.
-                      beginPlayerLongPress(
-                        player.id,
-                        "defense",
-                        e.pointerId,
-                        e.clientX,
-                        e.clientY,
-                      );
+                      if (tool === "Draw") startDrawing(e.clientX, e.clientY);
                     }}
                     onClick={() => {
-                      if (suppressNextPlayerClickRef.current) {
-                        suppressNextPlayerClickRef.current = false;
-                        return;
-                      }
-
                       setSelectedFieldItem(null);
                       setSelectedPlayerId(player.id);
                       setSelectedSide("defense");
@@ -14000,28 +11918,13 @@ function CoachBoardWebApp() {
                     e.preventDefault();
                     e.stopPropagation();
                     e.currentTarget.setPointerCapture(e.pointerId);
-
                     if (tool === "Move") {
                       setDraggingId(player.id);
                       setDraggingSide("offense");
-                      return;
                     }
-
-                    // Long-press is available in every mode, including Draw.
-                    beginPlayerLongPress(
-                      player.id,
-                      "offense",
-                      e.pointerId,
-                      e.clientX,
-                      e.clientY,
-                    );
+                    if (tool === "Draw") startDrawing(e.clientX, e.clientY);
                   }}
                   onClick={() => {
-                    if (suppressNextPlayerClickRef.current) {
-                      suppressNextPlayerClickRef.current = false;
-                      return;
-                    }
-
                     if (tool === "Man") {
                       setManAssignOffenseId(player.id);
                       const nextAssignments = {
@@ -16206,7 +14109,6 @@ function CoachBoardWebApp() {
 
         {!fieldFullscreen && (
           <div
-            className="coachboard-player-column"
             style={{
               ...cardStyle,
               padding: 18,
