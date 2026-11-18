@@ -5159,12 +5159,6 @@ function CoachBoardWebApp() {
 
       {activePanelTab === "formations" && (
         <>
-          <button
-            style={{ ...buttonBase, background: "#166534", color: "white", padding: "9px 12px", marginBottom: 8 }}
-            onClick={downloadCoachBoardBackup}
-          >
-            Download CoachBoard Data Backup
-          </button>
           <div>
             <div
               style={{
@@ -12612,6 +12606,51 @@ function CoachBoardWebApp() {
               </span>
             </label>
 
+            <details
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                background: "rgba(255,255,255,.04)",
+                border: "1px solid rgba(255,255,255,.10)",
+              }}
+            >
+              <summary style={{ color: "white", fontWeight: 900, cursor: "pointer", padding: "4px 0" }}>
+                Data Management
+              </summary>
+              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                <div style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.5 }}>
+                  Saved CoachBoard data is automatically retained in this browser.
+                  Download a backup for safekeeping or restore an existing backup.
+                  Restoring replaces matching local data; download a current backup first.
+                </div>
+                <button
+                  type="button"
+                  style={{ ...buttonBase, background: "#166534", color: "white", padding: "10px 12px", width: "100%" }}
+                  onClick={downloadCoachBoardBackup}
+                >
+                  Download Data Backup
+                </button>
+                <button
+                  type="button"
+                  style={{ ...buttonBase, background: "#334155", color: "white", padding: "10px 12px", width: "100%" }}
+                  onClick={() => document.getElementById("coachboard-profile-backup-file")?.click()}
+                >
+                  Restore Data Backup
+                </button>
+                <input
+                  id="coachboard-profile-backup-file"
+                  type="file"
+                  accept=".json,application/json"
+                  style={{ display: "none" }}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void restoreCoachBoardBackup(file);
+                    event.target.value = "";
+                  }}
+                />
+              </div>
+            </details>
+
             <div
               style={{
                 paddingTop: 4,
@@ -15766,29 +15805,6 @@ function CoachBoardWebApp() {
               <div style={{ color: "#9ca3af", fontSize: 13 }}>
                 System presets always reload for new users. Your custom presets
                 save only in your browser. Drag Top 5 cards to reorder them.
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  style={{ ...buttonBase, background: "#166534", color: "white", padding: "8px 10px" }}
-                  onClick={downloadCoachBoardBackup}
-                >
-                  Download Data Backup
-                </button>
-                <label
-                  style={{ ...buttonBase, background: "#334155", color: "white", padding: "8px 10px", cursor: "pointer" }}
-                >
-                  Restore Data Backup
-                  <input
-                    type="file"
-                    accept=".json,application/json"
-                    style={{ display: "none" }}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void restoreCoachBoardBackup(file);
-                      event.target.value = "";
-                    }}
-                  />
-                </label>
               </div>
               <div
                 style={{
