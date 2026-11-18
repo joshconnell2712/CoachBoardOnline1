@@ -399,7 +399,29 @@ const FIELD_HASH_PRESETS: Record<FieldTemplate, FieldHashPreset> = {
   },
 };
 
+// Legacy saved formations use x=54 as their middle-ball reference. Keep
+// that storage reference so existing saves and hash offsets remain compatible.
 const MIDDLE_BALL_X = 54;
+const TRUE_MIDDLE_BALL_X = 50;
+
+// Translate the central portion of the field by four percentage points.
+// Taper the translation toward the yard numbers so sideline receivers and
+// drawings stay within the field. The inverse keeps pointer input exact.
+function middleBoardDisplayX(x: number): number {
+  const offset = MIDDLE_BALL_X - TRUE_MIDDLE_BALL_X;
+  if (x <= 14 || x >= 86) return x;
+  if (x < 34) return x - offset * ((x - 14) / 20);
+  if (x <= 70) return x - offset;
+  return x - offset * ((86 - x) / 16);
+}
+
+function middleBoardStoredX(x: number): number {
+  const offset = MIDDLE_BALL_X - TRUE_MIDDLE_BALL_X;
+  if (x <= 14 || x >= 86) return x;
+  if (x < 34 - offset) return 14 + (x - 14) / (1 - offset / 20);
+  if (x <= 70 - offset) return x + offset;
+  return 86 - (86 - x) / (1 + offset / 16);
+}
 const LEFT_NUMBER_X = 14;
 const RIGHT_NUMBER_X = 86;
 const LEFT_BOUNDARY_RECEIVER_X = LEFT_NUMBER_X / 2;
@@ -7940,6 +7962,16 @@ function CoachBoardWebApp() {
   const playerHalfPct =
     fieldPixelHeight > 0 ? (playerPx / 2 / fieldPixelHeight) * 100 : 0;
 
+  // Only regular middle-ball views need this legacy-coordinate correction.
+  // Hash positions and all special-teams presets already use field coordinates.
+  const shouldCenterMiddleBoard = coachFocus !== "specialTeams" && ballSpot === "middle";
+  const boardDisplayX = (x: number) => shouldCenterMiddleBoard ? middleBoardDisplayX(x) : x;
+  const boardStoredX = (x: number) => shouldCenterMiddleBoard ? middleBoardStoredX(x) : x;
+  const boardDisplayPoint = (point: FieldPoint): FieldPoint => ({
+    ...point,
+    x: boardDisplayX(point.x),
+  });
+
   function fieldPointFromClient(
     clientX: number,
     clientY: number,
@@ -7955,7 +7987,7 @@ function CoachBoardWebApp() {
       : yardsFromPercentY(screenY);
     const canonicalYards = canonicalYardsFromDisplay(screenYards);
     return {
-      x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
+      x: boardStoredX(Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100))),
       y: specialTeamsUsesExpandedField
         ? specialTeamsFieldYFromYards(canonicalYards)
         : fieldYFromYards(canonicalYards),
@@ -7969,7 +8001,7 @@ function CoachBoardWebApp() {
     if (!fieldRef.current) return null;
     const rect = fieldRef.current.getBoundingClientRect();
     return {
-      x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
+      x: boardStoredX(Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100))),
       y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)),
     };
   }
@@ -8591,7 +8623,7 @@ function CoachBoardWebApp() {
     const rect = fieldRef.current.getBoundingClientRect();
     const x = Math.max(
       4,
-      Math.min(96, ((clientX - rect.left) / rect.width) * 100),
+      Math.min(96, boardStoredX(((clientX - rect.left) / rect.width) * 100)),
     );
     const screenPercentY = Math.max(
       0,
@@ -14979,9 +15011,9 @@ function CoachBoardWebApp() {
                       <g key={bubble.id}>
                         {ownerPoint && (
                           <line
-                            x1={ownerPoint.x}
+                            x1={boardDisplayX(ownerPoint.x)}
                             y1={ownerPoint.y}
-                            x2={center.x}
+                            x2={boardDisplayX(center.x)}
                             y2={center.y}
                             stroke="rgba(147,197,253,.78)"
                             strokeWidth={Math.max(0.18, lineStroke * 0.48)}
@@ -14993,7 +15025,7 @@ function CoachBoardWebApp() {
                           />
                         )}
                         <ellipse
-                          cx={center.x}
+                          cx={boardDisplayX(center.x)}
                           cy={center.y}
                           rx={bubble.width / 2}
                           ry={bubble.height / 2}
@@ -15006,7 +15038,7 @@ function CoachBoardWebApp() {
                           )} ${Math.max(0.7, lineStroke * 1.25)}`}
                         />
                         <text
-                          x={center.x}
+                          x={boardDisplayX(center.x)}
                           y={center.y - (fieldFullscreen ? 0.9 : 0.7)}
                           textAnchor="middle"
                           dominantBaseline="middle"
@@ -15021,7 +15053,7 @@ function CoachBoardWebApp() {
                           {bubble.owner}
                         </text>
                         <text
-                          x={center.x}
+                          x={boardDisplayX(center.x)}
                           y={center.y + (fieldFullscreen ? 1.25 : 0.95)}
                           textAnchor="middle"
                           dominantBaseline="middle"
@@ -15046,9 +15078,9 @@ function CoachBoardWebApp() {
                   return (
                     <g key={`zone-${zone.id}`}>
                       <line
-                        x1={defenderPoint.x}
+                        x1={boardDisplayX(defenderPoint.x)}
                         y1={defenderPoint.y}
-                        x2={zone.x}
+                        x2={boardDisplayX(zone.x)}
                         y2={zone.y}
                         stroke="rgba(147,197,253,.82)"
                         strokeWidth={Math.max(0.18, lineStroke * 0.5)}
@@ -15062,7 +15094,7 @@ function CoachBoardWebApp() {
                       defensiveReadPlayerIds.includes(player.id); const isCenter
                       = player.position === &quot;something&quot;;
                       <circle
-                        cx={zone.x}
+                        cx={boardDisplayX(zone.x)}
                         cy={zone.y}
                         r={zone.radius}
                         fill={
@@ -15097,7 +15129,7 @@ function CoachBoardWebApp() {
                         }}
                       />
                       <text
-                        x={zone.x}
+                        x={boardDisplayX(zone.x)}
                         y={zone.y}
                         textAnchor="middle"
                         dominantBaseline="middle"
@@ -15139,9 +15171,9 @@ function CoachBoardWebApp() {
                             selectFieldItem({ type: "man", id: defenderId });
                           }}
                           style={{ cursor: "pointer" }}
-                          x1={a.x}
+                          x1={boardDisplayX(a.x)}
                           y1={a.y}
-                          x2={b.x}
+                          x2={boardDisplayX(b.x)}
                           y2={b.y}
                           stroke={
                             selectedFieldItem?.type === "man" &&
@@ -15157,9 +15189,9 @@ function CoachBoardWebApp() {
                           strokeLinecap="round"
                         />
                         <line
-                          x1={a.x}
+                          x1={boardDisplayX(a.x)}
                           y1={a.y}
-                          x2={b.x}
+                          x2={boardDisplayX(b.x)}
                           y2={b.y}
                           stroke="transparent"
                           strokeWidth={6}
@@ -15200,22 +15232,23 @@ function CoachBoardWebApp() {
                   const canonicalPoints =
                     anchoredPoints.length > 2 ? cleanup(anchoredPoints) : anchoredPoints;
                   const renderedPoints = canonicalPoints.map(displayPoint);
+                  const visualPoints = renderedPoints.map(boardDisplayPoint);
                   const cap =
                     isBlock && renderedPoints.length > 1
-                      ? blockTCap(renderedPoints, blockCapSize)
+                      ? blockTCap(visualPoints, blockCapSize)
                       : null;
                   const isDotted = line.style === "dotted";
                   const arrow =
                     !isBlock && renderedPoints.length > 1
                       ? drawLineArrow(
-                          renderedPoints,
+                          visualPoints,
                           arrowSize * (isDotted ? 1.55 : 1.12),
                         )
                       : null;
                   const path =
                     line.mode === "curve"
-                      ? smoothPath(renderedPoints)
-                      : straightPath(renderedPoints);
+                      ? smoothPath(visualPoints)
+                      : straightPath(visualPoints);
                   const isSelectedDrawing =
                     selectedFieldItem?.type === "drawnLine" &&
                     selectedFieldItem.id === line.id;
@@ -15327,7 +15360,7 @@ function CoachBoardWebApp() {
                     ? { x: qb.x, y: fieldYFromYards(qb.yardsFromGoal) }
                     : undefined;
                   const { polyline } = getRoutePoints(player, route, qbPoint);
-                  const displayPolyline = polyline.map(displayPoint);
+                  const displayPolyline = polyline.map(displayPoint).map(boardDisplayPoint);
                   const arrow = routeArrow(displayPolyline, arrowSize);
                   const routePoints = displayPolyline
                     .map((point) => `${point.x},${point.y}`)
@@ -15463,7 +15496,7 @@ function CoachBoardWebApp() {
                         player.position.trim().length >= 4
                           ? "-0.04em"
                           : "normal",
-                      left: `${player.x}%`,
+                      left: `${boardDisplayX(player.x)}%`,
                       top: playerTop(player),
                       transform: `translate(-50%,-50%) scale(${visualPlayerScale})`,
                       transformOrigin: "center center",
@@ -15602,7 +15635,7 @@ function CoachBoardWebApp() {
                       player.position.trim().length >= 4
                         ? "-0.04em"
                         : "normal",
-                    left: `${player.x}%`,
+                    left: `${boardDisplayX(player.x)}%`,
                     top:
                       fieldFullscreen &&
                       player.side === "offense" &&
